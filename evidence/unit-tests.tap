@@ -1,0 +1,674 @@
+
+> feedgate@2.0.0 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: host matching rejects lookalikes and non-HTTPS origins
+ok 1 - host matching rejects lookalikes and non-HTTPS origins
+  ---
+  duration_ms: 1.151053
+  type: 'test'
+  ...
+# Subtest: private routes and encoded private routes are excluded
+ok 2 - private routes and encoded private routes are excluded
+  ---
+  duration_ms: 0.719644
+  type: 'test'
+  ...
+# Subtest: settings are allowlisted, bounded and secret-free
+ok 3 - settings are allowlisted, bounded and secret-free
+  ---
+  duration_ms: 2.401283
+  type: 'test'
+  ...
+# Subtest: prototype-looking keys cannot add settings/categories
+ok 4 - prototype-looking keys cannot add settings/categories
+  ---
+  duration_ms: 0.305367
+  type: 'test'
+  ...
+# Subtest: record validation clamps payload and rejects missing identifiers
+ok 5 - record validation clamps payload and rejects missing identifiers
+  ---
+  duration_ms: 0.990042
+  type: 'test'
+  ...
+# Subtest: actual TypeSafe request contains eight self-contained noul questions
+ok 6 - actual TypeSafe request contains eight self-contained noul questions
+  ---
+  duration_ms: 0.737629
+  type: 'test'
+  ...
+# Subtest: inference omits author/id and redacts email, secret-shaped tokens and full URLs
+ok 7 - inference omits author/id and redacts email, secret-shaped tokens and full URLs
+  ---
+  duration_ms: 0.530633
+  type: 'test'
+  ...
+# Subtest: custom criterion adds a ninth actual noul question
+ok 8 - custom criterion adds a ninth actual noul question
+  ---
+  duration_ms: 0.166353
+  type: 'test'
+  ...
+# Subtest: strict parser accepts response with zero output tokens and no confidence
+ok 9 - strict parser accepts response with zero output tokens and no confidence
+  ---
+  duration_ms: 0.498538
+  type: 'test'
+  ...
+# Subtest: parser fails closed on missing answer
+ok 10 - parser fails closed on missing answer
+  ---
+  duration_ms: 0.378883
+  type: 'test'
+  ...
+# Subtest: parser fails closed on wrong primitive
+ok 11 - parser fails closed on wrong primitive
+  ---
+  duration_ms: 0.226921
+  type: 'test'
+  ...
+# Subtest: parser fails closed on negative value
+ok 12 - parser fails closed on negative value
+  ---
+  duration_ms: 0.111769
+  type: 'test'
+  ...
+# Subtest: parser fails closed on oversized value
+ok 13 - parser fails closed on oversized value
+  ---
+  duration_ms: 0.077475
+  type: 'test'
+  ...
+# Subtest: parser fails closed on numeric string
+ok 14 - parser fails closed on numeric string
+  ---
+  duration_ms: 0.082765
+  type: 'test'
+  ...
+# Subtest: parser fails closed on nonfinite
+ok 15 - parser fails closed on nonfinite
+  ---
+  duration_ms: 0.05615
+  type: 'test'
+  ...
+# Subtest: parser fails closed on missing usage
+ok 16 - parser fails closed on missing usage
+  ---
+  duration_ms: 0.053756
+  type: 'test'
+  ...
+# Subtest: parser fails closed on fractional tokens
+ok 17 - parser fails closed on fractional tokens
+  ---
+  duration_ms: 0.12194
+  type: 'test'
+  ...
+# Subtest: parser fails closed on missing model
+ok 18 - parser fails closed on missing model
+  ---
+  duration_ms: 0.062647
+  type: 'test'
+  ...
+# Subtest: a model error never creates a semantic hide
+ok 19 - a model error never creates a semantic hide
+  ---
+  duration_ms: 0.334769
+  type: 'test'
+  ...
+# Subtest: explicit sponsored marker is independent of unavailable inference
+ok 20 - explicit sponsored marker is independent of unavailable inference
+  ---
+  duration_ms: 0.094016
+  type: 'test'
+  ...
+# Subtest: no textual evidence overrides high classification estimates
+ok 21 - no textual evidence overrides high classification estimates
+  ---
+  duration_ms: 0.088316
+  type: 'test'
+  ...
+# Subtest: threshold has exact boundary and off category stays off
+ok 22 - threshold has exact boundary and off category stays off
+  ---
+  duration_ms: 0.30335
+  type: 'test'
+  ...
+# Subtest: collapse is prioritized above dim, not the largest score alone
+ok 23 - collapse is prioritized above dim, not the largest score alone
+  ---
+  duration_ms: 0.118091
+  type: 'test'
+  ...
+# Subtest: allowlist overrides sponsored and semantic decisions
+ok 24 - allowlist overrides sponsored and semantic decisions
+  ---
+  duration_ms: 0.094647
+  type: 'test'
+  ...
+# Subtest: user reveal and global pause override model
+ok 25 - user reveal and global pause override model
+  ---
+  duration_ms: 0.079515
+  type: 'test'
+  ...
+# Subtest: observe mode records an intended action without hiding
+ok 26 - observe mode records an intended action without hiding
+  ---
+  duration_ms: 0.14699
+  type: 'test'
+  ...
+# Subtest: cosmetic rule subset rejects scriptlets, network rules and root selectors
+ok 27 - cosmetic rule subset rejects scriptlets, network rules and root selectors
+  ---
+  duration_ms: 0.558835
+  type: 'test'
+  ...
+# Subtest: cache keys include text/model/custom but exclude author/id/policy thresholds
+ok 28 - cache keys include text/model/custom but exclude author/id/policy thresholds
+  ---
+  duration_ms: 23.008044
+  type: 'test'
+  ...
+# Subtest: privileged sender check rejects web pages and other extension pages
+ok 29 - privileged sender check rejects web pages and other extension pages
+  ---
+  duration_ms: 0.275094
+  type: 'test'
+  ...
+# Subtest: error messages never reflect arbitrary provider or secret strings
+ok 30 - error messages never reflect arbitrary provider or secret strings
+  ---
+  duration_ms: 0.13387
+  type: 'test'
+  ...
+# Subtest: API key syntax rejects spaces/control characters and unreasonable lengths
+ok 31 - API key syntax rejects spaces/control characters and unreasonable lengths
+  ---
+  duration_ms: 0.125678
+  type: 'test'
+  ...
+# Subtest: vault encrypt/decrypt uses random salt and does not store plaintext/passphrase
+ok 32 - vault encrypt/decrypt uses random salt and does not store plaintext/passphrase
+  ---
+  duration_ms: 405.794693
+  type: 'test'
+  ...
+# Subtest: vault rejects wrong passphrase, tampering and incompatible KDF parameters
+ok 33 - vault rejects wrong passphrase, tampering and incompatible KDF parameters
+  ---
+  duration_ms: 368.550843
+  type: 'test'
+  ...
+# Subtest: vault requires a passphrase of at least twelve characters
+ok 34 - vault requires a passphrase of at least twelve characters
+  ---
+  duration_ms: 0.227635
+  type: 'test'
+  ...
+# Subtest: provider model name cannot carry arbitrary free-form text into diagnostics
+ok 35 - provider model name cannot carry arbitrary free-form text into diagnostics
+  ---
+  duration_ms: 0.161982
+  type: 'test'
+  ...
+# Subtest: direct transport never opens a localhost bridge and sponsored posts cost no API request
+ok 36 - direct transport never opens a localhost bridge and sponsored posts cost no API request
+  ---
+  duration_ms: 38.389846
+  type: 'test'
+  ...
+# Subtest: diagnostics omit secrets, text, author identities, custom rules and post hashes
+ok 37 - diagnostics omit secrets, text, author identities, custom rules and post hashes
+  ---
+  duration_ms: 14.940346
+  type: 'test'
+  ...
+# Subtest: content script cannot export diagnostics or obtain the key
+ok 38 - content script cannot export diagnostics or obtain the key
+  ---
+  duration_ms: 2.942063
+  type: 'test'
+  ...
+# Subtest: saved keep choice survives worker and browser restart without saving raw content
+ok 39 - saved keep choice survives worker and browser restart without saving raw content
+  ---
+  duration_ms: 9.303927
+  type: 'test'
+  ...
+# Subtest: resetting saved choices does not destroy the key or reset the API budget
+ok 40 - resetting saved choices does not destroy the key or reset the API budget
+  ---
+  duration_ms: 11.809945
+  type: 'test'
+  ...
+# Subtest: provider verification resets when key changes, not when thresholds change
+ok 41 - provider verification resets when key changes, not when thresholds change
+  ---
+  duration_ms: 5.531879
+  type: 'test'
+  ...
+# Subtest: worker derives profile context from actual current tab, not submitted record
+ok 42 - worker derives profile context from actual current tab, not submitted record
+  ---
+  duration_ms: 4.693176
+  type: 'test'
+  ...
+# Subtest: version-one settings and result cache cannot silently carry old aggressive policy into v2
+ok 43 - version-one settings and result cache cannot silently carry old aggressive policy into v2
+  ---
+  duration_ms: 1.752424
+  type: 'test'
+  ...
+# Subtest: settings export format is explicitly v2 and v1 import is rejected
+ok 44 - settings export format is explicitly v2 and v1 import is rejected
+  ---
+  duration_ms: 6.388047
+  type: 'test'
+  ...
+# Subtest: HTTP sends one request to the fixed endpoint; no cookies/referrer or redirects
+ok 45 - HTTP sends one request to the fixed endpoint; no cookies/referrer or redirects
+  ---
+  duration_ms: 28.305293
+  type: 'test'
+  ...
+# Subtest: HTTP 401 is sanitized and not automatically retried
+ok 46 - HTTP 401 is sanitized and not automatically retried
+  ---
+  duration_ms: 1.360244
+  type: 'test'
+  ...
+# Subtest: HTTP 403 is sanitized and not automatically retried
+ok 47 - HTTP 403 is sanitized and not automatically retried
+  ---
+  duration_ms: 0.451891
+  type: 'test'
+  ...
+# Subtest: HTTP 429 is sanitized and not automatically retried
+ok 48 - HTTP 429 is sanitized and not automatically retried
+  ---
+  duration_ms: 0.476562
+  type: 'test'
+  ...
+# Subtest: HTTP 529 is sanitized and not automatically retried
+ok 49 - HTTP 529 is sanitized and not automatically retried
+  ---
+  duration_ms: 0.590374
+  type: 'test'
+  ...
+# Subtest: HTTP 503 is sanitized and not automatically retried
+ok 50 - HTTP 503 is sanitized and not automatically retried
+  ---
+  duration_ms: 0.440022
+  type: 'test'
+  ...
+# Subtest: HTTP 422 is sanitized and not automatically retried
+ok 51 - HTTP 422 is sanitized and not automatically retried
+  ---
+  duration_ms: 0.467723
+  type: 'test'
+  ...
+# Subtest: invalid JSON and incomplete responses fail instead of becoming allow scores
+ok 52 - invalid JSON and incomplete responses fail instead of becoming allow scores
+  ---
+  duration_ms: 1.44692
+  type: 'test'
+  ...
+# Subtest: oversized response is bounded even without Content-Length
+ok 53 - oversized response is bounded even without Content-Length
+  ---
+  duration_ms: 1.536922
+  type: 'test'
+  ...
+# Subtest: a pre-aborted request never reaches fetch
+ok 54 - a pre-aborted request never reaches fetch
+  ---
+  duration_ms: 0.725817
+  type: 'test'
+  ...
+# Subtest: aborting an in-flight request stops the HTTP client
+ok 55 - aborting an in-flight request stops the HTTP client
+  ---
+  duration_ms: 12.184777
+  type: 'test'
+  ...
+# Subtest: network exceptions never leak their raw message
+ok 56 - network exceptions never leak their raw message
+  ---
+  duration_ms: 0.341191
+  type: 'test'
+  ...
+# Subtest: v2 has bounded Balanced defaults, not inherited 99% sliders
+ok 57 - v2 has bounded Balanced defaults, not inherited 99% sliders
+  ---
+  duration_ms: 1.053211
+  type: 'test'
+  ...
+# Subtest: 99% promotional intent alone never hides
+ok 58 - 99% promotional intent alone never hides
+  ---
+  duration_ms: 0.813676
+  type: 'test'
+  ...
+# Subtest: the builder scenario is protected despite promotion and weak spam estimates
+ok 59 - the builder scenario is protected despite promotion and weak spam estimates
+  ---
+  duration_ms: 0.17232
+  type: 'test'
+  ...
+# Subtest: useful commercial software is protected, not just open source
+ok 60 - useful commercial software is protected, not just open source
+  ---
+  duration_ms: 0.186612
+  type: 'test'
+  ...
+# Subtest: original contribution protects even when information estimate is lower
+ok 61 - original contribution protects even when information estimate is lower
+  ---
+  duration_ms: 0.153456
+  type: 'test'
+  ...
+# Subtest: lack of value alone is not a promotional-spam proof
+ok 62 - lack of value alone is not a promotional-spam proof
+  ---
+  duration_ms: 0.28421
+  type: 'test'
+  ...
+# Subtest: all low-value promotion conditions must hold
+ok 63 - all low-value promotion conditions must hold
+  ---
+  duration_ms: 0.386949
+  type: 'test'
+  ...
+# Subtest: high usefulness never immunises explicit fraud-like solicitation
+ok 64 - high usefulness never immunises explicit fraud-like solicitation
+  ---
+  duration_ms: 0.1153
+  type: 'test'
+  ...
+# Subtest: very strong spam is not bypassed by claimed information value
+ok 65 - very strong spam is not bypassed by claimed information value
+  ---
+  duration_ms: 0.279519
+  type: 'test'
+  ...
+# Subtest: conflicting usefulness and less extreme spam is dimmed for review
+ok 66 - conflicting usefulness and less extreme spam is dimmed for review
+  ---
+  duration_ms: 0.44568
+  type: 'test'
+  ...
+# Subtest: protection prevents weak bait from suppressing useful questions
+ok 67 - protection prevents weak bait from suppressing useful questions
+  ---
+  duration_ms: 0.169955
+  type: 'test'
+  ...
+# Subtest: empty bait is dimmed in Balanced
+ok 68 - empty bait is dimmed in Balanced
+  ---
+  duration_ms: 0.089856
+  type: 'test'
+  ...
+# Subtest: generic filler is off in Balanced
+ok 69 - generic filler is off in Balanced
+  ---
+  duration_ms: 0.16142
+  type: 'test'
+  ...
+# Subtest: Aggressive keeps useful contributions, increases action on empty bait and filler
+ok 70 - Aggressive keeps useful contributions, increases action on empty bait and filler
+  ---
+  duration_ms: 0.219025
+  type: 'test'
+  ...
+# Subtest: opened profile softens ordinary semantic collapse to dim
+ok 71 - opened profile softens ordinary semantic collapse to dim
+  ---
+  duration_ms: 0.085464
+  type: 'test'
+  ...
+# Subtest: profile context does not turn spam into an author exception
+ok 72 - profile context does not turn spam into an author exception
+  ---
+  duration_ms: 0.05918
+  type: 'test'
+  ...
+# Subtest: profile protection leaves explicit platform ads collapsible
+ok 73 - profile protection leaves explicit platform ads collapsible
+  ---
+  duration_ms: 0.059233
+  type: 'test'
+  ...
+# Subtest: profile protection does not soften explicit fraud-like solicitation
+ok 74 - profile protection does not soften explicit fraud-like solicitation
+  ---
+  duration_ms: 0.095667
+  type: 'test'
+  ...
+# Subtest: normal profile mode is available by explicit user setting
+ok 75 - normal profile mode is available by explicit user setting
+  ---
+  duration_ms: 0.066757
+  type: 'test'
+  ...
+# Subtest: truncated text causes gentler semantic treatment
+ok 76 - truncated text causes gentler semantic treatment
+  ---
+  duration_ms: 0.058149
+  type: 'test'
+  ...
+# Subtest: missing textual evidence remains visible even with alarming predictions
+ok 77 - missing textual evidence remains visible even with alarming predictions
+  ---
+  duration_ms: 0.048288
+  type: 'test'
+  ...
+# Subtest: explicit personal exclusion is not silently overridden by useful-content protection
+ok 78 - explicit personal exclusion is not silently overridden by useful-content protection
+  ---
+  duration_ms: 0.060684
+  type: 'test'
+  ...
+# Subtest: a disabled personal exclusion never applies
+ok 79 - a disabled personal exclusion never applies
+  ---
+  duration_ms: 0.089568
+  type: 'test'
+  ...
+# Subtest: Observe leaves both local and semantic posts visible
+ok 80 - Observe leaves both local and semantic posts visible
+  ---
+  duration_ms: 0.148944
+  type: 'test'
+  ...
+# Subtest: source context detects profiles without treating home, search or threads as profiles
+ok 81 - source context detects profiles without treating home, search or threads as profiles
+  ---
+  duration_ms: 0.617859
+  type: 'test'
+  ...
+# Subtest: quoted post is separate evidence, never a replacement for main author text
+ok 82 - quoted post is separate evidence, never a replacement for main author text
+  ---
+  duration_ms: 0.902887
+  type: 'test'
+  ...
+# Subtest: cache reuses features across contexts while decisions remain context sensitive
+ok 83 - cache reuses features across contexts while decisions remain context sensitive
+  ---
+  duration_ms: 15.79465
+  type: 'test'
+  ...
+# Subtest: cache changes with quoted text and truncation
+ok 84 - cache changes with quoted text and truncation
+  ---
+  duration_ms: 6.36148
+  type: 'test'
+  ...
+# Subtest: saved post choice ignores context but is invalidated by an edit or changed post identity
+ok 85 - saved post choice ignores context but is invalidated by an edit or changed post identity
+  ---
+  duration_ms: 3.569681
+  type: 'test'
+  ...
+# Subtest: mention masking does not modify the local author allowlist key
+ok 86 - mention masking does not modify the local author allowlist key
+  ---
+  duration_ms: 0.215684
+  type: 'test'
+  ...
+# Subtest: worker initialization restricts both storage areas to trusted contexts
+ok 87 - worker initialization restricts both storage areas to trusted contexts
+  ---
+  duration_ms: 18.969957
+  type: 'test'
+  ...
+# Subtest: web content cannot read status/secrets or write credentials/settings
+ok 88 - web content cannot read status/secrets or write credentials/settings
+  ---
+  duration_ms: 3.566903
+  type: 'test'
+  ...
+# Subtest: foreign extensions and subframes cannot use inference proxy
+ok 89 - foreign extensions and subframes cannot use inference proxy
+  ---
+  duration_ms: 2.311663
+  type: 'test'
+  ...
+# Subtest: missing opt-in or key does not call API
+ok 90 - missing opt-in or key does not call API
+  ---
+  duration_ms: 10.930317
+  type: 'test'
+  ...
+# Subtest: site enabling requires granted optional host permission
+ok 91 - site enabling requires granted optional host permission
+  ---
+  duration_ms: 1.489432
+  type: 'test'
+  ...
+# Subtest: enabled site registers only isolated, top-frame, local content scripts
+ok 92 - enabled site registers only isolated, top-frame, local content scripts
+  ---
+  duration_ms: 1.530558
+  type: 'test'
+  ...
+# Subtest: successful inference uses correct API schema and does not retain raw post text
+ok 93 - successful inference uses correct API schema and does not retain raw post text
+  ---
+  duration_ms: 129.553601
+  type: 'test'
+  ...
+# Subtest: simultaneous identical inference is coalesced; later reads use cache
+ok 94 - simultaneous identical inference is coalesced; later reads use cache
+  ---
+  duration_ms: 43.360604
+  type: 'test'
+  ...
+# Subtest: changing policy reuses probabilities, but changing rubric input calls API
+ok 95 - changing policy reuses probabilities, but changing rubric input calls API
+  ---
+  duration_ms: 9.365148
+  type: 'test'
+  ...
+# Subtest: cache can be disabled for every new observation
+ok 96 - cache can be disabled for every new observation
+  ---
+  duration_ms: 3.94667
+  type: 'test'
+  ...
+# Subtest: bounded concurrency and atomic daily budget under parallel load
+ok 97 - bounded concurrency and atomic daily budget under parallel load
+  ---
+  duration_ms: 68.03231
+  type: 'test'
+  ...
+# Subtest: 401 marks authentication rejected until key replacement without retry storm
+ok 98 - 401 marks authentication rejected until key replacement without retry storm
+  ---
+  duration_ms: 4.211388
+  type: 'test'
+  ...
+# Subtest: 429 enters shared cooldown without hiding or automatic retry
+ok 99 - 429 enters shared cooldown without hiding or automatic retry
+  ---
+  duration_ms: 3.549647
+  type: 'test'
+  ...
+# Subtest: malformed API results fail open and are not cached
+ok 100 - malformed API results fail open and are not cached
+  ---
+  duration_ms: 4.978756
+  type: 'test'
+  ...
+# Subtest: private route in sender or current tab is blocked before HTTP
+ok 101 - private route in sender or current tab is blocked before HTTP
+  ---
+  duration_ms: 1.441742
+  type: 'test'
+  ...
+# Subtest: privacy revocation aborts running requests and leaves semantic content visible
+ok 102 - privacy revocation aborts running requests and leaves semantic content visible
+  ---
+  duration_ms: 17.984022
+  type: 'test'
+  ...
+# Subtest: lock cancels active and queued work; no key returned in status
+ok 103 - lock cancels active and queued work; no key returned in status
+  ---
+  duration_ms: 12.855919
+  type: 'test'
+  ...
+# Subtest: lock supersedes slow encryption and cannot be undone by its late completion
+ok 104 - lock supersedes slow encryption and cannot be undone by its late completion
+  ---
+  duration_ms: 126.451143
+  type: 'test'
+  ...
+# Subtest: encrypted vault unlock, wrong-pass rejection and forgetting
+ok 105 - encrypted vault unlock, wrong-pass rejection and forgetting
+  ---
+  duration_ms: 379.055494
+  type: 'test'
+  ...
+# Subtest: browser-restart simulation retains only encrypted vault, not a usable key
+ok 106 - browser-restart simulation retains only encrypted vault, not a usable key
+  ---
+  duration_ms: 132.185776
+  type: 'test'
+  ...
+# Subtest: worker-restart simulation restores session key and cached results
+ok 107 - worker-restart simulation restores session key and cached results
+  ---
+  duration_ms: 126.013199
+  type: 'test'
+  ...
+# Subtest: settings export never contains key/vault; import requires fresh permissions and consent
+ok 108 - settings export never contains key/vault; import requires fresh permissions and consent
+  ---
+  duration_ms: 1.747658
+  type: 'test'
+  ...
+# Subtest: author allowlist restores locally without further model requests
+ok 109 - author allowlist restores locally without further model requests
+  ---
+  duration_ms: 5.862148
+  type: 'test'
+  ...
+# Subtest: element picker may add only a selector for its actual sender host
+ok 110 - element picker may add only a selector for its actual sender host
+  ---
+  duration_ms: 2.779362
+  type: 'test'
+  ...
+1..110
+# tests 110
+# suites 0
+# pass 110
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1351.245141

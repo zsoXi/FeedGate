@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.DS_Store
+.test-profile/
+evaluation/results/

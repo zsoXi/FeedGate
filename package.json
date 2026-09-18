@@ -1,0 +1,20 @@
+{
+  "name": "feedgate",
+  "version": "2.0.0",
+  "private": true,
+  "description": "A zero-dependency Chrome feed filter with live TypeSafe Jev judgments and reversible cosmetic filtering.",
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/check.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:e2e": "python tests/browser.py",
+    "verify": "npm run check && npm test && npm run build && npm run release:check && npm run test:e2e",
+    "release:check": "node scripts/release-check.mjs",
+    "evaluate:live": "node scripts/evaluate-live.mjs --live"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

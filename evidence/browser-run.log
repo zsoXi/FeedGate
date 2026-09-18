@@ -1,0 +1,32 @@
+PASS local sponsored collapse, explanation and trusted Show click
+PASS mock semantic scores cause collapse/dim; useful post remains visible
+PASS MutationObserver detects appended feed posts
+PASS recycled node ignores old in-flight spam result
+PASS recycled previously hidden node restores before reclassification
+PASS HTTP-error fixture fails open without a resubmission loop
+PASS observe mode preserves even explicitly sponsored content
+PASS author allowlist restores both semantic and local ad decisions
+PASS inputs, editors, hidden text and dialog posts are not extracted
+PASS SPA navigation to messages disables observation and extraction
+PASS domain##selector rule collapses a sidebar reversibly
+PASS manual post filter wins over pending inference and restores after selector stops matching
+PASS element picker trusted click creates a scoped local rule
+PASS restoring preserves original inline styles and accessibility attributes
+PASS re-injection does not duplicate observers or model calls
+PASS Reddit/LinkedIn/Facebook/Instagram adapter fixtures extract expected posts
+PASS back-forward-cache lifecycle refreshes observers on pageshow
+PASS options UI renders, clears key input and saves preferences through mocked messaging
+PASS test-feed UI supports Show all, Rescan and new posts without live inference
+PASS toolbar popup renders and controls pause through mocked Chrome APIs
+PASS v2 protects useful promotion and reports progress in the on-page HUD
+PASS an opened X profile dims ordinary semantic noise instead of collapsing it
+PASS quoted text stays separate, main author stays correct and Show more is not clicked
+PASS Keep this post survives a rescan without allowlisting the author
+PASS Alt Shift F reversibly reveals and reapplies filtering
+PASS Connect and start saves key, verifies provider and enables X without bridge messages
+PASS denied setup permissions prevent key saving and network test
+PASS presets apply and diagnostic JSON export is constructed through the UI
+PASS settings and policy pages fit a narrow 390px viewport
+PASS display names containing Ad or Sponsored are not platform ad markers
+PASS a sponsored marker inside a quoted post does not label the outer post as an ad
+{"passed": 31, "browser": "144.0.7559.96"}

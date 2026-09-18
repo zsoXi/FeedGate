@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FeedGate 2.0 · Control room</title><link rel="stylesheet" href="ui.css"></head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="wordmark"><img class="brand-icon" src="icons/48.png" alt="">FeedGate</div>
+  <div class="eyebrow">Your feed, on your terms</div><div class="version">2.0.0 / personal preview</div>
+  <nav class="nav" aria-label="Settings">
+    <button data-page="overview" class="active"><span>01</span>Overview</button>
+    <button data-page="policy"><span>02</span>Filter policy</button>
+    <button data-page="connection"><span>03</span>API &amp; privacy</button>
+    <button data-page="review"><span>04</span>Diagnostics</button>
+    <button data-page="rules"><span>05</span>Local controls</button>
+  </nav>
+  <div class="sidebar-bottom"><b>Your decisions stay reversible.</b><p>Jev estimates content features. It does not prove bot identity, originality or truth.</p><button id="open-demo">Open live test feed</button><p class="fine">Fictional posts. Actual API calls when enabled.</p></div>
+</aside>
+<main class="main">
+  <header class="topline"><div><div class="eyebrow">Chrome / TypeSafe Jev</div><strong>FeedGate 2.0</strong></div><div class="top-actions"><span id="key-badge" class="badge warn">Checking key</span><button id="global-toggle" class="small-btn">Pause filtering</button></div></header>
+  <div id="last-error" class="note warning hidden" role="status"></div>
+  <section id="overview" class="page active">
+    <div class="intro"><div class="eyebrow">A better filter starts with better rules</div><h1>Useful posts stay.</h1><p>Live Jev judgments help reduce spam while preserving useful projects, experiments and explanations. You can inspect or reverse every filtered post.</p></div>
+    <div class="metrics">
+      <div class="metric first"><div class="eyebrow">Decisions returned</div><strong data-stat="decisions">0</strong><small>Includes cache and local decisions</small></div>
+      <div class="metric"><div class="eyebrow">Filter decisions</div><strong data-stat="filterDecisions">0</strong><small>Not a count of unique posts</small></div>
+      <div class="metric"><div class="eyebrow">Useful promotions kept</div><strong data-stat="usefulPromotions">0</strong><small>Protected by the active policy</small></div>
+      <div class="metric"><div class="eyebrow">Provider errors</div><strong data-stat="errors">0</strong><small>Errors never create a hide</small></div>
+    </div>
+    <form id="setup-form" class="panel setup">
+      <div class="panel-head"><div><div class="eyebrow">First run / three inputs</div><h2>Connect once and start browsing.</h2></div><span class="badge">No terminal</span></div>
+      <p>Use your direct TypeSafe API key. FeedGate talks to TypeSafe from the extension; there is no bridge, localhost server or pairing code.</p>
+      <div class="columns"><div>
+        <label class="field"><span>TypeSafe API key</span><input id="setup-key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key here" maxlength="512"></label>
+        <label class="check"><input id="setup-consent" type="checkbox" required><span>I allow extracted post text, visible quotations, accessible media text and linked domains from enabled feeds to be sent to TypeSafe. This may include sensitive text. No screenshots or files are sent.</span></label>
+        <label class="check"><input id="setup-remember" type="checkbox"><span>Save an encrypted copy on this device. After restarting Chrome, unlock it with my passphrase.</span></label>
+        <label id="setup-vault-field" class="field hidden"><span>Vault passphrase, at least 12 characters</span><input id="setup-passphrase" type="password" autocomplete="new-password" minlength="12" maxlength="1024"></label>
+      </div><div>
+        <label class="field"><span>First platform</span><select id="setup-site"><option value="x">X / Twitter</option><option value="reddit">Reddit</option><option value="linkedin">LinkedIn (experimental)</option></select></label>
+        <div class="note"><p><b>Balanced is the starting policy.</b> Promotion alone is never enough to hide a post. Opened profiles are treated more gently. Strong fraud-like solicitation is not exempt just because it contains numbers.</p></div>
+        <p class="fine" style="margin-top:15px">Saving only for the current session leaves no persistent plaintext key. The encrypted vault is optional. Do not paste your key into a chat or a post.</p>
+      </div></div>
+      <div class="row"><button type="submit" class="primary" id="setup-connect">Connect &amp; start</button><button type="button" id="setup-unlock-link" class="quiet hidden">Unlock saved key instead</button></div>
+      <div id="setup-status" class="statusline" role="status" aria-live="polite"></div>
+    </form>
+    <div id="setup-complete" class="note hidden"><p><b>Setup is complete.</b> You can close this tab. FeedGate continues inside Chrome without another program running. <button id="open-x" class="small-btn">Open X</button></p></div>
+    <div class="columns" style="margin-top:18px"><div class="panel"><div class="eyebrow">Site access is optional</div><h2>Choose your feeds</h2><p class="fine">Enabling a platform requests access from Chrome and injects already-open supported tabs where permitted. Refresh the feed if its adapter does not appear.</p><div id="sites"></div></div>
+    <div class="panel"><div class="eyebrow">The decision path</div><h2>Keep context in the loop</h2><div class="flow"><div><b>Read the visible post</b><small>Quotes stay separate; hidden content is not expanded.</small></div><div><b>Estimate independent features</b><small>Promotion, value, contribution, spam and risk are separate.</small></div><div><b>Apply deterministic rules</b><small>Substantive promotion stays. Contradictions get a gentler review action.</small></div><div><b>Leave you in control</b><small>Show, Keep this post, Allow author or pause the filter.</small></div></div></div></div>
+  </section>
+  <section id="policy" class="page">
+    <div class="intro"><div class="eyebrow">Policy / version 2</div><h1>Promotion is not a verdict.</h1><p>Useful detail is a reason to be cautious about hiding, not proof that a claim is true. Presets change explicit rules; no hidden author reputation is learned.</p></div>
+    <div class="preset-grid"><button data-preset="balanced"><b>Balanced</b><span>Keep useful contributions and dim borderline noise.</span></button><button data-preset="aggressive"><b>Aggressive</b><span>Lower some noise thresholds while retaining useful-content protection.</span></button><button data-preset="observe"><b>Observe only</b><span>Record intended decisions without changing post visibility.</span></button></div>
+    <form id="policy-form">
+      <div class="panel"><div class="row spread"><h2>Protection and context</h2><span id="preset-badge" class="badge">Balanced</span></div>
+        <div class="tri"><label class="field"><span>Application mode</span><select id="application-mode"><option value="filter">Apply filtering</option><option value="observe">Observe only</option></select></label><label class="field"><span>Opened profiles</span><select id="profile-mode"><option value="soft">Gentle: dim semantic noise</option><option value="normal">Use normal filtering</option></select></label><label class="check"><input id="protect-useful" type="checkbox"><span>Protect substantive information and concrete contributions</span></label></div>
+        <label class="check"><input id="labelled-ads" type="checkbox"><span>Collapse platform-labelled ads locally. Author and per-post exceptions still win.</span></label>
+        <label class="check"><input id="show-status" type="checkbox"><span>Show a small live status badge on enabled pages.</span></label>
+        <p class="fine">Gentler profiles do not exempt explicit ads, your own exclusion rule or concrete fraud-like solicitation. Truncated semantic content is normally dimmed rather than collapsed.</p>
+      </div>
+      <div class="panel"><h2>Noise rules</h2><div id="categories"></div><div class="separator"></div><label class="field"><span>Optional personal exclusion criterion</span><textarea id="custom-instruction" maxlength="700" rows="3" placeholder="Example: empty requests to comment a keyword to receive a generic document."></textarea></label><p class="fine">This is your explicit preference. Enable “Your exclusion rule” above to use it. It can override useful-content protection. A non-empty criterion is sent with cloud requests even when its action is Off; clear the text to stop sending it. Never put secrets in this field.</p></div>
+      <div class="panel"><h2>Inference controls</h2><div class="tri"><label class="field"><span>Parallel requests</span><input id="concurrency" type="number" min="1" max="12"></label><label class="field"><span>Daily request limit (UTC)</span><input id="daily-limit" type="number" min="10" max="100000"></label><label class="field"><span>Cache minutes (0 disables)</span><input id="cache-minutes" type="number" min="0" max="1440"></label></div><p class="fine">Changing thresholds reuses cached feature scores and reapplies the policy. Changing the model, rubric or personal question invalidates the corresponding cache key. Requests, including failed attempts, can be billed.</p><button type="submit" class="primary">Save policy</button><div id="policy-status" class="statusline" role="status"></div></div>
+    </form>
+  </section>
+  <section id="connection" class="page">
+    <div class="intro"><div class="eyebrow">Direct HTTPS / no bridge</div><h1>A direct connection to Jev.</h1><p>Only the trusted extension worker uses the key to call TypeSafe. Content scripts do not receive it. Nothing is sent by saving a key unless cloud analysis has separately been enabled.</p></div>
+    <div class="columns"><div>
+      <form id="key-form" class="panel"><h2>Save or replace a key</h2><label class="field"><span>Direct TypeSafe API key</span><input id="api-key" type="password" autocomplete="off" spellcheck="false" maxlength="512" required></label><label class="check"><input id="remember-key" type="checkbox"><span>Save an encrypted copy on this device</span></label><label id="vault-create-field" class="field hidden"><span>Vault passphrase, at least 12 characters</span><input id="vault-create-pass" type="password" autocomplete="new-password" minlength="12" maxlength="1024"></label><button type="submit" class="primary">Save &amp; unlock key</button><p class="fine" style="margin-top:14px">Without the encrypted copy, the key lasts only for the Chrome session. A vault password is not stored or recoverable. Losing it means entering your API key again.</p></form>
+      <form id="unlock-form" class="panel hidden"><h2>Unlock your saved key</h2><label class="field"><span>Vault passphrase</span><input id="unlock-pass" type="password" autocomplete="current-password" maxlength="1024" required></label><button type="submit" class="primary">Unlock for this session</button></form>
+      <div class="panel"><div class="row"><button id="lock-key">Lock now</button><button id="forget-key" class="danger">Forget key and vault</button></div><div id="key-status" class="statusline" role="status"></div></div>
+    </div><div>
+      <div class="panel"><h2>Explicit cloud consent</h2><label class="check"><input id="consent" type="checkbox"><span>I allow extracted feed text, visible quote text, accessible media text, linked domain names and platform ad markers to be sent to TypeSafe from enabled sites.</span></label><p class="fine">No cookies, passwords, screenshots or image/video files are requested. Known private routes and editors are excluded. These guards cannot recognise every sensitive post. Best-effort redaction does not guarantee anonymity. TypeSafe has its own processing and retention terms.</p><div class="note warning"><p>An unlocked key is not protected from malware, a compromised extension update or someone controlling your computer. Use a dedicated key and revoke it if compromised.</p></div></div>
+      <div class="panel"><h2>Verify the actual provider</h2><label class="field"><span>Model ID</span><input id="model-id" type="text" maxlength="64" spellcheck="false"></label><div class="row"><button id="save-model">Save model</button><button id="test-connection" class="primary">Test real Jev</button></div><p class="fine" style="margin-top:14px">One fictional builder post, one real API request. A schema-valid response verifies transport, not classification accuracy.</p><div id="test-status" class="statusline" role="status"></div></div>
+    </div></div>
+  </section>
+  <section id="review" class="page">
+    <div class="intro"><div class="eyebrow">No more silent failures</div><h1>See where the work stops.</h1><p>Page detection, provider attempts and decisions are separate. The exported diagnostic file omits keys, vaults, post text, authors, saved post hashes, custom rule text and full browsing URLs.</p></div>
+    <div class="row" style="margin-bottom:20px"><button id="export-diagnostics" class="primary">Export diagnostics</button><button id="refresh-log">Refresh status</button><button id="clear-cache">Clear result cache</button><button id="clear-session">Reset session counters</button></div>
+    <div class="metrics"><div class="metric"><div class="eyebrow">Provider attempts</div><strong data-stat="requests">0</strong></div><div class="metric"><div class="eyebrow">Input tokens</div><strong data-stat="inputTokens">0</strong></div><div class="metric"><div class="eyebrow">Cache hits</div><strong data-stat="cacheHits">0</strong></div><div class="metric"><div class="eyebrow">Last latency / ms</div><strong data-stat="latency">n/a</strong></div></div>
+    <div class="panel"><h2>Current page adapters</h2><p class="fine">Counts are for connected post elements, not lifetime unique posts. Reports older than one day are omitted from export.</p><div id="page-reports"></div></div>
+    <div class="panel"><div class="review-head"><div><h2>Recent decisions</h2><p class="fine">Author labels are local only and excluded from diagnostics. Raw post text is never stored in this log.</p></div></div><div id="log"></div></div>
+  </section>
+  <section id="rules" class="page">
+    <div class="intro"><div class="eyebrow">Local overrides</div><h1>You have the last word.</h1><p>Exceptions are explicit. FeedGate never silently turns one mistake into a permanent reputation score for an account.</p></div>
+    <div class="columns"><div>
+      <form id="rules-form" class="panel"><h2>Cosmetic filters</h2><p class="fine">A limited domain##CSS-selector syntax inspired by familiar blocker controls. No uBlock engine, filter lists, scriptlets or network filtering are bundled.</p><label class="field"><span>My filters</span><textarea id="cosmetic-rules" rows="8" maxlength="20000" spellcheck="false" placeholder="! Example: hide a sidebar&#10;x.com##[data-testid=&quot;sidebarColumn&quot;]"></textarea></label><button type="submit" class="primary">Save local filters</button><div id="rules-status" class="statusline" role="status"></div></form>
+      <div class="panel"><h2>Move your settings</h2><p class="fine">Exports exclude keys and vaults. Imports require fresh site permissions and cloud consent. Only the 2.0 format is accepted.</p><div class="row"><button id="export-settings">Export settings</button><button id="import-settings">Import settings</button><input id="import-file" type="file" accept=".json,application/json" hidden></div></div>
+    </div><div>
+      <div class="panel"><h2>Allowed authors</h2><p class="fine">These local exceptions override semantic and labelled-ad post filtering, but not your manual CSS rules.</p><div id="allowlist"></div></div>
+      <div class="panel"><h2>Saved post choices</h2><p class="fine">“Keep this post” remembers a hash of the specific visible post, not a training label for the author. Edited content is evaluated again. Up to 2,000 choices stay on this device.</p><button id="reset-feedback">Reset saved post choices</button></div>
+    </div></div>
+  </section>
+</main></div>
+<div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+<script type="module" src="options.js"></script>
+</body></html>

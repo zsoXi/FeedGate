@@ -1,0 +1,2 @@
+# Test tooling only; not part of the extension runtime.
+playwright==1.57.0

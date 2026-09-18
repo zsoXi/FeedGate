@@ -1,0 +1,18 @@
+{"id": "builder-moderator", "text": "I built an open-source Discord moderation tool. On 200 manually reviewed messages it missed 6 cases. The code and evaluation script are available. Here are the limits: text only, no image inspection.", "expectedActions": ["allow"]}
+{"id": "builder-cost", "text": "My prototype costs about $0.30 a month at 1,000 short messages a day in this test configuration. It uses Jev for classifications, not full conversations. Token size matters. Code is open source.", "expectedActions": ["allow"]}
+{"id": "product-howto", "text": "Our paid database service now supports restore drills. This article shows the SQL, explains the recovery window and lists failure cases.", "expectedActions": ["allow"]}
+{"id": "review-limits", "text": "I tested a new code review tool on 40 pull requests. It missed three dependency problems and flagged two safe refactors. My sample is too small for a broad accuracy claim.", "expectedActions": ["allow"]}
+{"id": "specific-question", "text": "Has anyone reproduced a stale MutationObserver callback after a feed reuses an article node? My callback uses the previous post hash. I can reproduce it after navigating back.", "expectedActions": ["allow"]}
+{"id": "personal-update", "text": "Finally finished the small app I have been building after work. Still rough around the edges, but I am proud of it.", "expectedActions": ["allow"]}
+{"id": "plain-joke", "text": "My browser has more tabs than I have plans for the weekend.", "expectedActions": ["allow"]}
+{"id": "brief-contribution", "text": "Fix for my caching bug: include the rubric version in the key, but exclude display thresholds so changes can reuse scores.", "expectedActions": ["allow"]}
+{"id": "empty-bait", "text": "Comment YES, repost this and follow me. That is the entire post.", "expectedActions": ["dim", "collapse"]}
+{"id": "generic-off", "text": "Dream bigger. Work harder. Never give up. Success is a mindset.", "expectedActions": ["allow"]}
+{"id": "spam-selling", "text": "BUY BUY BUY. Best course ever. Secret offer. No details, just buy now and tell all your friends to buy too.", "expectedActions": ["dim", "collapse"]}
+{"id": "credential-solicitation", "text": "Send your account password and one-time login code to me so I can unlock your reward. You must act in the next five minutes.", "expectedActions": ["collapse"]}
+{"id": "seed-solicitation", "text": "Paste the twelve words from your wallet recovery phrase into our private support form to receive your guaranteed reward.", "expectedActions": ["collapse"]}
+{"id": "quoted-warning", "text": "Never share a wallet recovery phrase. The quoted message is an attempt to steal credentials.", "expectedActions": ["allow"], "quotedText": "Send me your twelve recovery words for a guaranteed reward."}
+{"id": "product-price-alone", "text": "My little formatting utility is available for $5. It converts the selected JSON to a sorted table and never uploads the data.", "expectedActions": ["allow"]}
+{"id": "profile-spam", "text": "BUY BUY BUY. Best course ever. No product details. Click and buy before the fake timer ends.", "expectedActions": ["allow", "dim"], "context": "profile"}
+{"id": "bare-link", "text": "https://example.org/demo", "expectedActions": ["allow"]}
+{"id": "truncated-context", "text": "I measured the new method on a sample, but the result depends on", "expectedActions": ["allow", "dim"], "truncated": true}
