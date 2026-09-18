@@ -1,6 +1,6 @@
 # Third-party notices and provenance
 
-FeedGate 2.0.0 is an original implementation released under GPL-3.0-or-later.
+FeedGate 2.1.0 is an original implementation released under GPL-3.0-or-later.
 The complete GPL version 3 license is included in LICENSE.
 
 ## uBlock Origin

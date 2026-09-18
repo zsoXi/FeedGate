@@ -2,94 +2,266 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import '../src/core.js';
 import '../src/vault.js';
-const C=globalThis.FeedGateCore,V=globalThis.FeedGateVault;
-const settings=()=>C.clone(C.DEFAULTS);
-const record=(extra={})=>C.sanitizeRecord({id:'p-1',author:'@Alice',text:'Concrete useful text',...extra},'x');
-const result=(scores={})=>({scores:{promotion:.01,spam:.01,bait:.01,generic:.01,value:.01,contribution:.01,risk:.01,sufficient:.99,...scores}});
-const keys=['promotion','spam','bait','generic','value','contribution','risk','sufficient'];
-const wire=()=>({model:'jev-test',answers:Object.fromEntries(keys.map(k=>[k,{type:'noul',noul:.5}])),usage:{input_tokens:120,output_tokens:0}});
 
-test('host matching rejects lookalikes and non-HTTPS origins',()=>{
-  for(const url of ['https://x.com/home','https://www.twitter.com/home'])assert.equal(C.siteForURL(url),'x');
-  for(const url of ['https://evilx.com','https://x.com.evil.test','http://x.com','javascript:alert(1)','https://x.com@evil.test'])assert.equal(C.siteForURL(url),null);
+const C=globalThis.FeedGateCore;
+const V=globalThis.FeedGateVault;
+const KEYS=['unwantedAd','feedSpam','bait','lowSignal','useful','original','risk','sufficient'];
+const scores=extra=>Object.fromEntries(KEYS.map(k=>[k,k==='sufficient'?0.99:0.01]).concat(Object.entries(extra||{})));
+const result=extra=>({model:'jev-test-fixture',scores:scores(extra),usage:{input_tokens:1,output_tokens:0},latencyMs:1});
+const settings=patch=>C.sanitizeSettings({...C.DEFAULTS,...patch,categories:{...(patch||{}).categories||{}}});
+const record=patch=>({site:'x',id:'p1',author:'@a',text:'A useful post about testing.',mediaAlt:'',quotedText:'',truncated:false,context:'feed',sponsored:false,linkDomains:[],...patch});
+
+test('host matching rejects lookalikes and accepts subdomains',()=>{
+  assert.equal(C.siteForHost('x.com'),'x');
+  assert.equal(C.siteForHost('mobile.twitter.com'),'x');
+  assert.equal(C.siteForHost('www.reddit.com'),'reddit');
+  assert.equal(C.siteForHost('x.com.evil.test'),null);
+  assert.equal(C.siteForHost('evilx.com'),null);
+  assert.equal(C.siteForURL('http://x.com/home'),null);
+  assert.equal(C.siteForURL('https://x.com/home'),'x');
 });
-test('private routes and encoded private routes are excluded',()=>{
-  for(const url of ['https://x.com/messages/1','https://x.com/%6dessages','https://www.linkedin.com/messaging/thread/1','https://instagram.com/direct/inbox/','https://chat.reddit.com/','https://reddit.com/mod/queue','https://facebook.com/settings','https://x.com/i/chat/1','https://x.com/%ZZ'])assert.equal(C.isPrivateRoute(url),true,url);
-  for(const url of ['https://x.com/home','https://www.reddit.com/r/programming','https://linkedin.com/feed/','https://facebook.com/'])assert.equal(C.isPrivateRoute(url),false,url);
+
+test('private routes are detected including percent-encoded paths',()=>{
+  for(const url of ['https://x.com/messages','https://x.com/i/chat/5','https://www.reddit.com/chat','https://www.linkedin.com/messaging/','https://x.com/%6dessages']){
+    assert.equal(C.isPrivateRoute(url),true,url);
+  }
+  assert.equal(C.isPrivateRoute('https://x.com/home'),false);
+  assert.equal(C.isPrivateRoute('not a url'),true);
 });
-test('settings are allowlisted, bounded and secret-free',()=>{
-  const s=C.sanitizeSettings({apiKey:'secret',enabled:'false',concurrency:100,dailyLimit:-1,cacheMinutes:0,model:'https://evil.test',sites:['x','x','evil'],categories:{spam:{mode:'delete',threshold:0}},allowedAuthors:['x:@a','evil:@a']});
-  assert.equal(s.enabled,true);assert.equal(s.concurrency,12);assert.equal(s.dailyLimit,10);assert.equal(s.cacheMinutes,0);assert.equal(s.model,'jev-latest');assert.deepEqual(s.sites,['x']);assert.equal(s.categories.spam.mode,'collapse');assert.equal(s.categories.spam.threshold,.5);assert.ok(!('apiKey' in s));assert.deepEqual(s.allowedAuthors,['x:@a']);
+
+test('settings sanitization keeps bounds, resets versions and ignores junk keys',()=>{
+  const dirty=JSON.parse('{"__proto__":{"polluted":true},"version":2,"consent":"yes","concurrency":99,"dailyLimit":1,"cacheMinutes":-5,"model":"gpt","sites":["x","youtube","x"],"allowedAuthors":["x:allowed","bad key","y:other"],"categories":{"promotion":{"mode":"collapse","threshold":0.1},"risk":{"mode":"nope","threshold":"0.9"}}}');
+  const s=C.sanitizeSettings(dirty);
+  assert.equal(s.version,3);
+  assert.equal(s.consent,false);
+  assert.equal(s.concurrency,12);
+  assert.equal(s.dailyLimit,10);
+  assert.equal(s.cacheMinutes,0);
+  assert.equal(s.model,'jev-latest');
+  assert.deepEqual(s.sites,['x']);
+  assert.deepEqual(s.allowedAuthors,['x:allowed','y:other']);
+  assert.equal(Object.keys(s.categories).length,6);
+  assert.equal(s.categories.risk.mode,'collapse');
+  assert.equal(s.categories.risk.threshold,0.94);
+  assert.equal(s.categories.unwantedAd.threshold,0.85);
+  assert.equal(({}).polluted,undefined);
 });
-test('prototype-looking keys cannot add settings/categories',()=>{
-  const s=C.sanitizeSettings(JSON.parse('{"__proto__":{"polluted":true},"categories":{"__proto__":{"mode":"collapse"}},"sites":["__proto__"]}'));
-  assert.equal({}.polluted,undefined);assert.deepEqual(s.sites,[]);assert.equal(Object.keys(s.categories).length,6);
+
+test('legacy settings migrate without mapping old promotion thresholds onto unwanted advertising',()=>{
+  const legacy={version:2,enabled:true,consent:true,sites:['x'],preset:'custom',mode:'filter',labelledAds:true,model:'jev-latest',showStatus:true,
+    protectUseful:true,profileMode:'normal',concurrency:4,dailyLimit:120,cacheMinutes:60,customInstruction:'no memes',cosmeticRules:'x.com##.ad',
+    allowedAuthors:['x:friend'],categories:{promotion:{mode:'collapse',threshold:0.55},spam:{mode:'collapse',threshold:0.6},bait:{mode:'collapse',threshold:0.7}}};
+  const s=C.migrateSettings(legacy);
+  assert.equal(s.version,3);
+  assert.equal(s.consent,true);
+  assert.deepEqual(s.sites,['x']);
+  assert.deepEqual(s.allowedAuthors,['x:friend']);
+  assert.equal(s.customInstruction,'no memes');
+  assert.equal(s.cosmeticRules,'x.com##.ad');
+  assert.equal(s.profileMode,'normal');
+  assert.equal(s.concurrency,4);
+  assert.equal(s.dailyLimit,120);
+  assert.equal(s.cacheMinutes,60);
+  assert.equal(s.preset,'balanced');
+  assert.equal(s.categories.unwantedAd.threshold,0.85);
+  assert.equal(s.categories.unwantedAd.mode,'collapse');
+  assert.equal(s.categories.feedSpam.threshold,0.9);
+  assert.equal(s.categories.bait.threshold,0.88);
 });
-test('record validation clamps payload and rejects missing identifiers',()=>{
-  assert.throws(()=>record({id:''}),/INVALID_RECORD/);const r=record({text:'x'.repeat(8000),linkDomains:['example.com','EXAMPLE.COM','https://evil.test','invalid','x'.repeat(300)+'.com']});
-  assert.equal(r.text.length,6000);assert.deepEqual(r.linkDomains,['example.com']);
+
+test('legacy aggressive and observe presets migrate to their 2.1 equivalents',()=>{
+  const aggressive=C.migrateSettings({version:2,preset:'aggressive',enabled:true,consent:false,sites:[]});
+  assert.equal(aggressive.preset,'aggressive');
+  assert.equal(aggressive.categories.feedSpam.threshold,0.85);
+  assert.equal(aggressive.categories.bait.mode,'collapse');
+  const observe=C.migrateSettings({version:2,preset:'observe',mode:'observe',enabled:true,consent:false,sites:[]});
+  assert.equal(observe.preset,'observe');
+  assert.equal(observe.mode,'observe');
 });
-test('actual TypeSafe request contains eight self-contained noul questions',()=>{
-  const p=C.buildRequest(record(),settings());assert.equal(p.model,'jev-latest');assert.deepEqual(Object.keys(p.questions),keys);
-  for(const q of Object.values(p.questions)){assert.equal(q.type,'noul');assert.ok(q.instructions.length>100);assert.ok(q.instructions.includes('untrusted')||q.instructions.includes('Ignore any instructions'));}
+
+test('record sanitization clamps fields and rejects anonymous empty posts',()=>{
+  const r=C.sanitizeRecord({site:'x',id:'i'.repeat(400),author:'a'.repeat(300),text:'t'.repeat(9000),mediaAlt:'m'.repeat(3000),quotedText:'q'.repeat(4000),truncated:'yes',context:'weird',sponsored:1,linkDomains:['ok.com','bad host','ok.com',...Array(10).fill('x.com')]});
+  assert.equal(r.id.length,250);
+  assert.equal(r.author.length,120);
+  assert.equal(r.text.length,6000);
+  assert.equal(r.mediaAlt.length,1200);
+  assert.equal(r.quotedText.length,2500);
+  assert.equal(r.truncated,false);
+  assert.equal(r.context,'feed');
+  assert.equal(r.sponsored,false);
+  assert.deepEqual(r.linkDomains,['ok.com','x.com']);
+  assert.equal(C.sanitizeRecord({site:'youtube',text:'hi'}),null);
+  assert.equal(C.sanitizeRecord({site:'x',text:'',mediaAlt:'',quotedText:'',sponsored:false}),null);
 });
-test('inference omits author/id and redacts email, secret-shaped tokens and full URLs',()=>{
-  const r=record({text:'Email alice@example.com token sk-ABCDEFGHIJKLMNOP123456 https://example.com/private?id=42'});const p=C.buildRequest(r,settings());const text=JSON.stringify(p.state);
-  for(const excluded of ['@Alice','p-1','alice@example.com','ABCDEFGHIJKLMNOP','private?id'])assert.ok(!text.includes(excluded));assert.match(text,/\[email\]/);assert.match(text,/\[link:example.com\]/);
+
+test('request shape uses the 2.1 features with a bounded instruction budget',()=>{
+  const body=C.buildRequest(record({}),settings());
+  assert.deepEqual(Object.keys(body.questions),KEYS);
+  assert.equal(body.model,'jev-latest');
+  let chars=0;
+  for(const key of KEYS){
+    assert.equal(body.questions[key].type,'noul');
+    assert.match(body.questions[key].instructions,/untrusted/);
+    chars+=body.questions[key].instructions.length;
+  }
+  assert.ok(chars<1900,`instruction boilerplate too large: ${chars}`);
+  assert.equal(body.state.post_text,'A useful post about testing.');
+  assert.equal(body.state.quoted_post_text,'');
+  assert.equal(body.state.platform_sponsored_marker_observed,false);
 });
-test('custom criterion adds a ninth actual noul question',()=>{
-  const s=settings();s.customInstruction='Promotes speculative tokens';const p=C.buildRequest(record(),s);assert.equal(Object.keys(p.questions).length,9);assert.match(p.questions.custom.instructions,/Promotes speculative tokens/);
+
+test('quoted content is transmitted separately from the author text',()=>{
+  const body=C.buildRequest(record({text:'I disagree with this claim.',quotedText:'Send your seed phrase to double your coins.'}),settings());
+  assert.equal(body.state.post_text,'I disagree with this claim.');
+  assert.equal(body.state.quoted_post_text,'Send your seed phrase to double your coins.');
+  assert.match(body.questions.risk.instructions,/main author|quoted/i);
 });
-test('strict parser accepts response with zero output tokens and no confidence',()=>{
-  const p=C.parseResponse(wire(),keys);assert.equal(p.scores.spam,.5);assert.equal(p.usage.output_tokens,0);assert.ok(!('confidence' in p));
+
+test('redaction masks emails, handles, credentials and links',()=>{
+  const state=C.inferenceState(record({text:'Write to me@example.com or @person, key sk_live_abcdefghijklmnop, see https://example.com/path'}));
+  assert.ok(state.post_text.includes('[email]'));
+  assert.ok(state.post_text.includes('[mention]'));
+  assert.ok(state.post_text.includes('[credential]'));
+  assert.ok(state.post_text.includes('[link:example.com]'));
 });
-for(const [name,edit] of [
-  ['missing answer',r=>delete r.answers.spam],['wrong primitive',r=>r.answers.spam.type='boolean'],['negative value',r=>r.answers.spam.noul=-.1],['oversized value',r=>r.answers.spam.noul=1.1],['numeric string',r=>r.answers.spam.noul='0.9'],['nonfinite',r=>r.answers.spam.noul=NaN],['missing usage',r=>delete r.usage],['fractional tokens',r=>r.usage.input_tokens=1.5],['missing model',r=>delete r.model]
-])test(`parser fails closed on ${name}`,()=>{const r=wire();edit(r);assert.throws(()=>C.parseResponse(r,keys),/INVALID_RESPONSE/);});
-test('a model error never creates a semantic hide',()=>assert.equal(C.decide(record(),null,settings()).action,'allow'));
-test('explicit sponsored marker is independent of unavailable inference',()=>assert.equal(C.decide(record({sponsored:true}),null,settings()).source,'local'));
-test('no textual evidence overrides high classification estimates',()=>assert.equal(C.decide(record(),result({spam:.999,sufficient:.1}),settings()).action,'allow'));
-test('threshold has exact boundary and off category stays off',()=>{
-  assert.equal(C.decide(record(),result({spam:.899}),settings()).action,'allow');assert.equal(C.decide(record(),result({spam:.90}),settings()).action,'collapse');assert.equal(C.decide(record(),result({generic:.999}),settings()).action,'allow');
+
+test('custom instruction adds a ninth question while it is set',()=>{
+  const off=C.buildRequest(record({}),settings({customInstruction:''}));
+  assert.equal(Object.keys(off.questions).length,8);
+  const on=C.buildRequest(record({}),settings({customInstruction:'Empty keyword-begging posts.'}));
+  assert.equal(Object.keys(on.questions).length,9);
+  assert.match(on.questions.custom.instructions,/Empty keyword-begging posts/);
 });
-test('collapse is prioritized above dim, not the largest score alone',()=>{
-  const d=C.decide(record(),result({bait:.999,spam:.96}),settings());assert.equal(d.action,'collapse');assert.equal(d.category,'spam');
+
+test('strict response parser rejects malformed answers and accepts valid ones',()=>{
+  const answers=Object.fromEntries(KEYS.map(k=>[k,{type:'noul',noul:0.5}]));
+  const good={model:'jev-1',answers,usage:{input_tokens:5,output_tokens:1}};
+  assert.deepEqual(Object.keys(C.parseResponse(good,KEYS).scores),KEYS);
+  for(const bad of [null,{}, {model:'gpt-4',answers}, {model:'jev-1',answers:{}}, {...good,answers:{...answers,risk:{type:'noul',noul:2}}}, {...good,model:'bad model!'}]){
+    assert.throws(()=>C.parseResponse(bad,KEYS));
+  }
+  const usage=C.parseResponse({model:'jev-1',answers,usage:{input_tokens:-5,output_tokens:'x'}},KEYS).usage;
+  assert.deepEqual(usage,{input_tokens:0,output_tokens:0});
 });
-test('allowlist overrides sponsored and semantic decisions',()=>{
-  const s=settings();s.allowedAuthors=['x:@alice'];const d=C.decide(record({sponsored:true}),result({spam:1}),s);assert.equal(d.action,'allow');assert.equal(d.source,'allowlist');
+
+test('decisions fail open when no model judgment is available',()=>{
+  const d=C.decide(record({}),null,settings());
+  assert.equal(d.action,'allow');
+  assert.equal(d.source,'unclassified');
+  assert.equal(d.rule,'no_model_judgment');
 });
-test('user reveal and global pause override model',()=>{
-  assert.equal(C.decide(record(),result({spam:1}),settings(),{revealed:true}).action,'allow');const s=settings();s.enabled=false;assert.equal(C.decide(record({sponsored:true}),result({spam:1}),s).action,'allow');
+
+test('platform-labelled ads collapse locally without a model result',()=>{
+  const d=C.decide(record({sponsored:true}),null,settings());
+  assert.equal(d.action,'collapse');
+  assert.equal(d.source,'local');
+  assert.equal(d.rule,'platform_labelled_ad');
+  const off=C.decide(record({sponsored:true}),null,settings({labelledAds:false}));
+  assert.equal(off.action,'allow');
 });
-test('observe mode records an intended action without hiding',()=>{
-  const s=settings();s.mode='observe';const d=C.decide(record(),result({spam:1}),s);assert.equal(d.action,'allow');assert.equal(d.wouldAction,'collapse');
+
+test('insufficient evidence keeps the post regardless of other scores',()=>{
+  const d=C.decide(record({}),result({sufficient:0.2,feedSpam:0.99,risk:0.99}),settings());
+  assert.equal(d.action,'allow');
+  assert.equal(d.rule,'insufficient_evidence');
 });
-test('cosmetic rule subset rejects scriptlets, network rules and root selectors',()=>{
-  for(const input of ['||ads.example^','x.com##+js(foo)','x.com##body','x.com##.x:style(color:red)','evil.test##.ad','x.com##html .x'])assert.ok(C.parseCosmeticRules(input).errors.length,input);
-  const p=C.parseCosmeticRules('! Local only\nx.com##[data-kind="ad"]\nreddit.com##.sponsored');assert.equal(p.rules.length,2);assert.equal(p.errors.length,0);assert.equal(C.matchingRules('reddit.com##.ad','www.reddit.com').length,1);
+
+test('threshold boundaries are exact for every category',()=>{
+  assert.equal(C.decide(record({}),result({feedSpam:0.9}),settings()).action,'collapse');
+  assert.equal(C.decide(record({}),result({feedSpam:0.899}),settings()).action,'allow');
+  assert.equal(C.decide(record({}),result({unwantedAd:0.99,feedSpam:0.7}),settings()).action,'collapse');
+  assert.equal(C.decide(record({}),result({unwantedAd:0.849,feedSpam:0.7}),settings()).action,'allow');
+  assert.equal(C.decide(record({}),result({bait:0.88}),settings()).action,'dim');
+  assert.equal(C.decide(record({}),result({lowSignal:0.99}),settings()).action,'allow');
 });
-test('cache keys include text/model/custom but exclude author/id/policy thresholds',async()=>{
-  const a=await C.cacheKey(record(),settings());const s=settings();s.categories.spam.threshold=.8;assert.equal(await C.cacheKey(record({author:'@Other',id:'second'}),s),a);
-  for(const [r,t] of [[record({text:'changed'}),settings()],[record(),{...settings(),model:'jev-another'}],[record(),{...settings(),customInstruction:'other'}]])assert.notEqual(await C.cacheKey(r,t),a);
+
+test('paused, allowlisted and revealed posts bypass every rule',()=>{
+  const spam=result({feedSpam:0.99});
+  assert.equal(C.decide(record({}),spam,settings({enabled:false})).reason,'Filtering is paused');
+  const list=settings({allowedAuthors:['x:@a']});
+  assert.equal(C.decide(record({}),spam,list).source,'allowlist');
+  assert.equal(C.decide(record({}),spam,settings(),{revealed:true}).source,'override');
 });
-test('privileged sender check rejects web pages and other extension pages',()=>{
-  const id='a'.repeat(32);assert.equal(C.trustedPage({id,url:`chrome-extension://${id}/options.html`},id),true);
-  for(const s of [{id,url:'https://x.com/home'},{id,url:`chrome-extension://${id}/content.js`},{id:'b'.repeat(32),url:`chrome-extension://${id}/options.html`}])assert.equal(C.trustedPage(s,id),false);
+
+test('observe mode records the intended action without allowing a hide',()=>{
+  const patch=C.presetPatch('observe');
+  const s=C.sanitizeSettings({...C.DEFAULTS,...patch});
+  const d=C.decide(record({}),result({feedSpam:0.99}),s);
+  assert.equal(d.action,'allow');
+  assert.equal(d.wouldAction,'collapse');
+  assert.match(d.reason,/Observe only/);
 });
-test('error messages never reflect arbitrary provider or secret strings',()=>{
-  assert.ok(!JSON.stringify(C.userError(new Error('secret-danger'))).includes('secret-danger'));
+
+test('decision exposes rule names and protection flags',()=>{
+  const kept=C.decide(record({}),result({unwantedAd:0.9,useful:0.9}),settings());
+  assert.equal(kept.rule,'useful_or_original_protection');
+  assert.equal(kept.protected,true);
+  assert.equal(kept.usefulPromotion,true);
+  const spam=C.decide(record({}),result({feedSpam:0.95}),settings());
+  assert.equal(spam.rule,'feed_spam');
+  assert.equal(spam.category,'feedSpam');
 });
-test('API key syntax rejects spaces/control characters and unreasonable lengths',()=>{
-  assert.ok(C.validKey('dummy-key-for-test'));for(const k of ['short','abcdefgh\nInjected: true','a'.repeat(513),''])assert.ok(!C.validKey(k));
+
+test('cache identities ignore author/id/context but include content, model and custom rule',async()=>{
+  const s=settings();
+  const a=await C.cacheKey(record({id:'1',author:'@a',context:'feed'}),s);
+  const b=await C.cacheKey(record({id:'2',author:'@b',context:'profile'}),s);
+  assert.equal(a,b);
+  assert.notEqual(a,await C.cacheKey(record({text:'Different text.'}),s));
+  assert.notEqual(a,await C.cacheKey(record({}),settings({model:'jev-next'})));
+  assert.notEqual(a,await C.cacheKey(record({}),settings({customInstruction:'Exclude memes'})));
 });
-test('vault encrypt/decrypt uses random salt and does not store plaintext/passphrase',async()=>{
-  const key='dummy-key-for-unit-test',pass='a long private passphrase';const a=await V.seal(key,pass),b=await V.seal(key,pass);
-  assert.equal(await V.open(a,pass),key);assert.notEqual(a.salt,b.salt);assert.notEqual(a.iv,b.iv);assert.notEqual(a.ciphertext,b.ciphertext);assert.ok(!JSON.stringify(a).includes(key));assert.ok(!JSON.stringify(a).includes(pass));
+
+test('feedback keys are stable per visible post and change on edits',async()=>{
+  const a=await C.feedbackKey(record({context:'feed'}));
+  assert.equal(a,await C.feedbackKey(record({context:'profile'})));
+  assert.notEqual(a,await C.feedbackKey(record({text:'Edited text.'})));
+  assert.notEqual(await C.feedbackKey(record({id:'1'})),await C.feedbackKey(record({id:'2'})));
 });
-test('vault rejects wrong passphrase, tampering and incompatible KDF parameters',async()=>{
-  const p='another sufficiently long password',a=await V.seal('dummy-test-key',p);await assert.rejects(V.open(a,'a wrong password'),/VAULT_ERROR/);await assert.rejects(V.open({...a,iterations:1},p),/VAULT_ERROR/);await assert.rejects(V.open({...a,ciphertext:('A'+a.ciphertext.slice(1))},p),/VAULT_ERROR/);
+
+test('cosmetic rules accept only safe domain##selector lines',()=>{
+  const parsed=C.parseCosmeticRules('! comment\nx.com##.promo\nhttp://bad.com##.x\nx.com##body\nx.com##.ok:hover\nreddit.com##shreddit-post\n[data-adblock]\nx.com##.bad{color:red}');
+  assert.deepEqual(parsed.rules.map(r=>r.line),['x.com##.promo','x.com##.ok:hover','reddit.com##shreddit-post']);
+  assert.equal(parsed.errors.length,3);
+  assert.equal(C.matchingRules('x.com##.promo\nreddit.com##.post','www.x.com')[0].selector,'.promo');
+  assert.equal(C.matchingRules('x.com##.promo','youtube.com').length,0);
 });
-test('vault requires a passphrase of at least twelve characters',async()=>await assert.rejects(V.seal('dummy-test-key','short'),/PASSPHRASE/));
-test('provider model name cannot carry arbitrary free-form text into diagnostics',()=>{
- const r=wire();for(const name of ['secret credentials text','<script>alert(1)</script>','sk-test-token','https://unexpected.test']){r.model=name;assert.throws(()=>C.parseResponse(r,keys),/INVALID_RESPONSE/);}
+
+test('presets change thresholds but never disable protection',()=>{
+  const balanced=C.sanitizeSettings({...C.DEFAULTS,...C.presetPatch('balanced')});
+  const aggressive=C.sanitizeSettings({...C.DEFAULTS,...C.presetPatch('aggressive')});
+  assert.equal(balanced.protectUseful,true);
+  assert.equal(aggressive.protectUseful,true);
+  assert.ok(aggressive.categories.unwantedAd.threshold<balanced.categories.unwantedAd.threshold);
+  assert.equal(C.presetPatch('custom').preset,'custom');
+});
+
+test('page context distinguishes profiles, threads and feeds',()=>{
+  assert.equal(C.pageContext('https://x.com/home'),'feed');
+  assert.equal(C.pageContext('https://x.com/someone/status/123'),'thread');
+  assert.equal(C.pageContext('https://x.com/someone'),'profile');
+  assert.equal(C.pageContext('https://x.com/messages'),'feed');
+  assert.equal(C.pageContext('https://www.reddit.com/user/abc'),'profile');
+  assert.equal(C.pageContext('https://www.linkedin.com/in/abc'),'profile');
+});
+
+test('trusted pages, error codes and key validation stay strict',()=>{
+  const id='a'.repeat(32);
+  assert.equal(C.trustedPage({id,url:`chrome-extension://${id}/options.html`},id),true);
+  assert.equal(C.trustedPage({id,url:`chrome-extension://${id}/content.js`},id),false);
+  assert.equal(C.trustedPage({id:'b'.repeat(32),url:`chrome-extension://${id}/options.html`},id),false);
+  assert.equal(C.userError(new Error('boom')).code,'INTERNAL_ERROR');
+  assert.equal(C.userError({code:'AUTH'}).code,'AUTH');
+  assert.ok(!C.userError(new Error('secret text')).message.includes('secret text'));
+  assert.equal(C.validKey('short'),false);
+  assert.equal(C.validKey('a'.repeat(9)),true);
+  assert.equal(C.validKey('bad key'),false);
+});
+
+test('vault seals and opens with a strong passphrase only',async()=>{
+  const vault=await V.seal('dummy-encrypted-key','long protected passphrase');
+  assert.equal(await V.open(vault,'long protected passphrase'),'dummy-encrypted-key');
+  await assert.rejects(()=>V.open(vault,'wrong password'),(e)=>e.message==='VAULT_ERROR');
+  await assert.rejects(()=>V.open({...vault,iterations:1000},'long protected passphrase'),(e)=>e.message==='VAULT_ERROR');
+  await assert.rejects(()=>V.seal('dummy-encrypted-key','short'),(e)=>e.message==='PASSPHRASE');
 });

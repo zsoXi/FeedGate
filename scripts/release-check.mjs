@@ -10,7 +10,7 @@ const read=p=>readFile(path.join(root,p));
 const manifest=JSON.parse(await read('extension/manifest.json'));
 const pkg=JSON.parse(await read('package.json'));const checks=[];
 function check(name,fn){fn();checks.push({name,passed:true});}
-check('Single 2.0.0 version',()=>{assert.equal(pkg.version,'2.0.0');assert.equal(manifest.version,pkg.version);assert.equal(globalThis.FeedGateCore.VERSION,pkg.version);});
+check('Single 2.1.0 version',()=>{assert.equal(pkg.version,'2.1.0');assert.equal(manifest.version,pkg.version);assert.equal(globalThis.FeedGateCore.VERSION,pkg.version);});
 check('Manifest V3 and module worker',()=>{assert.equal(manifest.manifest_version,3);assert.equal(manifest.background.type,'module');assert.equal(manifest.background.service_worker,'background.js');});
 check('Limited permissions and fixed provider host',()=>{assert.deepEqual(manifest.permissions,['storage','scripting','activeTab']);assert.deepEqual(manifest.host_permissions,['https://api.typesafe.ai/*']);assert.ok(!JSON.stringify(manifest).includes('<all_urls>'));assert.equal(manifest.incognito,'not_allowed');assert.ok(!manifest.externally_connectable);});
 const required=['manifest.json',manifest.background.service_worker,manifest.action.default_popup,manifest.options_ui.page,...Object.values(manifest.icons)];

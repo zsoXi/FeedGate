@@ -1,10 +1,10 @@
 {
-  "version": "2.0.0",
-  "createdAt": "2026-09-18T01:10:51.506Z",
+  "version": "2.1.0",
+  "createdAt": "2026-09-18T01:52:30.474Z",
   "scope": "Static packaging integrity only; not native installation, live provider validation or a security audit",
   "checks": [
     {
-      "name": "Single 2.0.0 version",
+      "name": "Single 2.1.0 version",
       "passed": true
     },
     {
@@ -45,7 +45,7 @@
     {
       "path": "THIRD_PARTY_NOTICES.md",
       "bytes": 2303,
-      "sha256": "6b84e83f917c0432934fcfa9ea1c4a4745205a39521402e67000b1c0ad56190e"
+      "sha256": "1064fc18ead958cb4587b08675f22d2316de12bc7a72e5288a244cb930b5dbc6"
     },
     {
       "path": "adapters.js",
@@ -54,18 +54,18 @@
     },
     {
       "path": "background.js",
-      "bytes": 23404,
-      "sha256": "cde7fe289943f41fd8f3e2f7fd22afab0046435ece6c0c0725021f7ad8f3009b"
+      "bytes": 23751,
+      "sha256": "6284f4b7c2e790ed874da625a90cfa7204534673428df73c70d8ec5748c66534"
     },
     {
       "path": "content.js",
-      "bytes": 20331,
-      "sha256": "e6cc131f97303fd1bf8d3d64222f2df2572fa127f1cbea08db8953062d84baad"
+      "bytes": 20535,
+      "sha256": "f6652bf730ccf7b881cd17efaaa3305e968c3ecd1bb5bce4ec08bcd9f466e817"
     },
     {
       "path": "core.js",
-      "bytes": 19985,
-      "sha256": "de94e9f3c74ddf9e806033598ac35a0e39efe38dd40440e0c987b356a167d0a7"
+      "bytes": 28547,
+      "sha256": "2c662cf704c685a04cc1c86b189ef05d11f030d7bdb5d338905ba5e84fd5bd17"
     },
     {
       "path": "demo.html",
@@ -74,8 +74,8 @@
     },
     {
       "path": "demo.js",
-      "bytes": 2623,
-      "sha256": "84636042ea06032b2bc354179ac1f913f30107104a995ca5ed0dd9f58cdfa5dc"
+      "bytes": 3238,
+      "sha256": "29216b368de663ccd83ec95e67ce57c33a982d44caa6b31b6d9e62760d90fc35"
     },
     {
       "path": "icons/128.png",
@@ -99,23 +99,23 @@
     },
     {
       "path": "manifest.json",
-      "bytes": 1551,
-      "sha256": "df37bf83941299232532708d0c539616d8e8e42552df198e0831099cd0589487"
+      "bytes": 1577,
+      "sha256": "9b9c844171129135ba21b78c34f427650a45302dc6415e19e0aba028d9768df4"
     },
     {
       "path": "options.html",
-      "bytes": 16338,
-      "sha256": "e701f953f5717671ea6dbc3870f1c74f9687a7b53d206f99b6c733b921a08149"
+      "bytes": 16584,
+      "sha256": "ed29ae70f82363b93b0772209238f251694e634c55353b6871723f728c93582f"
     },
     {
       "path": "options.js",
-      "bytes": 17584,
-      "sha256": "fa057a9361610cf5452a5bdf65b3418c5885b7bd36a7a1f87b646ecd25978b4b"
+      "bytes": 17685,
+      "sha256": "b3a685357238b24d48b329567e96261ed21025ff282f466816f374baaa430c2e"
     },
     {
       "path": "popup.html",
       "bytes": 1492,
-      "sha256": "42cc6c72985e70ee258cf9c4f2f53b4a551dedc3101d38fadfa826d149efc9cd"
+      "sha256": "f8dc544e0c3115b2fff19a25f4fa9b2dc7dad760085f81153ccadaf838a4657e"
     },
     {
       "path": "popup.js",

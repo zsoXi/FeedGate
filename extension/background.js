@@ -46,11 +46,12 @@ const ready = (async () => {
   await chrome.storage.local.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'});
   const local = await chrome.storage.local.get(['settings','keptPosts']);
   const session = await chrome.storage.session.get(['apiKey','runtimeState']);
-  settings = local.settings?.version === 2 ? C.sanitizeSettings(local.settings) : C.clone(C.DEFAULTS);
+  settings = local.settings ? C.migrateSettings(local.settings) : C.clone(C.DEFAULTS);
   if(Array.isArray(local.keptPosts)) keptPosts=new Map(local.keptPosts.filter(e=>Array.isArray(e)&&/^[a-f0-9]{64}$/.test(e[0])&&Number.isFinite(e[1])).slice(-2000));
   apiKey = C.validKey(session.apiKey) ? session.apiKey : '';
   const old = session.runtimeState;
-  if (C.object(old) && old.version === 2) {
+  // Cached decisions use the old rubric semantics; a version mismatch drops them.
+  if (C.object(old) && old.version === 3) {
     if (C.object(old.metrics)) metrics = {...freshMetrics(),...old.metrics};
     if (Array.isArray(old.log)) log = old.log.slice(-150);
     if (Array.isArray(old.cache)) cache = new Map(old.cache.filter(e=>Array.isArray(e)&&typeof e[0]==='string'&&C.object(e[1])&&e[1].expires>Date.now()).slice(-MAX_CACHE));
@@ -64,7 +65,7 @@ function persistSoon() {
   if (persistTimer) return;
   persistTimer = setTimeout(() => {
     persistTimer = undefined;
-    const runtimeState = {version:2,metrics,log,cache:[...cache.entries()],cooldownUntil,authRejected,verifiedAt,pageReports:[...pageReports]};
+    const runtimeState = {version:3,metrics,log,cache:[...cache.entries()],cooldownUntil,authRejected,verifiedAt,pageReports:[...pageReports]};
     chrome.storage.session.set({runtimeState}).catch(() => {});
   },100);
 }
@@ -172,8 +173,8 @@ function pump() {
 function addLog(record,decision,result,cached=false,error=null) {
   // No post body or full browsing URL is retained. Author names stay local.
   log.push({at:Date.now(),site:record.site,author:record.author,action:decision.action,wouldAction:decision.wouldAction||null,
-    reason:decision.reason,source:decision.source,scores:result?.scores||null,model:result?.model||null,
-    latencyMs:result?.latencyMs||0,cached,error,category:decision.category||null,protected:decision.protected===true});
+    reason:decision.reason,source:decision.source,rule:decision.rule||null,scores:result?.scores||null,model:result?.model||null,
+    latencyMs:result?.latencyMs||0,cached,error,category:decision.category||null,protected:decision.protected===true,conflict:decision.conflict===true});
   metrics.decisions++;
   if(decision.protected)metrics.protected++;
   if(decision.usefulPromotion)metrics.usefulPromotions++;
@@ -286,7 +287,7 @@ async function diagnostics() {
   const s=await status();
   const permissions=await chrome.permissions.getAll();
   return {
-    format:'feedgate-diagnostics',version:2,extensionVersion:C.VERSION,rubric:C.RUBRIC_VERSION,
+    format:'feedgate-diagnostics',version:3,extensionVersion:C.VERSION,rubric:C.RUBRIC_VERSION,
     generatedAt:new Date().toISOString(),environment:'chrome-extension',
     privacy:'No keys, vault ciphertext, post text, author names, post hashes, full URLs, custom rule text or browser history included.',
     connection:{transport:'direct TypeSafe HTTPS',model:settings.model,keyReady:s.keyReady,authRejected,verifiedAt,
@@ -300,7 +301,8 @@ async function diagnostics() {
     permissions:{permissions:permissions.permissions||[],origins:permissions.origins||[]},
     pages:[...pageReports.values()].filter(p=>Date.now()-p.updatedAt<86400000),
     decisions:log.slice(-150).map(e=>({at:e.at,site:e.site,action:e.action,wouldAction:e.wouldAction,source:e.source,
-      category:e.category,protected:e.protected,scores:e.scores,model:e.model,latencyMs:e.latencyMs,cached:e.cached,error:e.error?.code||null}))
+      rule:e.rule||null,category:e.category,protected:e.protected,conflict:e.conflict===true,
+      sufficient:C.finite(e.scores?.sufficient),scores:e.scores,model:e.model,latencyMs:e.latencyMs,cached:e.cached,error:e.error?.code||null}))
   };
 }
 async function keyChange(key) {
@@ -428,11 +430,12 @@ async function handle(message,sender) {
       const clean = C.clone(settings);
       // Imported settings cannot silently grant data-sharing consent or site permissions.
       clean.consent=false;clean.sites=[];
-      return {format:'feedgate-settings',version:2,settings:clean};
+      return {format:'feedgate-settings',version:3,settings:clean};
     }
     case 'FG_IMPORT_SETTINGS': {
-      if (!C.object(message.data)||message.data.format!=='feedgate-settings'||message.data.version!==2) throw new Error('INVALID_RECORD');
-      const imported=C.sanitizeSettings(message.data.settings);
+      if (!C.object(message.data)||message.data.format!=='feedgate-settings'||(message.data.version!==3&&message.data.version!==2)) throw new Error('INVALID_RECORD');
+      // 2.0 exports are migrated safely: thresholds never map promotion onto unwanted advertising.
+      const imported=C.migrateSettings(message.data.settings);
       imported.consent=false;imported.sites=[];
       return {settings:await saveSettings(imported)};
     }

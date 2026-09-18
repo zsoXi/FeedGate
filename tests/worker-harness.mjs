@@ -31,7 +31,7 @@ export async function createWorker(options={}) {
       if(typeof mode==='number')return new Response('untrusted provider text',{status:mode,headers:{'Retry-After':'30'}});
       if(mode==='malformed')return Response.json({invalid:true});
       const body=JSON.parse(o.body),high=body.state.post_text.includes('SPAM_FIXTURE');
-      return Response.json({model:'jev-fixture-not-live',answers:Object.fromEntries(Object.keys(body.questions).map(k=>[k,{type:'noul',noul:k==='sufficient'?.99:k==='spam'&&high?.99:.01}])),usage:{input_tokens:42,output_tokens:0}});
+      return Response.json({model:'jev-fixture-not-live',answers:Object.fromEntries(Object.keys(body.questions).map(k=>[k,{type:'noul',noul:k==='sufficient'?.99:k==='feedSpam'&&high?.99:.01}])),usage:{input_tokens:42,output_tokens:0}});
     }finally{fetchActive--;}
   };
   const context=vm.createContext({chrome,crypto:webcrypto,TextEncoder,TextDecoder,URL,AbortController,DOMException,Uint8Array,Response,performance,fetch,atob,btoa,console,

@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "FeedGate 2.0 | TypeSafe filter",
+  "name": "FeedGate 2.1 | TypeSafe filter",
   "short_name": "FeedGate",
-  "description": "Live Jev feed filtering with useful-content protection, secure key entry and reversible controls. No terminal or bridge.",
-  "version": "2.0.0",
+  "description": "Precision-first Jev feed filtering: a post being promotional is never enough to hide it. Protected useful content, reversible controls, no bridge.",
+  "version": "2.1.0",
   "minimum_chrome_version": "120",
   "permissions": [
     "storage",

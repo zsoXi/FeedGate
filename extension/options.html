@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FeedGate 2.0 · Control room</title><link rel="stylesheet" href="ui.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FeedGate 2.1 · Control room</title><link rel="stylesheet" href="ui.css"></head>
 <body>
 <div class="app">
 <aside class="sidebar">
   <div class="wordmark"><img class="brand-icon" src="icons/48.png" alt="">FeedGate</div>
-  <div class="eyebrow">Your feed, on your terms</div><div class="version">2.0.0 / personal preview</div>
+  <div class="eyebrow">Your feed, on your terms</div><div class="version">2.1.0 / precision-first preview</div>
   <nav class="nav" aria-label="Settings">
     <button data-page="overview" class="active"><span>01</span>Overview</button>
     <button data-page="policy"><span>02</span>Filter policy</button>
@@ -16,14 +16,14 @@
   <div class="sidebar-bottom"><b>Your decisions stay reversible.</b><p>Jev estimates content features. It does not prove bot identity, originality or truth.</p><button id="open-demo">Open live test feed</button><p class="fine">Fictional posts. Actual API calls when enabled.</p></div>
 </aside>
 <main class="main">
-  <header class="topline"><div><div class="eyebrow">Chrome / TypeSafe Jev</div><strong>FeedGate 2.0</strong></div><div class="top-actions"><span id="key-badge" class="badge warn">Checking key</span><button id="global-toggle" class="small-btn">Pause filtering</button></div></header>
+  <header class="topline"><div><div class="eyebrow">Chrome / TypeSafe Jev</div><strong>FeedGate 2.1</strong></div><div class="top-actions"><span id="key-badge" class="badge warn">Checking key</span><button id="global-toggle" class="small-btn">Pause filtering</button></div></header>
   <div id="last-error" class="note warning hidden" role="status"></div>
   <section id="overview" class="page active">
     <div class="intro"><div class="eyebrow">A better filter starts with better rules</div><h1>Useful posts stay.</h1><p>Live Jev judgments help reduce spam while preserving useful projects, experiments and explanations. You can inspect or reverse every filtered post.</p></div>
     <div class="metrics">
       <div class="metric first"><div class="eyebrow">Decisions returned</div><strong data-stat="decisions">0</strong><small>Includes cache and local decisions</small></div>
       <div class="metric"><div class="eyebrow">Filter decisions</div><strong data-stat="filterDecisions">0</strong><small>Not a count of unique posts</small></div>
-      <div class="metric"><div class="eyebrow">Useful promotions kept</div><strong data-stat="usefulPromotions">0</strong><small>Protected by the active policy</small></div>
+      <div class="metric"><div class="eyebrow">Useful posts protected</div><strong data-stat="usefulPromotions">0</strong><small>Kept despite promotional signals</small></div>
       <div class="metric"><div class="eyebrow">Provider errors</div><strong data-stat="errors">0</strong><small>Errors never create a hide</small></div>
     </div>
     <form id="setup-form" class="panel setup">
@@ -44,11 +44,11 @@
     </form>
     <div id="setup-complete" class="note hidden"><p><b>Setup is complete.</b> You can close this tab. FeedGate continues inside Chrome without another program running. <button id="open-x" class="small-btn">Open X</button></p></div>
     <div class="columns" style="margin-top:18px"><div class="panel"><div class="eyebrow">Site access is optional</div><h2>Choose your feeds</h2><p class="fine">Enabling a platform requests access from Chrome and injects already-open supported tabs where permitted. Refresh the feed if its adapter does not appear.</p><div id="sites"></div></div>
-    <div class="panel"><div class="eyebrow">The decision path</div><h2>Keep context in the loop</h2><div class="flow"><div><b>Read the visible post</b><small>Quotes stay separate; hidden content is not expanded.</small></div><div><b>Estimate independent features</b><small>Promotion, value, contribution, spam and risk are separate.</small></div><div><b>Apply deterministic rules</b><small>Substantive promotion stays. Contradictions get a gentler review action.</small></div><div><b>Leave you in control</b><small>Show, Keep this post, Allow author or pause the filter.</small></div></div></div></div>
+    <div class="panel"><div class="eyebrow">The decision path</div><h2>Keep context in the loop</h2><div class="flow"><div><b>Read the visible post</b><small>Quotes stay separate; hidden content is not expanded.</small></div><div><b>Estimate independent features</b><small>Unwanted ads, feed spam, bait, low-signal and risk are separate.</small></div><div><b>Apply deterministic rules</b><small>Substantive promotion stays. Contradictions get a gentler review action.</small></div><div><b>Leave you in control</b><small>Show, Keep this post, Allow author or pause the filter.</small></div></div></div></div>
   </section>
   <section id="policy" class="page">
-    <div class="intro"><div class="eyebrow">Policy / version 2</div><h1>Promotion is not a verdict.</h1><p>Useful detail is a reason to be cautious about hiding, not proof that a claim is true. Presets change explicit rules; no hidden author reputation is learned.</p></div>
-    <div class="preset-grid"><button data-preset="balanced"><b>Balanced</b><span>Keep useful contributions and dim borderline noise.</span></button><button data-preset="aggressive"><b>Aggressive</b><span>Lower some noise thresholds while retaining useful-content protection.</span></button><button data-preset="observe"><b>Observe only</b><span>Record intended decisions without changing post visibility.</span></button></div>
+    <div class="intro"><div class="eyebrow">Policy / version 2.1</div><h1>Promotion is not a verdict.</h1><p>Useful detail is a reason to be cautious about hiding, not proof that a claim is true. When in doubt, posts stay visible. Presets change explicit rules; no hidden author reputation is learned.</p></div>
+    <div class="preset-grid"><button data-preset="balanced"><b>Balanced</b><span>Keep useful contributions and dim borderline noise.</span></button><button data-preset="aggressive"><b>Aggressive</b><span>Lower some noise thresholds while retaining useful-content protection.</span></button><button data-preset="observe"><b>Observe only</b><span>Record intended decisions without changing post visibility.</span></button><button data-preset="custom"><b>Custom</b><span>Your own thresholds, edited in the form below.</span></button></div>
     <form id="policy-form">
       <div class="panel"><div class="row spread"><h2>Protection and context</h2><span id="preset-badge" class="badge">Balanced</span></div>
         <div class="tri"><label class="field"><span>Application mode</span><select id="application-mode"><option value="filter">Apply filtering</option><option value="observe">Observe only</option></select></label><label class="field"><span>Opened profiles</span><select id="profile-mode"><option value="soft">Gentle: dim semantic noise</option><option value="normal">Use normal filtering</option></select></label><label class="check"><input id="protect-useful" type="checkbox"><span>Protect substantive information and concrete contributions</span></label></div>
@@ -82,7 +82,7 @@
     <div class="intro"><div class="eyebrow">Local overrides</div><h1>You have the last word.</h1><p>Exceptions are explicit. FeedGate never silently turns one mistake into a permanent reputation score for an account.</p></div>
     <div class="columns"><div>
       <form id="rules-form" class="panel"><h2>Cosmetic filters</h2><p class="fine">A limited domain##CSS-selector syntax inspired by familiar blocker controls. No uBlock engine, filter lists, scriptlets or network filtering are bundled.</p><label class="field"><span>My filters</span><textarea id="cosmetic-rules" rows="8" maxlength="20000" spellcheck="false" placeholder="! Example: hide a sidebar&#10;x.com##[data-testid=&quot;sidebarColumn&quot;]"></textarea></label><button type="submit" class="primary">Save local filters</button><div id="rules-status" class="statusline" role="status"></div></form>
-      <div class="panel"><h2>Move your settings</h2><p class="fine">Exports exclude keys and vaults. Imports require fresh site permissions and cloud consent. Only the 2.0 format is accepted.</p><div class="row"><button id="export-settings">Export settings</button><button id="import-settings">Import settings</button><input id="import-file" type="file" accept=".json,application/json" hidden></div></div>
+      <div class="panel"><h2>Move your settings</h2><p class="fine">Exports exclude keys and vaults. Imports require fresh site permissions and cloud consent. Exports use the 2.1 format; 2.0 exports are accepted and migrate to safe 2.1 defaults without reusing old thresholds.</p><div class="row"><button id="export-settings">Export settings</button><button id="import-settings">Import settings</button><input id="import-file" type="file" accept=".json,application/json" hidden></div></div>
     </div><div>
       <div class="panel"><h2>Allowed authors</h2><p class="fine">These local exceptions override semantic and labelled-ad post filtering, but not your manual CSS rules.</p><div id="allowlist"></div></div>
       <div class="panel"><h2>Saved post choices</h2><p class="fine">“Keep this post” remembers a hash of the specific visible post, not a training label for the author. Edited content is evaluated again. Up to 2,000 choices stay on this device.</p><button id="reset-feedback">Reset saved post choices</button></div>

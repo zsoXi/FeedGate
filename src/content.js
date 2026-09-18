@@ -74,7 +74,7 @@
       const shadow=hud.attachShadow({mode:'open'}),style=make('style');
       style.textContent=':host{all:initial;color-scheme:dark}button{border:1px solid #344d40;border-radius:9px;background:#17221c;color:#def0dc;box-shadow:0 3px 18px #0003;padding:9px 12px;cursor:pointer;font:12px/1.4 system-ui;max-width:min(390px,85vw);text-align:left}button:focus-visible{outline:2px solid #c6fa8c;outline-offset:3px}strong{color:#ccfa92}span{display:block;color:#acbcad;font-size:11px;margin-top:2px}';
       const b=make('button');b.type='button';b.title='Open FeedGate settings and diagnostics';
-      const title=make('strong','FeedGate 2.0');hudText=make('span');
+      const title=make('strong','FeedGate 2.1');hudText=make('span');
       b.append(title,hudText);b.addEventListener('click',ev=>{if(ev.isTrusted)send('FG_OPEN_SETTINGS_FROM_PAGE').catch(()=>{});});
       shadow.append(style,b);document.documentElement.append(hud);
     }
@@ -108,10 +108,11 @@
     const style=make('style');
     style.textContent=`:host{all:initial;display:block;color-scheme:light dark}*{box-sizing:border-box}.card{margin:7px 0;padding:11px 14px;border:1px solid #b8c5b7;border-left:3px solid #6f8e60;border-radius:7px;background:#f1f3ed;color:#20291f;font:12px/1.5 system-ui,sans-serif}.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.mark{font-weight:800;letter-spacing:.04em}.note{flex:1;min-width:120px;color:#50604c}button{font:inherit;font-weight:650;color:#223020;background:#fff;border:1px solid #c6cec1;border-radius:5px;padding:4px 9px;cursor:pointer}button:hover{background:#e2ebd9}button:focus-visible{outline:2px solid #40712b;outline-offset:2px}.details{margin-top:9px;border-top:1px solid #d2dbcb;padding-top:8px}.details[hidden]{display:none}.score{display:flex;gap:8px;justify-content:space-between}.small{font-size:11px;color:#596b52;margin-top:6px}@media(prefers-color-scheme:dark){.card{background:#18211b;color:#e5eddc;border-color:#425040}.note,.small{color:#abbda2}button{background:#263327;color:#e4efd9;border-color:#455a43}button:hover{background:#354833}}`;
     const card=make('div',undefined,'card'),row=make('div',undefined,'row');
-    row.append(make('span','FeedGate','mark'),make('span',decision.action==='collapse'?'Post collapsed':'Post dimmed','note'));
+    row.append(make('span','FeedGate','mark'),make('span',decision.action==='collapse'?'Post collapsed':(decision.conflict?'Post dimmed for review':'Post dimmed'),'note'));
     const show=make('button','Show'),why=make('button','Why?');
     const details=make('div',undefined,'details');details.hidden=true;
     details.append(make('div',decision.reason));
+    if(decision.conflict)details.append(make('div','Useful-content signals were also present, so this post is dimmed for review instead of hidden.','small'));
     if(decision.scores) for(const [key,value] of Object.entries(decision.scores)) {
       const title=C.SIGNALS[key];
       if(!title)continue;

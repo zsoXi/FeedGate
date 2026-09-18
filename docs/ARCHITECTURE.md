@@ -2,7 +2,7 @@
 
 ## Runtime modules
 
-`core.js` defines settings validation, typed request/response validation, record minimisation, route guards, cache identities and deterministic policy. `adapters.js` isolates platform-specific selectors and visible text extraction. `content.js` watches DOM changes, queues visible items, renders reversible controls and reports page progress. `background.js` validates senders, handles credentials, serialises settings/budget changes, deduplicates inference, enforces limits and constructs diagnostics. `typesafe.js` is the fixed-endpoint, bounded HTTP client. `vault.js` handles optional passphrase encryption. `options.js` and `popup.js` provide trusted UI; `demo.js` creates fictional test posts without fake model scores.
+`core.js` defines settings validation, version-3 migration, typed request/response validation, record minimisation, route guards, cache identities with the `feed-v2.1.0` rubric namespace and the deterministic precision-first policy with named rules. `adapters.js` isolates platform-specific selectors and visible text extraction. `content.js` watches DOM changes, queues visible items, renders reversible controls and reports page progress. `background.js` validates senders, handles credentials, serialises settings/budget changes, deduplicates inference, enforces limits and constructs diagnostics. `typesafe.js` is the fixed-endpoint, bounded HTTP client. `vault.js` handles optional passphrase encryption. `options.js` and `popup.js` provide trusted UI; `demo.js` creates fictional test posts without fake model scores.
 
 The ready-made extension has no external JavaScript or runtime libraries. All assets are local. Node is a build/test convenience, not a runtime dependency.
 
@@ -12,11 +12,11 @@ The content script sends a validated record from an enabled top-level tab. Befor
 
 Per-post choices, author exceptions and explicit local ad rules can complete without an API request. Remote work requires global enablement, explicit consent, an unlocked and non-rejected key, budget availability and no active rate-limit pause.
 
-Normalised text feeds a SHA-256 cache identity. In-flight requests with the same identity share one network call. Concurrency is bounded from 1 to 12; the queue holds at most 150 pending entries. The cache holds at most 1,600 score records with a configurable time to live. The default is 6 parallel requests, 5,000 request reservations per UTC day and 120 minutes of cache lifetime.
+Normalised text feeds a SHA-256 cache identity that includes the rubric version and cache namespace, so 2.0 entries can never be served to 2.1 decisions. In-flight requests with the same identity share one network call. Concurrency is bounded from 1 to 12; the queue holds at most 150 pending entries. The cache holds at most 1,600 score records with a configurable time to live. The default is 6 parallel requests, 5,000 request reservations per UTC day and 120 minutes of cache lifetime.
 
 Budget is reserved before HTTP and persists across worker/browser restarts. Crashes can overcount reservations but do not reset the limit. This is a request cap, not a dollar cap; failed and interrupted attempts may still be billed. Rate-limited responses establish a shared bounded pause. There is no unbounded automatic retry loop. After recovery, use Rescan or visit fresh posts.
 
-HTTP requests use the fixed TypeSafe endpoint, omit ambient credentials and referrers, disallow redirects, time out after 15 seconds and reject bodies larger than 128 KiB. Errors do not echo provider response bodies. Every requested Noul answer must be a finite number in [0,1] with the correct primitive type, along with a constrained Jev model name and non-negative integer token counts.
+HTTP requests use the fixed TypeSafe endpoint, omit ambient credentials and referrers, disallow redirects, time out after 15 seconds and reject bodies larger than 128 KiB. Errors do not echo provider response bodies. Every requested Noul answer must be a finite number in [0,1] with the correct primitive type, along with a constrained Jev model name and non-negative integer token counts. The shared instruction plus eight question texts total roughly 1,800 characters (about 38% smaller than 2.0) so an ordinary post stays in the few-hundred-input-token range.
 
 ## DOM lifecycle
 
@@ -28,8 +28,8 @@ Profile context affects policy only. The extension does not crawl accounts or fe
 
 ## Diagnostics
 
-The worker constructs an allowlisted object rather than dumping storage. It contains release/rubric versions, non-secret connection flags, reduced settings, request/token counters, current page-stage counts and recent score/action metadata. It excludes the live key, encrypted vault, post text, authors, feedback hashes, raw custom questions, CSS selectors and full tab URLs. The UI initiates a JSON file download on the user's explicit click.
+The worker constructs an allowlisted object rather than dumping storage. It contains release/rubric versions, non-secret connection flags, reduced settings, request/token counters, current page-stage counts and recent score/action metadata including the matched rule name, protection flag, conflict flag and sufficiency estimate. It excludes the live key, encrypted vault, post text, authors, feedback hashes, raw custom questions, CSS selectors and full tab URLs. The UI initiates a JSON file download on the user's explicit click.
 
 ## Persistence
 
-Local storage holds versioned preferences, the daily request count, explicit hash-based post choices and optional vault ciphertext. Session storage holds the unlocked key, cached estimates, reduced decision logs and counters. Both storage areas restrict access to trusted extension contexts. Nothing uses Chrome sync storage. Removing the extension clears extension-owned storage; refresh old feed tabs to remove any already-applied DOM changes.
+Local storage holds versioned preferences (schema version 3), the daily request count, explicit hash-based post choices and optional vault ciphertext. Session storage holds the unlocked key, cached estimates, reduced decision logs and counters; its runtime state also uses version 3 so 2.0 state is ignored. Both storage areas restrict access to trusted extension contexts. Nothing uses Chrome sync storage. Removing the extension clears extension-owned storage; refresh old feed tabs to remove any already-applied DOM changes.

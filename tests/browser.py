@@ -11,12 +11,12 @@ from playwright.async_api import async_playwright
 ROOT=Path(__file__).resolve().parents[1]
 REPORT=[]
 
-def source(name): return (ROOT/'src'/name).read_text()
+def source(name): return (ROOT/'src'/name).read_text(encoding='utf-8')
 def shell(name):
-    html=(ROOT/'static'/name).read_text()
+    html=(ROOT/'static'/name).read_text(encoding='utf-8')
     html=re.sub(r'<script\b[^>]*>.*?</script>', '', html, flags=re.S)
     html=re.sub(r'<link[^>]+>', '', html)
-    html=html.replace('</head>','<style>'+(ROOT/'static/ui.css').read_text()+'</style></head>')
+    html=html.replace('</head>','<style>'+(ROOT/'static/ui.css').read_text(encoding='utf-8')+'</style></head>')
     icon=base64.b64encode((ROOT/'static/icons/48.png').read_bytes()).decode()
     return html.replace('src="icons/48.png"','src="data:image/png;base64,'+icon+'"')
 
@@ -37,13 +37,13 @@ window.chrome={runtime:{id:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',onMessage:{addList
  if(message.type==='FG_CLASSIFY'){
    const r=structuredClone(message.record),delay=H.delay,mode=H.mode;H.requests.push(r);
    if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
-   const scores={promotion:r.text.includes('BUILDER_FIXTURE')?.95:.01,spam:r.text.includes('SPAM_FIXTURE')?.99:.01,bait:r.text.includes('BAIT_FIXTURE')?.99:.01,generic:.01,value:r.text.includes('BUILDER_FIXTURE')?.9:.1,contribution:r.text.includes('BUILDER_FIXTURE')?.9:.1,risk:.01,sufficient:.99};
+   const scores={unwantedAd:r.text.includes('BUILDER_FIXTURE')?.9:.01,feedSpam:r.text.includes('SPAM_FIXTURE')?.99:.01,bait:r.text.includes('BAIT_FIXTURE')?.99:.01,lowSignal:.01,useful:r.text.includes('BUILDER_FIXTURE')?.95:.1,original:r.text.includes('BUILDER_FIXTURE')?.9:.1,risk:.01,sufficient:.99};
    const result=mode==='success'?{model:'synthetic-DOM-fixture',scores,usage:{input_tokens:0,output_tokens:0},latencyMs:delay}:null;
    return {ok:true,data:{result,decision:C.decide(r,result,H.settings,{revealed:H.kept.includes(r.id)}),...(mode==='success'?{}:{error:{code:'NETWORK',message:'Simulated offline'}})}};
  }
  if(message.type==='FG_KEEP_POST'){H.kept.push(message.record.id);H.refresh();return {ok:true,data:{saved:true}};}
  if(message.type==='FG_PAGE_STATS'){H.pages=[{...message.stats,site:'x',context:'feed'}];return {ok:true,data:{}};}
- if(message.type==='FG_DIAGNOSTICS')return {ok:true,data:{format:'feedgate-diagnostics',version:2,pages:H.pages}};
+ if(message.type==='FG_DIAGNOSTICS')return {ok:true,data:{format:'feedgate-diagnostics',version:3,pages:H.pages}};
  if(message.type==='FG_ALLOW_AUTHOR'){H.settings.allowedAuthors.push(C.authorKey('x',message.author));H.refresh();return {ok:true,data:{}};}
  if(message.type==='FG_ADD_RULE'){H.settings.cosmeticRules+='\nx.com##'+message.selector;H.refresh();return {ok:true,data:{}};}
  if(message.type==='FG_STATUS')return {ok:true,data:H.status()};
@@ -51,7 +51,7 @@ window.chrome={runtime:{id:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',onMessage:{addList
  if(message.type==='FG_SET_KEY'){H.keyReady=true;H.hasVault=message.remember;return {ok:true,data:{saved:true}};}
  if(message.type==='FG_LOCK'){H.keyReady=false;return {ok:true,data:{}};}
  if(message.type==='FG_TEST_CONNECTION'){H.verifiedAt=Date.now();return {ok:true,data:{model:'jev-fixture-only',latencyMs:1,usage:{input_tokens:0,output_tokens:0},scores:{},decision:{action:'allow',reason:'Synthetic test fixture'}}};}
- if(message.type==='FG_EXPORT_SETTINGS')return {ok:true,data:{format:'feedgate-settings',version:2,settings:{...H.settings,sites:[],consent:false}}};
+ if(message.type==='FG_EXPORT_SETTINGS')return {ok:true,data:{format:'feedgate-settings',version:3,settings:{...H.settings,sites:[],consent:false}}};
  return {ok:true,data:{}};
 }},permissions:{request:async()=>!H.permissionDenied,remove:async()=>true},tabs:{getCurrent:async()=>({id:1}),create:async()=>({id:2}),sendMessage:async(_id,m)=>H.command(m.type),query:async()=>[{id:1,url:'https://x.com/home'}]}};
 }'''
@@ -212,8 +212,8 @@ async def main():
             await pg.wait_for_function("document.querySelector('#key-badge').textContent==='Key unlocked'")
             assert await pg.locator('#api-key').input_value()==''
             await pg.locator('#consent').check();assert await pg.evaluate('harness.settings.consent') is True
-            await pg.locator('[data-page="policy"]').click();await pg.locator('[data-category-mode="spam"]').select_option('dim');await pg.locator('#policy-form button[type="submit"]').click()
-            assert await pg.evaluate('harness.settings.categories.spam.mode')=='dim'
+            await pg.locator('[data-page="policy"]').click();await pg.locator('[data-category-mode="feedSpam"]').select_option('dim');await pg.locator('#policy-form button[type="submit"]').click()
+            assert await pg.evaluate('harness.settings.categories.feedSpam.mode')=='dim'
             await pg.wait_for_timeout(250);await pg.screenshot(path=str(ROOT/'evidence/options-policy.png'),full_page=True)
             await pg.locator('[data-page="overview"]').click();await pg.locator('[data-site="x"]').click();assert 'x' in await pg.evaluate('harness.settings.sites')
             assert not errors,errors;await pg.close()
@@ -227,7 +227,7 @@ async def main():
             await pg.screenshot(path=str(ROOT/'evidence/test-feed-local.png'),full_page=True)
             await pg.locator('#demo-restore').click();await pg.wait_for_function("document.querySelectorAll('feedgate-card').length===0")
             await pg.locator('#demo-rescan').click();await pg.wait_for_function("document.querySelectorAll('feedgate-card').length===1")
-            await pg.locator('#add-post').click();assert await pg.locator('article').count()==8
+            await pg.locator('#add-post').click();assert await pg.locator('article').count()==12
             assert not errors,errors;await pg.close()
         await run_case('test-feed UI supports Show all, Rescan and new posts without live inference',demo_ui)
         async def popup_ui():
@@ -252,7 +252,7 @@ async def main():
             assert 'Running' in await pg.locator('feedgate-status').locator('button').inner_text()
             await pg.screenshot(path=str(ROOT/'evidence/fixture-useful-promotion.png'),full_page=True)
             await pg.close()
-        await run_case('v2 protects useful promotion and reports progress in the on-page HUD',useful_promotion)
+        await run_case('2.1 protects useful promotion and reports progress in the on-page HUD',useful_promotion)
 
         async def profile_softening():
             pg=await fixture(browser,tweet('spam','SPAM_FIXTURE'),url='https://x.com/builder')
@@ -345,7 +345,7 @@ async def main():
             await pg.locator('#export-diagnostics').click()
             await pg.wait_for_function('window.savedBlobs.length===1')
             data=await pg.evaluate('async()=>JSON.parse(await window.savedBlobs[0].text())')
-            assert data['format']=='feedgate-diagnostics' and data['version']==2
+            assert data['format']=='feedgate-diagnostics' and data['version']==3
             assert not errors,errors
             await pg.screenshot(path=str(ROOT/'evidence/diagnostics-fixture.png'),full_page=True)
             await pg.close()
@@ -377,10 +377,10 @@ async def main():
 
         await browser.close()
     report={'scope':'Real Chromium DOM; mocked Chrome APIs, page location and Jev responses. No extension installed; no live API or signed-in feeds tested.','browser':version,'results':REPORT,'passed':sum(r['status']=='PASS' for r in REPORT)}
-    (ROOT/'evidence/browser-dom-tests.json').write_text(json.dumps(report,indent=2)+'\n')
+    (ROOT/'evidence/browser-dom-tests.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
     print(json.dumps({'passed':report['passed'],'browser':version}))
 
 if __name__=='__main__':
     try:asyncio.run(main())
     finally:
-        if any(r['status']=='FAIL' for r in REPORT):(ROOT/'evidence/browser-dom-failure.json').write_text(json.dumps(REPORT,indent=2))
+        if any(r['status']=='FAIL' for r in REPORT):(ROOT/'evidence/browser-dom-failure.json').write_text(json.dumps(REPORT,indent=2),encoding='utf-8')

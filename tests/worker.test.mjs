@@ -19,13 +19,13 @@ test('enabled site registers only isolated, top-frame, local content scripts',as
  const w=await createWorker();await w.enable();assert.equal(w.registrations.length,1);assert.equal(w.registrations[0].world,'ISOLATED');assert.equal(w.registrations[0].allFrames,false);assert.deepEqual(w.registrations[0].js,['core.js','adapters.js','content.js']);
 });
 test('successful inference uses correct API schema and does not retain raw post text',async()=>{
- const w=await createWorker();await w.enable();const r=await w.classify(post('SPAM_FIXTURE raw-private-marker'));assert.equal(r.decision.action,'collapse');assert.equal(w.calls.length,1);assert.equal(w.calls[0].body.questions.spam.type,'noul');assert.equal(w.calls[0].headers.Authorization,'Bearer dummy-worker-test-key');await sleep(120);assert.ok(!JSON.stringify(w.local).includes('raw-private-marker'));assert.ok(!JSON.stringify(w.session.runtimeState).includes('raw-private-marker'));assert.ok(!JSON.stringify(w.events).includes('dummy-worker-test-key'));
+ const w=await createWorker();await w.enable();const r=await w.classify(post('SPAM_FIXTURE raw-private-marker'));assert.equal(r.decision.action,'collapse');assert.equal(w.calls.length,1);assert.equal(w.calls[0].body.questions.feedSpam.type,'noul');assert.equal(w.calls[0].headers.Authorization,'Bearer dummy-worker-test-key');await sleep(120);assert.ok(!JSON.stringify(w.local).includes('raw-private-marker'));assert.ok(!JSON.stringify(w.session.runtimeState).includes('raw-private-marker'));assert.ok(!JSON.stringify(w.events).includes('dummy-worker-test-key'));
 });
 test('simultaneous identical inference is coalesced; later reads use cache',async()=>{
  const w=await createWorker();await w.enable();w.setDelay(35);const results=await Promise.all(Array.from({length:8},()=>w.classify()));assert.equal(results.length,8);assert.equal(w.calls.length,1);const r=await w.classify();assert.equal(r.cached,true);assert.equal(w.calls.length,1);
 });
 test('changing policy reuses probabilities, but changing rubric input calls API',async()=>{
- const w=await createWorker();await w.enable();await w.classify(post('SPAM_FIXTURE'));await w.ok({type:'FG_PATCH_SETTINGS',patch:{categories:{spam:{mode:'off'}}}});const r=await w.classify(post('SPAM_FIXTURE'));assert.equal(r.cached,true);assert.equal(r.decision.action,'allow');await w.ok({type:'FG_PATCH_SETTINGS',patch:{customInstruction:'Irrelevant promotions'}});await w.classify(post('SPAM_FIXTURE'));assert.equal(w.calls.length,2);
+ const w=await createWorker();await w.enable();await w.classify(post('SPAM_FIXTURE'));await w.ok({type:'FG_PATCH_SETTINGS',patch:{categories:{feedSpam:{mode:'off'}}}});const r=await w.classify(post('SPAM_FIXTURE'));assert.equal(r.cached,true);assert.equal(r.decision.action,'allow');await w.ok({type:'FG_PATCH_SETTINGS',patch:{customInstruction:'Irrelevant promotions'}});await w.classify(post('SPAM_FIXTURE'));assert.equal(w.calls.length,2);
 });
 test('cache can be disabled for every new observation',async()=>{
  const w=await createWorker();await w.enable({cacheMinutes:0});await w.classify();await w.classify();assert.equal(w.calls.length,2);

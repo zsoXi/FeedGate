@@ -1,4 +1,4 @@
-# FeedGate 2.0: start here
+# FeedGate 2.1: start here
 
 **This release has no terminal, no local bridge and no pairing code.** Do not run any file from version 0.1. You need Chrome and your own direct TypeSafe key.
 
@@ -32,17 +32,21 @@ You cannot simultaneously promise secure passphrase encryption and automatic unl
 
 ## New filtering
 
-The starting **Balanced** mode does not hide a post merely because it promotes a project. It separately assesses useful information, concrete contribution, spam, empty engagement bait and signs of a suspicious offer. High information value does not confirm the truth of the claims.
+The starting **Balanced** mode does not hide a post merely because it promotes a project or a release. It separately assesses unwanted advertising, feed spam, manipulative engagement bait, low-signal filler, useful information, original contribution and signs of a suspicious offer. High information value does not confirm the truth of the claims.
+
+The unwanted-advertising category only acts together with high spam signals and low usefulness. A clearly useful or original post stays visible even when promotional signals are high; only risk, your own exclusion rule or overwhelmingly strong spam evidence override that protection.
 
 On a deliberately opened profile, ordinary semantic spam is by default only dimmed. Platform-labelled ads, your own explicit rule and strong signs of fraudulent solicitation do not get that exception.
 
 **Show** restores a post temporarily. **Why? → Keep this post** stores an exception for that particular visible post. **Allow author** adds the whole profile to the local exception list. There is no automatic account reputation or bot blacklist. **Alt + Shift + F** reveals or refilters the current page.
 
+Upgrading from 2.0? Your key, allowlist, saved post choices and local rules are kept, but old thresholds and cached judgments are deliberately not reused. See [docs/MIGRATION.md](docs/MIGRATION.md).
+
 ## When something does not work
 
 There is a small FeedGate bar with status and counters at the bottom left of the page. Clicking it opens the settings.
 
-Go to **Diagnostics → Export diagnostics**. This produces a `feedgate-2.0-diagnostics-....json` file that you can pass on for review. It contains no API key, vault, post text, author names, full page URLs or the text of your own rule.
+Go to **Diagnostics → Export diagnostics**. This produces a `feedgate-2.1-diagnostics-....json` file that you can pass on for review. It contains no API key, vault, post text, author names, full page URLs or the text of your own rule.
 
 | Status | Meaning |
 | --- | --- |
@@ -57,7 +61,7 @@ Changing thresholds uses existing scores and recalculates decisions. **You do no
 
 ## What is verified
 
-110 Node tests and 31 Chromium DOM/UI scenarios passed. Jev responses and extension interfaces were replaced by controlled test implementations. Your key was not used and no test was run on the current, signed-in X. The build environment blocks extension installation; its limits were not bypassed.
+99 Node tests and 31 Chromium DOM/UI scenarios passed. Jev responses and extension interfaces were replaced by controlled test implementations. Your key was not used and no test was run on the current, signed-in X. The build environment blocks extension installation; its limits were not bypassed.
 
 This is a package ready for you to test, not a certificate of flawlessness. The model can still misjudge a specific post. **Open live test feed** contains fictional examples, but once key and consent are enabled it uses the real API, not fake percentages.
 

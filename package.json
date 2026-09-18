@@ -1,8 +1,8 @@
 {
   "name": "feedgate",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
-  "description": "A zero-dependency Chrome feed filter with live TypeSafe Jev judgments and reversible cosmetic filtering.",
+  "description": "A zero-dependency Chrome feed filter with a precision-first TypeSafe Jev policy and reversible cosmetic filtering.",
   "type": "module",
   "license": "GPL-3.0-or-later",
   "scripts": {

@@ -1,4 +1,4 @@
-PASS local sponsored collapse, explanation and trusted Show click
+﻿PASS local sponsored collapse, explanation and trusted Show click
 PASS mock semantic scores cause collapse/dim; useful post remains visible
 PASS MutationObserver detects appended feed posts
 PASS recycled node ignores old in-flight spam result
@@ -18,7 +18,7 @@ PASS back-forward-cache lifecycle refreshes observers on pageshow
 PASS options UI renders, clears key input and saves preferences through mocked messaging
 PASS test-feed UI supports Show all, Rescan and new posts without live inference
 PASS toolbar popup renders and controls pause through mocked Chrome APIs
-PASS v2 protects useful promotion and reports progress in the on-page HUD
+PASS 2.1 protects useful promotion and reports progress in the on-page HUD
 PASS an opened X profile dims ordinary semantic noise instead of collapsing it
 PASS quoted text stays separate, main author stays correct and Show more is not clicked
 PASS Keep this post survives a rescan without allowlisting the author
@@ -29,4 +29,4 @@ PASS presets apply and diagnostic JSON export is constructed through the UI
 PASS settings and policy pages fit a narrow 390px viewport
 PASS display names containing Ad or Sponsored are not platform ad markers
 PASS a sponsored marker inside a quoted post does not label the outer post as an ad
-{"passed": 31, "browser": "144.0.7559.96"}
+{"passed": 31, "browser": "151.0.7922.34"}
