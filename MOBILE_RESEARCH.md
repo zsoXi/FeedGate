@@ -157,4 +157,34 @@ Open questions to resolve before implementation (each is a small spike):
 
 ---
 
+## Follow-up (2026-09-19): Chrome-only options on phones
+
+Owner decision: stay Chrome-only, no Firefox/Safari. What that leaves:
+
+### Android
+- **Chrome for Android: no extension support** in stable (confirmed mid-2026; Google's own help notes only "very limited/experimental" progress, with no usable flags found). Not a target.
+- **Vivaldi for Android (Chromium): full Chrome Web Store extension support, rolling out September 2026** — the closest thing to "Chrome with extensions" on Android. FeedGate (MV3, CWS-compatible manifest) is a realistic candidate once it is published to the Chrome Web Store or loaded through Vivaldi's extension UI. Strongest Android path; needs a device spike, not a port.
+- Other Chromium forks with extension support (test targets only): Edge Canary (dev options, install by ID), Quetta, Helium.
+- **Bookmarklet route in Chrome for Android**: bookmarklets can be executed by typing the bookmark's name in the omnibox and tapping the suggestion (Google community guidance; fragile across builds). A "FeedGate Lite" bookmarklet could scan visible posts, call TypeSafe and hide matches locally. Open risks: page CSP may block bookmarklets on some sites; the API call from the page origin requires CORS on api.typesafe.ai (unverified — needs a spike).
+
+### iPhone
+- Chrome for iOS runs WebKit and **cannot run extensions**; only Safari can (Safari Web Extensions). Chrome-only means **no automatic in-feed filtering on iPhone**.
+- What still works in Chrome iOS: a **bookmarklet executed from the bookmarks panel** (same CSP/CORS caveats), and **Share → Shortcuts/PWA analyzer** flows (manual: share a post link, the tool returns Jev verdicts — no changes to the feed itself).
+
+### Cross-platform companion (no injection)
+- A small **FeedGate analyzer PWA** installable from Chrome mobile: paste a post or share a URL, see the same scores/rules; on Android it can register as a Web Share Target; on iOS the share flow goes through Shortcuts. Useful as a lookup tool, but it never modifies the feed.
+
+### Recommendation
+1. iPhone: accept no auto-filter in Chrome; offer the analyzer/bookmarklet path only if the owner wants it.
+2. Android: spike FeedGate on **Vivaldi Android** (unpacked if possible, or publish to CWS for a real install). If it runs, Android coverage arrives with ~zero porting.
+3. Keep the earlier cross-browser plan (Phase 0 refactor, `browser.*` alias) as a low-cost option — it also makes a future CWS listing and Chromium-fork support easier.
+
+### Open questions to verify on hardware
+- Vivaldi Android: unpacked extension loading? CWS-only? MV3 service-worker lifetime and storage.session behavior.
+- Chrome Android omnibox bookmarklet still functional in current builds; CSP behavior on X/Reddit/Wykop mobile.
+- api.typesafe.ai CORS for page-origin (bookmarklet/PWA) requests.
+- Chrome iOS bookmarklet execution from the bookmarks panel.
+
+---
+
 *This document is analysis only. No FeedGate code was changed.*
