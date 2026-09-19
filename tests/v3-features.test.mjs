@@ -55,7 +55,7 @@ test('only active rules matching the host apply, and the master switch stops all
 
 test('legacy settings migrate to HUD modes and quarantined cosmetic review',()=>{
   const hidden=C.migrateSettings({version:3,showStatus:false,cosmeticRules:'x.com##.ad'});
-  assert.equal(hidden.version,4);
+  assert.equal(hidden.version,5);
   assert.equal(hidden.hudMode,'hidden');
   assert.equal(hidden.cosmeticFilters.rules.length,1);
   assert.equal(hidden.cosmeticFilters.rules[0].status,'quarantined');
@@ -269,8 +269,8 @@ test('site status reports honest reasons, revisions and effective flags',async()
 test('exports are v4 while imports re-quarantine unverified rules and reject v1',async()=>{
   const w=await createWorker();
   const exported=await w.ok({type:'FG_EXPORT_SETTINGS'});
-  assert.equal(exported.version,4);
-  const data={format:'feedgate-settings',version:4,settings:{...base(),cosmeticFilters:{version:3,revision:0,rules:[
+  assert.equal(exported.version,5);
+   const data={format:'feedgate-settings',version:4,settings:{...base(),version:4,cosmeticFilters:{version:3,revision:0,rules:[
     rule({id:'r-keep0001',selector:'.keep',validatedAt:5}),
     rule({id:'r-review01',selector:'.review',validatedAt:0})
   ]}}};

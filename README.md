@@ -1,10 +1,10 @@
-# FeedGate 3.0.1
+# FeedGate 3.1.1
 
 A Chrome extension that uses TypeSafe Jev to reduce feed noise without hiding ordinary organic content. A post being promotional is not treated as a reason to filter it. Filtering is reversible, the rules are explicit, and the API key is entered inside the extension.
 
 **Personal-use preview. No terminal, bridge, pairing code or external server is required.**
 
-![FeedGate 3.0.1 setup interface, captured using a browser test fixture](evidence/options-overview.png)
+![FeedGate 3.1.1 setup interface, captured using a browser test fixture](evidence/options-overview.png)
 
 ## Install the ready-made extension
 
@@ -15,6 +15,15 @@ In FeedGate, enter a direct TypeSafe API key, grant cloud-analysis consent, and 
 The ready-made extension does not need Node, Python, npm, a local service, or an installer executable. Chrome 120 or later is declared in the manifest. Managed browsers may prohibit unpacked extensions; do not work around administrator policy.
 
 For a short step-by-step walkthrough, open [START_HERE.html](START_HERE.html), [START_HERE.md](START_HERE.md) or the Polish [START_TUTAJ_PL.md](START_TUTAJ_PL.md). Upgrading from 2.x: read [docs/MIGRATION.md](docs/MIGRATION.md).
+
+## What changed in 3.1
+
+Version 3.1 adds two user controls and changes no model, rubric or threshold:
+
+* **Mute author.** Every filter card offers **Mute author** beside **Allow author**. Muting hides that author's posts on that platform deterministically — no provider request, rule `author_muted`, source `author` — and the list is local, capped, mutually exclusive with the allow list and fully revertible from Settings → Muted authors. A post you explicitly kept still wins over the mute list, and cosmetic rules are unaffected.
+* **A clearer exception rule.** The custom instruction is now a first-class **My exception rule (optional)** panel with a live character counter and a status badge, plus plain fine print: it is a hint the model may ignore, it is sent with every cloud request even when the `Your exclusion rule` category is Off (which costs tokens), and secrets must never go there. Diagnostics still report only a boolean, never the text.
+* **Author controls in the status panel (3.1.1).** The expanded panel now has **Mute author…** and **Allow author…** beside **Pick element**: click a post, see a preview naming the author, save with **Undo** in the toast, or cancel with Escape with nothing saved. Both directions reuse the same deterministic local lists as the filter cards.
+* **Policy `policy-3.1.0`, settings schema 5, diagnostics schema 6.** One new precedence row (`author_muted`) before all semantic branches; the settings schema gains `blockedAuthors` and migrates 3.0.x settings automatically; diagnostics add `mutedAuthorCount` (a count only). Runtime state stays version 5, so a 3.0.x session still restores its cache and counters.
 
 ## What changed in 3.0
 
@@ -57,7 +66,7 @@ The 2.1.1 repair removes the remaining ways an ordinary post could be hidden by 
 
 The policy thresholds were not lowered, Low-signal filler remains off by default, and the sufficiency guard is unchanged.
 
-**Show** temporarily restores a post. **Keep this post** stores a local hash-based exception for that particular visible post. **Allow author** is a deliberate, platform-specific exception. **Alt + Shift + F** reveals or refilters the current page. Explicit CSS rules and a small element picker remain available for local cosmetic filtering.
+**Show** temporarily restores a post. **Keep this post** stores a local hash-based exception for that particular visible post. **Allow author** and **Mute author** are deliberate, platform-specific lists (mutually exclusive). **Alt + Shift + F** reveals or refilters the current page. Explicit cosmetic rules and a small element picker remain available for local cosmetic filtering.
 
 The on-page status panel and Diagnostics screen separate detection, pending work, returned judgments, local cosmetic actions and filtering. **Export diagnostics** produces a structured JSON file without keys, vault ciphertext, post text, authors, custom rule text, raw cosmetic selectors, stored post hashes or full browsing URLs. Recovery steps are documented in [docs/RECOVERY.md](docs/RECOVERY.md).
 
@@ -90,9 +99,9 @@ Cloud opt-in allows visible extracted post text, visible quote text, accessible 
 
 ## Honest test status
 
-The packaged evidence records **139 passing Node tests**, **59 passing Chromium DOM/UI scenarios**, a **7-check unpacked-extension smoke test** and **8 release integrity checks**. Unit tests execute the actual policy, HTTP client, vault and worker source; worker tests replace Chrome APIs and HTTP with controlled implementations. Browser tests execute the actual DOM and UI code with mocked Chrome messaging, page location and Jev responses. The smoke test loads the real `extension/` folder in a local Chromium profile.
+The packaged evidence records **143 passing Node tests**, **61 passing Chromium DOM/UI scenarios**, a **7-check unpacked-extension smoke test** and **8 release integrity checks**. Unit tests execute the actual policy, HTTP client, vault and worker source; worker tests replace Chrome APIs and HTTP with controlled implementations. Browser tests execute the actual DOM and UI code with mocked Chrome messaging, page location and Jev responses. The smoke test loads the real `extension/` folder in a local Chromium profile.
 
-The suites include the 25 precision-first regression cases, the 2.1.1 ad-evidence contracts, the v3 control/safety cases (HUD modes, recovery without a responsive content script, permission and site states, transactional picker guards, rule management and revisions, loop containment, Wykop fixtures) and three real privacy-safe diagnostic exports used only to replay recorded counts.
+The suites include the 25 precision-first regression cases, the 2.1.1 ad-evidence contracts, the v3 control/safety cases (HUD modes, recovery without a responsive content script, permission and site states, transactional picker guards, rule management and revisions, loop containment, Wykop fixtures) and the 3.1 author-mute and exception-panel cases, plus three real privacy-safe diagnostic exports used only to replay recorded counts.
 
 **No real TypeSafe key was used for this release and no signed-in feed was accessed or measured.** The unpacked extension was loaded from `extension/` in a local Chromium profile by the smoke test, but managed installation remains blocked in the build environment, so live-provider classification accuracy stays unmeasured. No administrator policies were changed. These are implementation regression tests, not a measured improvement in live classification accuracy or an independent security audit.
 

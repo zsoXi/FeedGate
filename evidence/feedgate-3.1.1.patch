@@ -1,0 +1,1219 @@
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,3 +1,26 @@
+ # Changelog
++
++## 3.1.1
++
++Status-panel author controls. No model, rubric, threshold, detector, extraction or schema change; settings schema 5, runtime state 5, diagnostics schema 6 and policy `policy-3.1.0` are unchanged.
++
++* **Author actions where you browse.** The expanded status panel now offers **Mute author…** and **Allow author…** next to **Pick element**. Hovering highlights the post under the pointer; clicking one shows a preview that names the author and states that this local choice makes no model request; saving runs the same deterministic `author_muted` / `author_allowlisted` branch as the filter cards.
++* **Undo for both directions.** The confirmation toast offers **Undo**, which sends `FG_FORGET_AUTHOR` — a new content-callable message that removes the author from the mute and allow lists without adding the opposite entry. Escape or the Cancel button abandons the selection with nothing saved.
++* **Tests.** A new worker case covers the forget round trip (both lists cleared, the post needs the model again), and a Chromium scenario (`PANEL01`) mutes and unmutes an author from the panel, checks the preview text, and confirms the muted author is never re-sent to the model.
++
++Validation: 143 Node tests, 61 Chromium DOM/UI scenarios, a 7-check unpacked-extension smoke test and 8 release integrity checks passed locally. All fixtures are synthetic except the three real privacy-safe diagnostics exports used only for count replay. Live provider, signed-in-site and live Wykop validation remain manual gates and are reported as not performed.
++
++## 3.1.0
++
++User controls, not model changes. No rubric, threshold, detector or extraction change; the semantic policy gains exactly one deterministic local branch.
++
++* **Mute author.** Every filter card now offers **Mute author** next to **Allow author**. Muting hides that author's posts on that platform only, deterministically and without any provider request (the decision rule is `author_muted`, source `author`). The mute list is local, capped at 500 entries, mutually exclusive with the allow list, and fully reversible: unmute in FeedGate settings or via a settings export round-trip. A post you explicitly kept with **Keep this post** still wins over the mute list, and cosmetic rules are unaffected.
++* **Clearer exception rule.** The custom instruction is now a first-class **My exception rule (optional)** panel with a live character counter and a status badge. The fine print states plainly that it is a hint for the model rather than a guaranteed filter, that it is sent as an extra question with every cloud request even when the `Your exclusion rule` category is Off (which costs tokens), and that secrets must never be placed there. Diagnostics still report only a boolean, never the text.
++* **Policy `policy-3.1.0`.** One new precedence row: a muted author collapses before verified ads and all semantic branches. Nothing else in the decision table changed.
++* **Settings schema 5.** Adds `blockedAuthors`; a 3.0.1 (version 4) settings object migrates automatically, keeping cosmetic rules and revisions. Runtime state stays version 5, so a 3.0.1 session still restores its cache and counters.
++* **Diagnostics schema 6.** Adds `settings.mutedAuthorCount` (count only) and the `author_muted` rule with source `author` in decision entries. Settings exports are now version 5; imports accept v5/v4/v3/v2 and reject v1.
++* **Tests.** New cases cover the mute branch end to end: policy precedence and observe-mode wrapping, keep-this-post winning, mutual exclusion on allow/mute, list bounds, v4→v5 migration, zero provider requests for muted authors, muted-author counts in diagnostics, and a Chromium scenario that mutes an author from a filter card and confirms the hidden post returns after unmuting.
++
++Validation: 142 Node tests, 60 Chromium DOM/UI scenarios, a 7-check unpacked-extension smoke test and 8 release integrity checks passed locally. All fixtures are synthetic except the three real privacy-safe diagnostics exports used only for count replay. Live provider, signed-in-site and live Wykop validation remain manual gates and are reported as not performed.
+ 
+ ## 3.0.1
+
+--- a/README.md
++++ b/README.md
+--- a/README.md
++++ b/README.md
+@@ -1,3 +1,3 @@
+-# FeedGate 3.0.1
++# FeedGate 3.1.1
+ 
+ A Chrome extension that uses TypeSafe Jev to reduce feed noise without hiding ordinary organic content. A post being promotional is not treated as a reason to filter it. Filtering is reversible, the rules are explicit, and the API key is entered inside the extension.
+@@ -5,5 +5,5 @@
+ **Personal-use preview. No terminal, bridge, pairing code or external server is required.**
+ 
+-![FeedGate 3.0.1 setup interface, captured using a browser test fixture](evidence/options-overview.png)
++![FeedGate 3.1.1 setup interface, captured using a browser test fixture](evidence/options-overview.png)
+ 
+ ## Install the ready-made extension
+@@ -16,4 +16,13 @@
+ 
+ For a short step-by-step walkthrough, open [START_HERE.html](START_HERE.html), [START_HERE.md](START_HERE.md) or the Polish [START_TUTAJ_PL.md](START_TUTAJ_PL.md). Upgrading from 2.x: read [docs/MIGRATION.md](docs/MIGRATION.md).
++
++## What changed in 3.1
++
++Version 3.1 adds two user controls and changes no model, rubric or threshold:
++
++* **Mute author.** Every filter card offers **Mute author** beside **Allow author**. Muting hides that author's posts on that platform deterministically — no provider request, rule `author_muted`, source `author` — and the list is local, capped, mutually exclusive with the allow list and fully revertible from Settings → Muted authors. A post you explicitly kept still wins over the mute list, and cosmetic rules are unaffected.
++* **A clearer exception rule.** The custom instruction is now a first-class **My exception rule (optional)** panel with a live character counter and a status badge, plus plain fine print: it is a hint the model may ignore, it is sent with every cloud request even when the `Your exclusion rule` category is Off (which costs tokens), and secrets must never go there. Diagnostics still report only a boolean, never the text.
++* **Author controls in the status panel (3.1.1).** The expanded panel now has **Mute author…** and **Allow author…** beside **Pick element**: click a post, see a preview naming the author, save with **Undo** in the toast, or cancel with Escape with nothing saved. Both directions reuse the same deterministic local lists as the filter cards.
++* **Policy `policy-3.1.0`, settings schema 5, diagnostics schema 6.** One new precedence row (`author_muted`) before all semantic branches; the settings schema gains `blockedAuthors` and migrates 3.0.x settings automatically; diagnostics add `mutedAuthorCount` (a count only). Runtime state stays version 5, so a 3.0.x session still restores its cache and counters.
+ 
+ ## What changed in 3.0
+@@ -58,5 +67,5 @@
+ The policy thresholds were not lowered, Low-signal filler remains off by default, and the sufficiency guard is unchanged.
+ 
+-**Show** temporarily restores a post. **Keep this post** stores a local hash-based exception for that particular visible post. **Allow author** is a deliberate, platform-specific exception. **Alt + Shift + F** reveals or refilters the current page. Explicit CSS rules and a small element picker remain available for local cosmetic filtering.
++**Show** temporarily restores a post. **Keep this post** stores a local hash-based exception for that particular visible post. **Allow author** and **Mute author** are deliberate, platform-specific lists (mutually exclusive). **Alt + Shift + F** reveals or refilters the current page. Explicit cosmetic rules and a small element picker remain available for local cosmetic filtering.
+ 
+ The on-page status panel and Diagnostics screen separate detection, pending work, returned judgments, local cosmetic actions and filtering. **Export diagnostics** produces a structured JSON file without keys, vault ciphertext, post text, authors, custom rule text, raw cosmetic selectors, stored post hashes or full browsing URLs. Recovery steps are documented in [docs/RECOVERY.md](docs/RECOVERY.md).
+@@ -91,7 +100,7 @@
+ ## Honest test status
+ 
+-The packaged evidence records **139 passing Node tests**, **59 passing Chromium DOM/UI scenarios**, a **7-check unpacked-extension smoke test** and **8 release integrity checks**. Unit tests execute the actual policy, HTTP client, vault and worker source; worker tests replace Chrome APIs and HTTP with controlled implementations. Browser tests execute the actual DOM and UI code with mocked Chrome messaging, page location and Jev responses. The smoke test loads the real `extension/` folder in a local Chromium profile.
++The packaged evidence records **143 passing Node tests**, **61 passing Chromium DOM/UI scenarios**, a **7-check unpacked-extension smoke test** and **8 release integrity checks**. Unit tests execute the actual policy, HTTP client, vault and worker source; worker tests replace Chrome APIs and HTTP with controlled implementations. Browser tests execute the actual DOM and UI code with mocked Chrome messaging, page location and Jev responses. The smoke test loads the real `extension/` folder in a local Chromium profile.
+ 
+-The suites include the 25 precision-first regression cases, the 2.1.1 ad-evidence contracts, the v3 control/safety cases (HUD modes, recovery without a responsive content script, permission and site states, transactional picker guards, rule management and revisions, loop containment, Wykop fixtures) and three real privacy-safe diagnostic exports used only to replay recorded counts.
++The suites include the 25 precision-first regression cases, the 2.1.1 ad-evidence contracts, the v3 control/safety cases (HUD modes, recovery without a responsive content script, permission and site states, transactional picker guards, rule management and revisions, loop containment, Wykop fixtures) and the 3.1 author-mute and exception-panel cases, plus three real privacy-safe diagnostic exports used only to replay recorded counts.
+ 
+ **No real TypeSafe key was used for this release and no signed-in feed was accessed or measured.** The unpacked extension was loaded from `extension/` in a local Chromium profile by the smoke test, but managed installation remains blocked in the build environment, so live-provider classification accuracy stays unmeasured. No administrator policies were changed. These are implementation regression tests, not a measured improvement in live classification accuracy or an independent security audit.
+
+--- a/START_HERE.html
++++ b/START_HERE.html
+--- a/START_HERE.html
++++ b/START_HERE.html
+@@ -1,13 +1,13 @@
+ <!doctype html>
+-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FeedGate 3.0.1 | Start here</title><style>
++<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FeedGate 3.1.1 | Start here</title><style>
+ *{box-sizing:border-box}body{margin:0;background:#f1f2ea;color:#172018;font:17px/1.65 system-ui,sans-serif}main{max-width:980px;margin:0 auto;padding:54px 24px}header{border-bottom:1px solid #c4cab9;padding-bottom:26px}.tag{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#4f6138}h1{font-size:clamp(34px,6vw,64px);line-height:1.1;margin:15px 0}h2{font-size:24px;margin:0 0 12px}p{max-width:800px}article{background:#fff;border:1px solid #d6daca;padding:24px;margin:18px 0;border-radius:14px}.number{background:#d8fb81;border-radius:7px;padding:4px 12px;margin-right:8px}code{background:#edf0e7;border-radius:4px;padding:3px 7px;overflow-wrap:anywhere}a{color:#3e591e;text-underline-offset:3px}.notice{background:#e3ead8}.small{font-size:14px;color:#53604a}.key{color:#923c20}footer{margin-top:26px;border-top:1px solid #c4cab9;padding-top:20px}kbd{border:1px solid #a6b29d;border-radius:4px;padding:2px 6px}img{max-width:100%;border:1px solid #d6daca;border-radius:14px}
+-</style></head><body><main><header><div class="tag">FeedGate 3.0.1 / personal-use preview</div><h1>No terminal.<br>No pairing.</h1><p>A ready-made Chrome extension. The TypeSafe connection happens directly from the browser. Do not run the old START-FEEDGATE.cmd. You do not need Node, Python or a local server.</p></header>
+-<article><h2><span class="number">1</span>Extract the whole package</h2><p>Choose a permanent folder, for example <code>D:\FeedGate-3.0.1</code>. Do not run the extension directly from the ZIP. The folder must stay on disk after installation.</p></article>
++</style></head><body><main><header><div class="tag">FeedGate 3.1.1 / personal-use preview</div><h1>No terminal.<br>No pairing.</h1><p>A ready-made Chrome extension. The TypeSafe connection happens directly from the browser. Do not run the old START-FEEDGATE.cmd. You do not need Node, Python or a local server.</p></header>
++<article><h2><span class="number">1</span>Extract the whole package</h2><p>Choose a permanent folder, for example <code>D:\FeedGate-3.1.1</code>. Do not run the extension directly from the ZIP. The folder must stay on disk after installation.</p></article>
+ <article><h2><span class="number">2</span>Load the extension folder</h2><p>In the Chrome address bar, type <code>chrome://extensions</code>. Enable <b>Developer mode</b>, click <b>Load unpacked</b> and select the <code>extension</code> subfolder. This is where <code>manifest.json</code> lives.</p><p class="small">Chrome 120 or later is required. If an administrator blocks extension installation, do not work around that block.</p></article>
+ <article><h2><span class="number">3</span>Key, consent, Connect &amp; start</h2><p>Open the FeedGate settings. In the <b>Connect once and start browsing</b> form, paste your direct <b>TypeSafe API key</b>. Tick the consent to send extracted post text to TypeSafe, leave <b>All six supported feeds</b> selected and click <b>Connect &amp; start</b>. Accept the single Chrome prompt for the origins you keep selected; declining it leaves those sites off.</p><p>The extension makes one real request on a fictional post and then starts filtering. That test may be billed according to the provider's pricing.</p><p class="key"><b>Do not paste the key into a chat.</b> A Vercel Gateway key and the old pairing code do not replace a TypeSafe key.</p></article>
+-<article><h2><span class="number">4</span>Refresh the tab and scroll</h2><p>After removing an older add-on, refresh the open tab. Start with <b>Balanced</b> mode. A small status pill shows detected items, pending analysis and filtering; click it to expand, and use minimize or close to hide it. <b>Hiding the panel never pauses filtering</b> and the popup can always reopen it.</p><p><b>Show</b> restores a post temporarily. <b>Keep this post</b> stores an exception for that entry. <b>Allow author</b> adds the author to the local exception list. <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd> reveals posts in the tab. The popup also offers <b>Restore this site</b>, <b>Disable cosmetic filters</b> and <b>Reload this tab with filtering paused</b> for a stuck page.</p></article>
++<article><h2><span class="number">4</span>Refresh the tab and scroll</h2><p>After removing an older add-on, refresh the open tab. Start with <b>Balanced</b> mode. A small status pill shows detected items, pending analysis and filtering; click it to expand, and use minimize or close to hide it. <b>Hiding the panel never pauses filtering</b> and the popup can always reopen it.</p><p><b>Show</b> restores a post temporarily. <b>Keep this post</b> stores an exception for that entry. <b>Allow author</b> adds the author to the local exception list; <b>Mute author</b> hides that author's posts on this platform deterministically (revertible in Settings → Muted authors). <b>Mute author…</b> in the expanded panel works the same way on any post you click, with a preview and Undo. <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd> reveals posts in the tab. The popup also offers <b>Restore this site</b>, <b>Disable cosmetic filters</b> and <b>Reload this tab with filtering paused</b> for a stuck page.</p></article>
+ <article class="notice"><h2>What about after a Chrome restart?</h2><p>By default the key is available only in the browser session. To avoid retyping the key, tick <b>Save an encrypted copy on this device</b> and set your own passphrase, at least 12 characters. After a Chrome restart you unlock it with that passphrase in <b>API &amp; privacy</b>.</p><p>There is no terminal and no new pairing code. The vault passphrase is not stored or recovered. Losing the passphrase means entering the key again.</p></article>
+ <article><h2>When something does not work</h2><p>Open <b>Diagnostics → Export diagnostics</b>. This produces a JSON file with counters, per-site states, cosmetic activity and safe error codes. It contains no key, post text, author names or raw cosmetic selectors. Review the file before sharing it, especially publicly.</p><p><b>Observe only</b> mode records intended decisions without hiding. Jev errors do not create a hide decision; independent local rules can still act.</p></article>
+-<article><h2>Scope of this release</h2><p>X and Reddit are the primary adapters. LinkedIn, Facebook, Instagram and Wykop (beta) are secondary and stay off until you grant access. Text and available media descriptions are analysed, not images or videos. Wykop promotion notes are treated as ambiguous: nothing is auto-hidden by an old or unverified placement. This is a feed appearance filter, not a full network blocker.</p><p>139 Node tests, 59 Chromium DOM/UI scenarios, a 7-check unpacked-extension smoke test and 8 release integrity checks passed. API responses and browser interfaces were controlled in tests; the smoke test loaded the real extension folder in a local Chromium profile. No test used a real key, a signed-in feed or a live Wykop page.</p></article>
+-<footer><a href="START_HERE.md">Full instructions</a> · <a href="START_TUTAJ_PL.md">Polska instrukcja</a> · <a href="README.md">Code and architecture</a> · <a href="docs/TESTING.md">Test report</a></footer><p class="small">FeedGate 3.0.1 / GPL-3.0-or-later / full sources included. No EXE installer is needed.</p>
++<article><h2>Scope of this release</h2><p>X and Reddit are the primary adapters. LinkedIn, Facebook, Instagram and Wykop (beta) are secondary and stay off until you grant access. Text and available media descriptions are analysed, not images or videos. Wykop promotion notes are treated as ambiguous: nothing is auto-hidden by an old or unverified placement. This is a feed appearance filter, not a full network blocker.</p><p>143 Node tests, 61 Chromium DOM/UI scenarios, a 7-check unpacked-extension smoke test and 8 release integrity checks passed. API responses and browser interfaces were controlled in tests; the smoke test loaded the real extension folder in a local Chromium profile. No test used a real key, a signed-in feed or a live Wykop page.</p></article>
++<footer><a href="START_HERE.md">Full instructions</a> · <a href="START_TUTAJ_PL.md">Polska instrukcja</a> · <a href="README.md">Code and architecture</a> · <a href="docs/TESTING.md">Test report</a></footer><p class="small">FeedGate 3.1.1 / GPL-3.0-or-later / full sources included. No EXE installer is needed.</p>
+ </main></body></html>
+
+--- a/START_HERE.md
++++ b/START_HERE.md
+--- a/START_HERE.md
++++ b/START_HERE.md
+@@ -1,3 +1,3 @@
+-# FeedGate 3.0.1: start here
++# FeedGate 3.1.1: start here
+ 
+ **This release has no terminal, no local bridge and no pairing code.** Do not run any file from version 0.1. You need Chrome and your own direct TypeSafe key.
+@@ -41,5 +41,5 @@
+ On a deliberately opened profile, ordinary semantic spam is by default only dimmed. Platform-labelled ads, your own explicit rule and strong signs of fraudulent solicitation do not get that exception.
+ 
+-**Show** restores a post temporarily. **Why? → Keep this post** stores an exception for that particular visible post. **Allow author** adds the whole profile to the local exception list. There is no automatic account reputation or bot blacklist. **Alt + Shift + F** reveals or refilters the current page.
++**Show** restores a post temporarily. **Why? → Keep this post** stores an exception for that particular visible post. **Allow author** adds the whole profile to the local exception list; **Mute author** hides that author's posts on this platform deterministically (local list, no model request, revertible in Settings → Muted authors). The expanded status panel offers the same two actions for any post: **Mute author…** / **Allow author…**, with a preview and Undo. There is no automatic account reputation or bot blacklist. **Alt + Shift + F** reveals or refilters the current page.
+ 
+ The status panel has three modes: a small pill, an expanded panel and fully hidden. **Hiding the panel never pauses filtering**, and the panel never comes back on its own — reopen it from the popup or settings. If a page ever looks wrong, the popup offers **Restore this site** (the pause is saved before any cleanup), **Disable cosmetic filters** (keeps your rules and key) and **Reload this tab with filtering paused**.
+@@ -53,5 +53,5 @@
+ There is a small FeedGate pill with status and counters at the bottom left of the page. Clicking it expands the panel (with minimize and close), and the popup can reopen it when it is hidden.
+ 
+-Go to **Diagnostics → Export diagnostics**. This produces a `feedgate-3.0.1-diagnostics-....json` file that you can pass on for review. It contains no API key, vault, post text, author names, full page URLs, raw cosmetic selectors or the text of your own rule.
++Go to **Diagnostics → Export diagnostics**. This produces a `feedgate-3.1.1-diagnostics-....json` file that you can pass on for review. It contains no API key, vault, post text, author names, full page URLs, raw cosmetic selectors or the text of your own rule.
+ 
+ | Status | Meaning |
+@@ -68,5 +68,5 @@
+ ## What is verified
+ 
+-139 Node tests, 59 Chromium DOM/UI scenarios, a 7-check unpacked-extension smoke test and 8 release integrity checks passed. Jev responses and browser interfaces were replaced by controlled test implementations; the smoke test loaded the real extension folder in a local Chromium profile. Your key was not used, no test was run on the current, signed-in X and no live Wykop page was accessed by the suites. Managed installation remains blocked in the build environment; its limits were not bypassed.
++143 Node tests, 61 Chromium DOM/UI scenarios, a 7-check unpacked-extension smoke test and 8 release integrity checks passed. Jev responses and browser interfaces were replaced by controlled test implementations; the smoke test loaded the real extension folder in a local Chromium profile. Your key was not used, no test was run on the current, signed-in X and no live Wykop page was accessed by the suites. Managed installation remains blocked in the build environment; its limits were not bypassed.
+ 
+ This is a package ready for you to test, not a certificate of flawlessness. The model can still misjudge a specific post. **Open live test feed** contains fictional examples, but once key and consent are enabled it uses the real API, not fake percentages.
+
+--- a/START_TUTAJ_PL.md
++++ b/START_TUTAJ_PL.md
+--- a/START_TUTAJ_PL.md
++++ b/START_TUTAJ_PL.md
+@@ -1,5 +1,5 @@
+-# FeedGate 3.0.1 — start tutaj (PL)
++# FeedGate 3.1.1 — start tutaj (PL)
+ 
+-Ten plik to krótki przewodnik po wersji 3.0.1. Pełniejsze, starsze instrukcje po
++Ten plik to krótki przewodnik po wersji 3.1.1. Pełniejsze, starsze instrukcje po
+ polsku są w [INSTRUKCJA_PL.md](INSTRUKCJA_PL.md); dokumentacja techniczna jest
+ po angielsku w katalogu `docs/`.
+@@ -7,5 +7,5 @@
+ ## 1. Zanim zaczniesz
+ 
+-* Zrób kopię zapasową obecnego katalogu FeedGate (np. `FeedGate-2.1.1`).
++* Zrób kopię zapasową obecnego katalogu FeedGate (np. `FeedGate-3.0.1`).
+ * Nigdy nie usuwaj starego katalogu „na naprawę” — najpierw eksportuj ustawienia.
+ * Rozszerzenia nie trzeba przeinstalowywać, jeśli podmieniasz pliki w tej samej
+@@ -13,7 +13,7 @@
+   dalej. Inny katalog = nowa tożsamość i nowe uprawnienia.
+ 
+-## 2. Aktualizacja do 3.0.1
++## 2. Aktualizacja do 3.1.1
+ 
+-1. Rozpakuj wydanie do docelowego katalogu (np. `D:\FeedGate-3.0.1`).
++1. Rozpakuj wydanie do docelowego katalogu (np. `D:\FeedGate-3.1.1`).
+ 2. `chrome://extensions` → tryb programisty → **Załaduj rozpakowane** → wskaż
+    katalog `extension` z plikiem `manifest.json`.
+@@ -38,4 +38,22 @@
+   wyjątek dla tego konkretnego posta. **Allow author** wyłącza autora w obrębie
+   serwisu. **Alt + Shift + F** pokazuje lub ponownie filtruje całą stronę.
++* **Mute author** (obok „Allow author” na karcie posta) ukrywa wszystkie posty
++  tego autora w danym serwisie — deterministycznie, bez zapytania do modelu.
++  Lista jest lokalna i odwracalna w Ustawieniach → **Muted authors** (przycisk
++  Unmute). „Keep this post” nadal wygrywa z tą listą.
++* Te same akcje masz w rozwiniętym panelu statusu: **Mute author…** /
++  **Allow author…**. Kliknij dowolny post na stronie — zobaczysz podgląd z
++  nazwą autora i informacją, że to lokalna decyzja bez zapytania do modelu.
++  Zapis pokaże toast z **Undo**; Escape anuluje bez zapisywania.
++
++## 3a. Mój wyjątek (My exception rule)
++
++W Ustawieniach, w sekcji reguł, znajdziesz pole **My exception rule (optional)**
++z licznikiem znaków i plakietką statusu. To *wskazówka* dla modelu, nie
++gwarantowany filtr: model może ją zignorować. Jest wysyłana jako dodatkowe
++pytanie przy każdym zapytaniu do chmury — nawet gdy kategoria „Your exclusion
++rule” jest wyłączona — więc zwiększa koszt tokenów. Nigdy nie wpisuj tam
++sekretów; eksport diagnostyki pokazuje tylko informację, czy reguła jest
++ustawiona, nigdy jej treść.
+ 
+ ## 4. Własne filtry kosmetyczne (bezpieczne)
+@@ -66,9 +84,9 @@
+ 
+ * **Export diagnostics** tworzy plik
+-  `feedgate-3.0.1-diagnostics-….json` bez kluczy, tekstów postów, autorów,
++  `feedgate-3.1.1-diagnostics-….json` bez kluczy, tekstów postów, autorów,
+   pełnych adresów URL i surowych selektorów. Zawiera m.in. sekcje `ui`, `sites`,
+   `cosmetic`, `renderer` i `provider` oraz odcisk wersji (`build`).
+-* **Export settings** zapisuje ustawienia w formacie wersji 4 (z regułami
+-  kosmetycznymi — to Twoja lokalna kopia). Import akceptuje też formaty 2.x;
++* **Export settings** zapisuje ustawienia w formacie wersji 5 (z regułami
++  kosmetycznymi — to Twoja lokalna kopia). Import akceptuje też formaty 2.x i 3.x;
+   niezweryfikowane reguły stają się kwarantanną.
+ 
+@@ -80,8 +98,8 @@
+ 3. Sprawdź w pasku statusu, że tryb to „Running”, a w popupie, że sześć
+    serwisów ma stan „ready”.
+-4. W eksporcie diagnostyki sprawdź `build.release` = `3.0.1` oraz
++4. W eksporcie diagnostyki sprawdź `build.release` = `3.1.1` oraz
+    `build.detector` = `ad-3.0.0`.
+ 
+-## 8. Czego 3.0.1 świadomie nie robi
++## 8. Czego 3.1.1 świadomie nie robi
+ 
+ * Nie zmienia progów kategorii ani modelu — to wydanie o kontroli, nie o
+
+--- a/docs/ARCHITECTURE.md
++++ b/docs/ARCHITECTURE.md
+--- a/docs/ARCHITECTURE.md
++++ b/docs/ARCHITECTURE.md
+@@ -3,5 +3,5 @@
+ ## Runtime modules
+ 
+-`core.js` defines settings validation, migration, typed request/response validation, the structured ad-evidence contract, record minimisation, route guards, the cosmetic rule model with its documented selector subset and safety rejections, cache identities with the `feed-v2.1.0` rubric namespace and the deterministic precision-first policy (`policy-2.1.1`) with named rules. `adapters.js` isolates platform-specific selectors, visible text extraction (`extract-3.0.0`, including the reviewed Wykop link/entry adapter) and the reviewed ad marker rules (`ad-3.0.0`). `content.js` watches DOM changes, maintains one controller per document, owns the compact/expanded/hidden status panel, applies cosmetic rules with per-rule ownership and a bounded circuit breaker, provides the transactional picker and renders reversible controls. `background.js` validates senders, handles credentials, serialises settings/budget/recovery changes per domain with revisions, deduplicates inference, enforces limits, latches per-site recovery before cleanup and constructs diagnostics schema 5. `typesafe.js` is the fixed-endpoint, bounded HTTP client. `vault.js` handles optional passphrase encryption. `options.js` and `popup.js` provide trusted UI (feeds accordion, rule manager, recovery, status mode); `demo.js` creates fictional test posts without fake model scores.
++`core.js` defines settings validation, migration, typed request/response validation, the structured ad-evidence contract, record minimisation, route guards, the cosmetic rule model with its documented selector subset and safety rejections, cache identities with the `feed-v2.1.0` rubric namespace and the deterministic precision-first policy (`policy-3.1.0`) with named rules, including the local author mute list. `adapters.js` isolates platform-specific selectors, visible text extraction (`extract-3.0.0`, including the reviewed Wykop link/entry adapter) and the reviewed ad marker rules (`ad-3.0.0`). `content.js` watches DOM changes, maintains one controller per document, owns the compact/expanded/hidden status panel, applies cosmetic rules with per-rule ownership and a bounded circuit breaker, provides the transactional picker and renders reversible controls (keep, allow author, mute author). `background.js` validates senders, handles credentials, serialises settings/budget/recovery changes per domain with revisions, deduplicates inference, enforces limits, latches per-site recovery before cleanup and constructs diagnostics schema 6. `typesafe.js` is the fixed-endpoint, bounded HTTP client. `vault.js` handles optional passphrase encryption. `options.js` and `popup.js` provide trusted UI (feeds accordion, rule manager, recovery, status mode, author lists); `demo.js` creates fictional test posts without fake model scores.
+ 
+ The ready-made extension has no external JavaScript or runtime libraries. All assets are local. Node is a build/test convenience, not a runtime dependency.
+@@ -33,3 +33,3 @@
+ ## Persistence
+ 
+-Local storage holds versioned preferences (schema version 3), the daily request count, explicit hash-based post choices and optional vault ciphertext. Session storage holds the unlocked key, cached estimates, reduced decision logs and counters; its runtime state uses version 4 so older state is ignored. Both storage areas restrict access to trusted extension contexts. Nothing uses Chrome sync storage. Removing the extension clears extension-owned storage; refresh old feed tabs to remove any already-applied DOM changes.
++Local storage holds versioned preferences (schema version 5), the daily request count, explicit hash-based post choices and optional vault ciphertext. Session storage holds the unlocked key, cached estimates, reduced decision logs and counters; its runtime state uses version 5 so older state is ignored. Both storage areas restrict access to trusted extension contexts. Nothing uses Chrome sync storage. Removing the extension clears extension-owned storage; refresh old feed tabs to remove any already-applied DOM changes.
+
+--- a/docs/DECISION_POLICY.md
++++ b/docs/DECISION_POLICY.md
+--- a/docs/DECISION_POLICY.md
++++ b/docs/DECISION_POLICY.md
+@@ -1,5 +1,5 @@
+-# Decision policy reference (FeedGate 3.0.0)
++# Decision policy reference (FeedGate 3.1.1)
+ 
+-Policy version: `policy-2.1.1` (unchanged in 3.0.0). Semantic rubric: `feed-v2.1.0`. Ad detector: `ad-3.0.0`. Extraction: `extract-3.0.0`. This file documents what the code actually
++Policy version: `policy-3.1.0`. Semantic rubric: `feed-v2.1.0` (unchanged). Ad detector: `ad-3.0.0`. Extraction: `extract-3.0.0`. This file documents what the code actually
+ does, in evaluation order. When wording and code disagree, the code wins.
+ 
+@@ -25,4 +25,5 @@
+ | 2 | author is allowlisted | allow | `author_allowlisted` | `allowlist` |
+ | 3 | user kept this post | allow | `kept_by_you` | `override` |
++| 3a | author is on your mute list | collapse | `author_muted` | `author` |
+ | 4 | labelled ads on and verified outer ad evidence | collapse | `platform_labelled_ad` | `local` |
+ | 5 | no model result (provider failure) | allow | `no_model_judgment` | `unclassified` |
+
+--- a/docs/DIAGNOSTICS_SCHEMA.md
++++ b/docs/DIAGNOSTICS_SCHEMA.md
+--- a/docs/DIAGNOSTICS_SCHEMA.md
++++ b/docs/DIAGNOSTICS_SCHEMA.md
+@@ -2,5 +2,5 @@
+ 
+ The export format is `feedgate-diagnostics`. Schema history: version 3 (2.1.0),
+-version 4 (2.1.1), **version 5 (3.0.0)**.
++version 4 (2.1.1), version 5 (3.0.0), **version 6 (3.1.0)**.
+ 
+ The export is generated by the background worker and never contains keys, vault data,
+@@ -14,7 +14,7 @@
+ | --- | --- |
+ | `format` | Always `feedgate-diagnostics`. |
+-| `version` | `5`. |
+-| `extensionVersion` | Release version (`3.0.0`). |
+-| `rubric` / `policy` | `feed-v2.1.0` / `policy-2.1.1` (unchanged in 3.0.0). |
++| `version` | `6`. |
++| `extensionVersion` | Release version (`3.1.1`). |
++| `rubric` / `policy` | `feed-v2.1.0` / `policy-3.1.0` (rubric unchanged; 3.1.0 adds the local `author_muted` branch). |
+ | `build` | Fingerprint: `{release, rubric, policy, detector, extraction, schema}` — e.g. `ad-3.0.0`, `extract-3.0.0`. A mismatch between source and shipped files fails the release check. |
+ | `generatedAt` | ISO timestamp. |
+@@ -77,5 +77,5 @@
+ error}`.
+ 
+-- `source`: `policy`, `protection`, `allowlist`, `override`, `local`, `unclassified`, `cosmetic`.
++- `source`: `policy`, `protection`, `allowlist`, `override`, `author`, `local`, `unclassified`, `cosmetic`.
+ - `adEvidence` summary: `{status, markerKind, selectorId, ownerMatched, renderedLabel,
+   evidenceKind, scope}` or `null`; `status` is `verified` | `ambiguous` | `none`.
+@@ -94,5 +94,6 @@
+ ## Compatibility
+ 
+-- Old schema-3 and schema-4 exports remain readable; they are plain JSON and the test
++- Schema 6 (3.1.0) adds `settings.mutedAuthorCount` (a count only — muted author names never leave local storage) and the `author_muted` rule with the `author` source in decision entries. Nothing else in the envelope changed.
++- Old schema-3, schema-4 and schema-5 exports remain readable; they are plain JSON and the test
+   suite replays them.
+ - Decision entries written by 2.1.0/2.1.1 do not carry the 3.0.0 `rule`/`adEvidence`
+
+--- a/docs/MIGRATION.md
++++ b/docs/MIGRATION.md
+--- a/docs/MIGRATION.md
++++ b/docs/MIGRATION.md
+@@ -1,5 +1,22 @@
+-# Migration notes: FeedGate 2.0 to 3.0
++# Migration notes: FeedGate 2.0 to 3.1.1
+ 
+-FeedGate 3.0 keeps the working 2.0 architecture. Settings, keys, allowlists, saved post choices and cosmetic rules are preserved where their meaning is unchanged. The filtering semantics are unchanged from 2.1.1; the 3.0 work is local control, safety and coverage (HUD modes, recovery, cosmetic management, Wykop).
++FeedGate 3.1 keeps the working 2.0 architecture. Settings, keys, allowlists, saved post choices and cosmetic rules are preserved where their meaning is unchanged. The filtering semantics are unchanged from 2.1.1; the 3.0 work is local control, safety and coverage (HUD modes, recovery, cosmetic management, Wykop), and 3.1 adds the local author mute list and a clearer exception-rule panel.
++
++## Upgrading from 3.1.0 to 3.1.1
++
++* **No schema or policy change.** Settings schema 5, runtime state 5, diagnostics schema 6, rubric `feed-v2.1.0`, policy `policy-3.1.0`, detector `ad-3.0.0` and extraction `extract-3.0.0` are all unchanged. Nothing migrates; existing settings, lists, rules and session state restore as-is.
++* **New status-panel actions.** The expanded panel gains **Mute author…** and **Allow author…**: click a post on the page, review the preview (author name, no model request), and save. The toast offers **Undo**, which sends the new content-callable `FG_FORGET_AUTHOR` message to remove the author from the mute and allow lists.
++* **Reload open tabs.** A content script from 3.1.0 detects the new release and shows "Extension updated: reload this page". Press F5 on affected tabs.
++
++## Upgrading from 3.0.1 to 3.1.0
++
++* **Settings schema moves to version 5.** A 3.0.1 settings object (version 4) is carried over as-is — selected sites, consent, cosmetic rules and their revisions, recovery latches, HUD mode, presets, thresholds and lists — and gains one new empty field, `blockedAuthors`. Nothing to re-enter.
++* **Runtime state is unchanged (version 5).** A 3.0.1 session still restores: cache, decision log, cosmetic event log and counters survive the upgrade. No cache or budget reset.
++* **New local rule: `author_muted`.** Authors you mute are hidden deterministically before any model estimate, with source `author`. Mute and allow lists are mutually exclusive; the allow list wins if an import or stale form ever contains both. Muted posts cost no provider requests.
++* **Exception rule panel.** The existing custom instruction is the same field with a clearer panel, a character counter and a visible status. It is a model hint, not a guaranteed filter, and it is sent with every cloud request as an extra question even when the `Your exclusion rule` category is Off — that costs tokens.
++* **Diagnostics schema 6.** Exports now include `settings.mutedAuthorCount` (a count; author names are never exported) and decision entries may carry the `author_muted` rule with source `author`. Schema-5 exports remain readable as files.
++* **Settings exports are version 5.** Imports accept v5, v4, v3 and v2 (through the same safe migration) and reject v1. Unvalidated or unsafe cosmetic rules in an import become quarantined, not active.
++* **No model change.** Rubric `feed-v2.1.0`, thresholds, detector `ad-3.0.0` and extraction `extract-3.0.0` are untouched.
++* **Reload open tabs.** A content script from a previous release shows "Extension updated: reload this page" instead of filtering with a stale schema. Press F5 on affected tabs.
+ 
+ ## Upgrading from 2.1.0 to 2.1.1
+
+--- a/docs/POLICY.md
++++ b/docs/POLICY.md
+--- a/docs/POLICY.md
++++ b/docs/POLICY.md
+@@ -1,5 +1,5 @@
+ # FeedGate 3.0.0 policy
+ 
+-FeedGate 3.0.0 keeps the 2.1.1 semantic policy unchanged. What changed in 3.0.0
++FeedGate 3.1.1 keeps the 2.1.1 semantic policy unchanged. What changed in 3.0.0
+ is local control, safety and coverage: the status panel modes, transactional
+ picker, managed cosmetic filters with revisioned writes, per-site recovery, loop
+@@ -8,5 +8,5 @@
+ not retuned.
+ 
+-This specification describes code behaviour, not a claim that the model is accurate. All feature values are Noul estimates from 0 to 1. They are not independent calibration measurements or a probability that an author is a bot. Policy version: `policy-2.1.1`. Semantic rubric version: `feed-v2.1.0` (unchanged from 2.1.0; only local evidence handling, thresholds and reason naming changed). Ad detector `ad-3.0.0` and extraction `extract-3.0.0` add the Wykop adapter and the same reviewed marker rules.
++This specification describes code behaviour, not a claim that the model is accurate. All feature values are Noul estimates from 0 to 1. They are not independent calibration measurements or a probability that an author is a bot. Policy version: `policy-3.1.0`. Semantic rubric version: `feed-v2.1.0` (unchanged from 2.1.0; only local evidence handling, thresholds and reason naming changed). Ad detector `ad-3.0.0` and extraction `extract-3.0.0` add the Wykop adapter and the same reviewed marker rules. The 3.1.0 policy adds one deterministic local branch — an explicit author mute list — in front of every model estimate; no category, threshold or rubric changed.
+ 
+ ## Features
+
+--- a/docs/REQUIREMENTS_MATRIX.md
++++ b/docs/REQUIREMENTS_MATRIX.md
+--- a/docs/REQUIREMENTS_MATRIX.md
++++ b/docs/REQUIREMENTS_MATRIX.md
+@@ -9,6 +9,6 @@
+ Evidence files:
+ 
+-* `evidence/unit-tests.tap` — 139 Node tests / 0 fail
+-* `evidence/browser-dom-tests.json` — 59 Chromium DOM/UI scenarios / 0 fail
++* `evidence/unit-tests.tap` — 143 Node tests / 0 fail
++* `evidence/browser-dom-tests.json` — 61 Chromium DOM/UI scenarios / 0 fail
+ * `evidence/extension-smoke.json` — 7 checks on the real `extension/` folder
+ * `evidence/release-checks.json` — 8 release integrity checks
+@@ -123,4 +123,15 @@
+ | LOOP08 | Static fixture converges | MET | bounded sweep + request-count stability |
+ 
++## 7a. Author controls and exception rule (3.1)
++
++| ID | Requirement | Status | Evidence |
++| --- | --- | --- | --- |
++| MUTE01 | Mute from a card hides that author's posts locally, no provider request | MET | `MUTE01` browser scenario; worker mute round-trip test |
++| MUTE02 | Allow and mute lists stay mutually exclusive | MET | core + worker tests (`blockedAuthors` cleared on allow and vice versa) |
++| MUTE03 | Keep this post wins over the mute list; observe mode wraps it | MET | core author-mute test; policy precedence table row 3a |
++| MUTE04 | Mute list is bounded, validated and reversible from settings | MET | core bounds/migration tests; options Muted authors list with Unmute |
++| MUTE05 | The status panel mutes or allows an author by clicking a post, with preview, Escape cancel and toast Undo | MET | `PANEL01` browser scenario; `FG_FORGET_AUTHOR` worker test |
++| EXC01 | Exception rule panel states hint semantics and token cost | MET | options panel copy + counter/status; TESTING.md manual pilot |
++
+ ## 8. Wykop
+ 
+@@ -170,5 +181,5 @@
+ | Requirement | Status | Evidence |
+ | --- | --- | --- |
+-| Privacy-safe diagnostics schema 5 | MET | `docs/DIAGNOSTICS_SCHEMA.md`; privacy tests |
++| Privacy-safe diagnostics schema 6 | MET | `docs/DIAGNOSTICS_SCHEMA.md`; privacy tests; `mutedAuthorCount` count-only |
+ | Cosmetic/semantic/UI metrics separated | MET | diagnostics worker tests |
+ | Renderer heartbeat vs absence explained | MET | schema doc + renderer section test |
+@@ -196,7 +207,7 @@
+ | Complete project folder | MET | `D:\FeedGate\FeedGate-3.0.0` |
+ | Ready-to-load `extension/` | MET | `D:\FeedGate\FeedGate-3.0.0\extension` |
+-| ZIP + SHA256 sidecar | MET | `D:\FeedGate\PLIKI\FeedGate-3.0.1.zip` + `.sha256` |
++| ZIP + SHA256 sidecar | MET | `D:\FeedGate\PLIKI\FeedGate-3.1.1.zip` + `.sha256` |
+ | Shipped-asset manifest/hash list | MET | `evidence/shipped-assets.json` |
+-| Reviewable diff vs 2.1.1 | MET | `evidence/feedgate-3.0.1.patch` |
++| Reviewable diff vs 2.1.1 | MET | `evidence/feedgate-3.1.1.patch` |
+ | CHANGELOG / README / Polish guide / MIGRATION | MET | `CHANGELOG.md`, `README.md`, `START_TUTAJ_PL.md`, `docs/MIGRATION.md` |
+ | RECOVERY / ROOT_CAUSE / WYKOP_SUPPORT / DIAGNOSTICS_SCHEMA / TESTING | MET | `docs/` |
+
+--- a/docs/TESTING.md
++++ b/docs/TESTING.md
+--- a/docs/TESTING.md
++++ b/docs/TESTING.md
+@@ -1,14 +1,14 @@
+-# Test report: FeedGate 3.0.0
++# Test report: FeedGate 3.1.1
+ 
+ ## Baseline and results
+ 
+-The preserved 2.1.1 copy was measured before any change (evidence in `evidence/baseline-3.0.0-npm-test.txt` and `evidence/baseline/`).
+-The 3.0.1 build was measured after the change (evidence in `evidence/`).
++The preserved 3.1.0 release was measured before any change; its results are the baseline column. (Older 2.1.x baselines remain in `evidence/baseline/`.)
++The 3.1.1 build was measured after the change (evidence in `evidence/`).
+ 
+-| Layer | 2.1.1 baseline | 3.0.1 result | Scope |
++| Layer | 3.1.0 baseline | 3.1.1 result | Scope |
+ | --- | --- | --- | --- |
+ | JavaScript syntax | Passed | Passed | Node syntax checks on source, scripts and JavaScript tests |
+-| Node tests | 118 passed, 0 failed | 139 passed, 0 failed | Actual policy, ad-evidence, cosmetic model, recovery, vault, HTTP and worker code with mocked Chrome storage/messaging and controlled HTTP |
+-| Chromium DOM/UI | 46 passed, 0 failed | 59 passed, 0 failed | Actual adapters, content script (status panel, picker, cosmetics), options and popup on representative HTML; mocked Chrome APIs, page locations and model responses |
++| Node tests | 142 passed, 0 failed | 143 passed, 0 failed | Actual policy, ad-evidence, cosmetic model, recovery, vault, HTTP and worker code with mocked Chrome storage/messaging and controlled HTTP |
++| Chromium DOM/UI | 60 passed, 0 failed | 61 passed, 0 failed | Actual adapters, content script (status panel, pickers, cosmetics, mute/allow author), options and popup on representative HTML; mocked Chrome APIs, page locations and model responses |
+ | Unpacked extension smoke | 7 checks passed | 7 checks passed | The real `extension/` loaded into a local Chromium profile; demo page collapsed its promoted sample through the real content script |
+ | Release integrity | 8 checks passed | 8 checks passed | Version agreement, manifest bounds, source/output byte equality, no bridge or dynamic code |
+@@ -18,5 +18,5 @@
+ 
+ Test browser: Chromium 151.0.7922.34, recorded in `evidence/browser-dom-tests.json`. Node 24.14.0.
+-Per-suite Node counts (TAP, `evidence/unit-tests.tap`): core 31, policy 34, worker 29, diagnostics 9, HTTP 12, incident replay 4, v3 features 20.
++Per-suite Node counts (TAP, `evidence/unit-tests.tap`): core 33, policy 34, worker 31, diagnostics 9, HTTP 12, incident replay 4, v3 features 20.
+ 
+ ## Reproduce
+@@ -33,11 +33,11 @@
+ ## What the suites cover
+ 
+-`tests/core.test.mjs` covers the separated version constants, the structured ad-evidence contract (verified only with ownership, outer-post scope, a known marker and a rendered or metadata basis), legacy boolean flags downgraded to ambiguous, threshold boundaries, truthful rule names, the shuffled-answer API contract with preserved zeros and rejection of malformed values, cache identity including the detector, extraction and item-kind versions, redaction, the selector-safety subset and the vault.
++`tests/core.test.mjs` covers the separated version constants, the structured ad-evidence contract (verified only with ownership, outer-post scope, a known marker and a rendered or metadata basis), legacy boolean flags downgraded to ambiguous, threshold boundaries, truthful rule names, the deterministic author-mute branch (precedence, observe-mode wrapping, keep-this-post winning, mutual exclusion and list bounds), the v4→v5 settings migration, the shuffled-answer API contract with preserved zeros and rejection of malformed values, cache identity including the detector, extraction and item-kind versions, redaction, the selector-safety subset and the vault.
+ 
+ `tests/policy-v21.test.mjs` maps one case to each of the 25 precision-first requirements and replays the six anonymous score vectors from the incident appendix (R1-R6), including the corrected `below_noise_thresholds` reason for R1/R2 and the lowered protection eligibility boundary. The 2.1.1 ad-evidence contracts (verified-only local collapse, legacy flags never hiding) remain in place.
+ 
+-`tests/worker.test.mjs` covers optional permissions, foreign senders, private routes, key lock/unlock, race cancellation, budgets, rate limits, malformed responses, restart behaviour, the bounded 150-entry history window with explicit dropped counts, verified local ads costing zero provider requests and legacy ad flags never hiding content.
++`tests/worker.test.mjs` covers optional permissions, foreign senders, private routes, key lock/unlock, race cancellation, budgets, rate limits, malformed responses, restart behaviour, the bounded 150-entry history window with explicit dropped counts, verified local ads costing zero provider requests, legacy ad flags never hiding content, and the muted-author round trip (mute hides with zero provider requests, unmute/allow clears the mute, `FG_FORGET_AUTHOR` clears both lists and the post needs the model again, and the lists stay mutually exclusive).
+ 
+-`tests/diagnostics-v21.test.mjs` checks privacy, the schema-5 envelope with the build fingerprint, and that raw cosmetic selectors never appear in a diagnostic export.
++`tests/diagnostics-v21.test.mjs` checks privacy, the schema-6 envelope with the build fingerprint and the muted-author count, and that raw cosmetic selectors and muted author names never appear in a diagnostic export.
+ 
+ `tests/http.test.mjs` checks the fixed endpoint, header hygiene and every error mapping. `tests/incident.test.mjs` replays three real diagnostic exports (2.1.0 and 2.1.1 snapshots) as a frozen regression fixture; it skips with `INSUFFICIENT` when the fixtures are absent.
+@@ -45,5 +45,5 @@
+ `tests/v3-features.test.mjs` covers the v3 control surface: selector-safety rejects (`body`, `#root`, `div:has(main)`, comma unions, overlength), cosmetic rule sanitization and host matching, legacy-CSS quarantine migration, HUD-mode migration, record kinds and kind-aware cache keys, the new error codes, the Wykop registry and conservative ad evidence, rule lifecycle (add/edit/disable/delete/undo/revalidate), bulk disable/delete, revision conflicts (`STALE_SETTINGS`), per-domain revision independence, recovery persist-first with bounded acknowledgement (including an unresponsive-tab worker), `FG_RELOAD_PAUSED` route guards, cosmetic event accounting, the site-status reason matrix, v4 export/import with quarantine of unverified imports, log-window accounting (`logDropped`) and cleanup tracking.
+ 
+-DOM scenarios cover the previous 46 cases plus the status panel modes (compact pill, expanded panel, genuinely hidden), hidden status never returning on its own while filtering continues, explicit reopen via settings, structural picker rejections (main column, FeedGate's own UI, aggregate sets), tall-card geometry warning instead of rejection, runtime quarantine of a previously safe selector that now matches a container, cosmetic/semantic ownership separation, the bounded breaker, re-injection keeping one controller and one status host, and the Wykop link/entry fixtures (Polish text, reply exclusion, `Poleca` note never a verified ad, auth routes private). Screenshots of the real built UI are stored in `evidence/` (`hud-compact.png`, `hud-expanded.png`, `hud-hidden.png`, `picker-preview.png`, `picker-rejected-root.png`, `wykop-fixture.png`, options pages, popup, setup completion, diagnostics, test feed).
++DOM scenarios cover the previous 60 cases plus a status-panel author-picker flow (`PANEL01`: the expanded panel's **Mute author…** highlights a clicked post, previews the author, commits with **Undo** and Escape cancels) and the earlier mute-author flow: a filter card's **Mute author** hides every post from that author on the site without a new provider request, the card names the local mute list, another author's post is untouched, and clearing the list restores the hidden post. The earlier cases include the status panel modes (compact pill, expanded panel, genuinely hidden), hidden status never returning on its own while filtering continues, explicit reopen via settings, structural picker rejections (main column, FeedGate's own UI, aggregate sets), tall-card geometry warning instead of rejection, runtime quarantine of a previously safe selector that now matches a container, cosmetic/semantic ownership separation, the bounded breaker, re-injection keeping one controller and one status host, and the Wykop link/entry fixtures (Polish text, reply exclusion, `Poleca` note never a verified ad, auth routes private). Screenshots of the real built UI are stored in `evidence/` (`hud-compact.png`, `hud-expanded.png`, `hud-hidden.png`, `picker-preview.png`, `picker-rejected-root.png`, `wykop-fixture.png`, options pages, popup, setup completion, diagnostics, test feed).
+ 
+ The extension smoke test loads the real `extension/` folder into a local Chromium profile, waits for the service worker, reads the release version, opens the demo feed and verifies that a card names the verified platform label, plus no localhost traffic, no page errors and no worker errors.
+@@ -65,6 +65,8 @@
+ 7. Use **Restore this site** from the popup and confirm the pause survives a reload of the tab; resume when ready.
+ 8. Leave a tab open, reload the extension, and confirm the tab shows the reload prompt instead of silently mixing schemas.
+-9. Export diagnostics and verify `build.release` is `3.0.1`, `build.detector` is `ad-3.0.0` and the export contains no raw cosmetic selectors.
++9. Export diagnostics and verify `build.release` is `3.1.1`, `build.detector` is `ad-3.0.0` and the export contains no raw cosmetic selectors.
+ 10. On Wykop, confirm link cards and Mikroblog entries are classified separately, that comments are never extracted, and that an old "Wykop Poleca" note never produces a platform-ad collapse.
++11. Mute an author from a filter card, confirm the other posts from that author hide without new provider requests in Diagnostics, then unmute in Settings → Muted authors and confirm they return.
++12. Expand the status panel, use **Mute author…**, click a visible post: confirm the preview names the author, saving hides their posts with no new provider request, and **Undo** in the toast brings them back.
+ 
+ ## Live validation status
+
+--- a/package.json
++++ b/package.json
+--- a/package.json
++++ b/package.json
+@@ -1,5 +1,5 @@
+ {
+   "name": "feedgate",
+-  "version": "3.0.1",
++  "version": "3.1.1",
+   "private": true,
+   "description": "A zero-dependency Chrome feed filter with safe cosmetic controls, per-site recovery, a hideable status panel and Wykop support on a precision-first TypeSafe Jev policy.",
+
+--- a/scripts/release-check.mjs
++++ b/scripts/release-check.mjs
+--- a/scripts/release-check.mjs
++++ b/scripts/release-check.mjs
+@@ -11,5 +11,5 @@
+ const pkg=JSON.parse(await read('package.json'));const checks=[];
+ function check(name,fn){fn();checks.push({name,passed:true});}
+-check('Single 3.0.1 version',()=>{assert.equal(pkg.version,'3.0.1');assert.equal(manifest.version,pkg.version);assert.equal(globalThis.FeedGateCore.VERSION,pkg.version);});
++check('Single 3.1.1 version',()=>{assert.equal(pkg.version,'3.1.1');assert.equal(manifest.version,pkg.version);assert.equal(globalThis.FeedGateCore.VERSION,pkg.version);});
+ check('Manifest V3 and module worker',()=>{assert.equal(manifest.manifest_version,3);assert.equal(manifest.background.type,'module');assert.equal(manifest.background.service_worker,'background.js');});
+ check('Limited permissions and fixed provider host',()=>{assert.deepEqual(manifest.permissions,['storage','scripting','activeTab']);assert.deepEqual(manifest.host_permissions,['https://api.typesafe.ai/*']);assert.ok(!JSON.stringify(manifest).includes('<all_urls>'));assert.ok(manifest.optional_host_permissions.includes('https://wykop.pl/*')&&manifest.optional_host_permissions.includes('https://*.wykop.pl/*'));assert.equal(manifest.incognito,'not_allowed');assert.ok(!manifest.externally_connectable);});
+
+--- a/src/background.js
++++ b/src/background.js
+--- a/src/background.js
++++ b/src/background.js
+@@ -153,4 +153,5 @@
+   const value = C.clone(settings);
+   value.allowedAuthors = value.allowedAuthors.filter(a=>a.startsWith(site+':'));
++  value.blockedAuthors = value.blockedAuthors.filter(a=>a.startsWith(site+':'));
+   // appVersion lets a content script detect a reloaded worker with new schemas.
+   return {settings:value,keyReady:!!apiKey && !authRejected,revision,appVersion:C.VERSION,
+@@ -322,5 +323,5 @@
+   const stamp = revision;
+   const early = C.decide(r,null,settings);
+-  if (early.source==='allowlist' || early.source==='local') {addLog(r,early,null);return {decision:early,result:null,cached:false};}
++  if (early.source==='allowlist' || early.source==='local' || early.source==='author') {addLog(r,early,null);return {decision:early,result:null,cached:false};}
+   if (!r.text && !r.mediaAlt && !r.sponsored) return {decision:early,result:null,cached:false};
+   try {
+@@ -414,5 +415,6 @@
+       categories:settings.categories,concurrency:settings.concurrency,dailyLimit:settings.dailyLimit,cacheMinutes:settings.cacheMinutes,
+       hasCustomRule:!!settings.customInstruction,cosmeticEnabled:settings.cosmeticEnabled,recoverySites:[...settings.recoverySites],
+-      allowedAuthorCount:settings.allowedAuthors.length,savedPostChoices:keptPosts.size},
++      allowedAuthorCount:settings.allowedAuthors.length,savedPostChoices:keptPosts.size,
++      mutedAuthorCount:settings.blockedAuthors.length},
+     metrics:C.clone(metrics),daily:s.daily,queue:queue.length,active,cached:cache.size,
+     permissions:{permissions:permissions.permissions||[],origins:permissions.origins||[]},
+@@ -452,5 +454,28 @@
+     const key = C.authorKey(site,message.author);
+     if (!key) throw new Error('INVALID_RECORD');
+-    await saveSettings({allowedAuthors:[...settings.allowedAuthors,key]});
++    await saveSettings({
++      allowedAuthors:[...settings.allowedAuthors.filter(a=>a!==key),key],
++      blockedAuthors:settings.blockedAuthors.filter(a=>a!==key),
++    });
++    return {saved:true};
++  }
++  if (message.type==='FG_MUTE_AUTHOR') {
++    const site = trusted ? message.site : await validateContentSender(sender);
++    const key = C.authorKey(site,message.author);
++    if (!key) throw new Error('INVALID_RECORD');
++    await saveSettings({
++      blockedAuthors:[...settings.blockedAuthors.filter(a=>a!==key),key],
++      allowedAuthors:settings.allowedAuthors.filter(a=>a!==key),
++    });
++    return {saved:true};
++  }
++  if (message.type==='FG_FORGET_AUTHOR') {
++    const site = trusted ? message.site : await validateContentSender(sender);
++    const key = C.authorKey(site,message.author);
++    if (!key) throw new Error('INVALID_RECORD');
++    await saveSettings({
++      allowedAuthors:settings.allowedAuthors.filter(a=>a!==key),
++      blockedAuthors:settings.blockedAuthors.filter(a=>a!==key),
++    });
+     return {saved:true};
+   }
+@@ -678,5 +703,5 @@
+     case 'FG_IMPORT_SETTINGS': {
+       const version = message.data&&C.finite(message.data.version);
+-      if (!C.object(message.data)||message.data.format!=='feedgate-settings'||![4,3,2].includes(version===null?NaN:version)) throw new Error('INVALID_RECORD');
++      if (!C.object(message.data)||message.data.format!=='feedgate-settings'||![5,4,3,2].includes(version===null?NaN:version)) throw new Error('INVALID_RECORD');
+       // Older exports are migrated safely: thresholds never map promotion onto unwanted advertising,
+       // and legacy selector lines arrive quarantined for review.
+
+--- a/src/content.js
++++ b/src/content.js
+--- a/src/content.js
++++ b/src/content.js
+@@ -171,5 +171,5 @@
+       hudRoot.textContent='';
+       const pill=make('button',`● FeedGate · ${label} · ${s.collapsed+s.dimmed+(s.cosmeticHidden||0)} filtered`,'pill');
+-      pill.title='FeedGate 3.0.1 status. Open the panel.';
++      pill.title='FeedGate 3.1.1 status. Open the panel.';
+       pill.addEventListener('click',ev=>{if(ev.isTrusted)persistHudMode('expanded');});
+       hudRoot.append(pill);
+@@ -178,5 +178,5 @@
+     hudRoot.textContent='';
+     const panel=make('div',undefined,'panel'),header=make('header');
+-    const title=make('strong','FeedGate 3.0.1');
++    const title=make('strong','FeedGate 3.1.1');
+     const minimize=make('button','–');minimize.title='Minimize to a small status pill';
+     const close=make('button','×');close.title='Hide status. Filtering continues.';
+@@ -205,7 +205,11 @@
+       const pick=make('button','Pick element');
+       pick.addEventListener('click',ev=>{if(ev.isTrusted)startPicker();});
++      const mutePick=make('button','Mute author…');mutePick.title='Click a post on the page to hide everything from its author.';
++      mutePick.addEventListener('click',ev=>{if(ev.isTrusted)startAuthorPicker('mute');});
++      const allowPick=make('button','Allow author…');allowPick.title='Click a post on the page to keep everything from its author visible.';
++      allowPick.addEventListener('click',ev=>{if(ev.isTrusted)startAuthorPicker('allow');});
+       const open=make('button','Settings');
+       open.addEventListener('click',ev=>{if(ev.isTrusted)send('FG_OPEN_SETTINGS_FROM_PAGE').catch(()=>{});});
+-      actions.append(showAll,pause,pick,open);
++      actions.append(showAll,pause,pick,mutePick,allowPick,open);
+     }
+     panel.append(actions);
+@@ -229,4 +233,5 @@
+     if(decision.source==='cosmetic')return 'User cosmetic rule: Hidden by your cosmetic filter';
+     if(decision.source==='local')return 'Verified platform placement: Platform-labelled ad';
++    if(decision.source==='author')return 'Your mute list: Hidden by your request';
+     const label=C.CATEGORIES?.[decision.category]?.label||(decision.rule==='manipulative_bait'?'Manipulative engagement bait':'Filtered by policy');
+     return 'Semantic filter: '+label;
+@@ -279,7 +284,13 @@
+       allow.addEventListener('click',async ev=>{
+         if(!ev.isTrusted)return;allow.disabled=true;
+-        try{await send('FG_ALLOW_AUTHOR',{author:state.record.author});}
++        try{await send('FG_ALLOW_AUTHOR',{author:state.record.author});showToast('Author allowed on this site. Their posts stay visible here.');}
+         catch(error){details.hidden=false;details.append(make('div',C.userError(error).message));allow.disabled=false;}
+       });row.append(allow);
++      const mute=make('button','Mute author');
++      mute.addEventListener('click',async ev=>{
++        if(!ev.isTrusted)return;mute.disabled=true;
++        try{await send('FG_MUTE_AUTHOR',{author:state.record.author});showToast('Author muted on this site. This is a local list; manage it in FeedGate settings.');}
++        catch(error){details.hidden=false;details.append(make('div',C.userError(error).message));mute.disabled=false;}
++      });row.append(mute);
+     }
+     card.append(row,details);shadow.append(style,card);
+@@ -303,6 +314,7 @@
+     if(!r)return;
+     // Explicit local decisions stay separate from model failures.
+-    render(state,C.decide(r,null,settings));
+-    if(C.decide(r,null,settings).source==='allowlist'){state.completed=true;report();return;}
++    const early=C.decide(r,null,settings);
++    render(state,early);
++    if(early.source==='allowlist'||early.source==='author'){state.completed=true;report();return;}
+     if(!r.text&&!r.mediaAlt&&!r.sponsored){state.completed=true;return;}
+     state.pending=true;report();
+@@ -468,5 +480,5 @@
+   }
+   function configSignature(s) {
+-    return JSON.stringify({enabled:s.enabled,sites:s.sites,mode:s.mode,preset:s.preset,categories:s.categories,cosmeticEnabled:s.cosmeticEnabled,filters:s.cosmeticFilters,recovery:s.recoverySites,consent:s.consent,labelledAds:s.labelledAds,protectUseful:s.protectUseful,profileMode:s.profileMode,customInstruction:s.customInstruction,allowedAuthors:s.allowedAuthors});
++    return JSON.stringify({enabled:s.enabled,sites:s.sites,mode:s.mode,preset:s.preset,categories:s.categories,cosmeticEnabled:s.cosmeticEnabled,filters:s.cosmeticFilters,recovery:s.recoverySites,consent:s.consent,labelledAds:s.labelledAds,protectUseful:s.protectUseful,profileMode:s.profileMode,customInstruction:s.customInstruction,allowedAuthors:s.allowedAuthors,blockedAuthors:s.blockedAuthors});
+   }
+   let lastSignature='';
+@@ -521,5 +533,5 @@
+     return parts.join(' > ');
+   }
+-  function showToast(message,undoRuleId=null) {
++  function showToast(message,undoAction=null) {
+     toast?.remove();
+     toast=document.createElement('feedgate-toast');toast.setAttribute('data-fg-ui','');
+@@ -529,13 +541,19 @@
+     style.textContent=':host{all:initial;color-scheme:light dark}.box{display:flex;gap:10px;align-items:center;background:#17221c;color:#def0dc;border:1px solid #3d5745;border-radius:9px;box-shadow:0 4px 22px #0004;padding:9px 12px;font:12px/1.4 system-ui;max-width:min(380px,86vw)}button{font:inherit;color:#def0dc;background:#233227;border:1px solid #3d5745;border-radius:6px;padding:3px 8px;cursor:pointer}button:focus-visible{outline:2px solid #c6fa8c;outline-offset:2px}';
+     const box=make('div',undefined,'box');box.append(make('span',message));
+-    if(undoRuleId){
++    if(undoAction){
+       const undo=make('button','Undo');
+       undo.addEventListener('click',async ev=>{
+         if(!ev.isTrusted)return;undo.disabled=true;
+         try{
+-          await send('FG_RULE_DELETE',{id:undoRuleId,expect:settings.revisions?.cosmetic});
+-          cosmetic.restored++;
+-          send('FG_COSMETIC_EVENT',{kind:'undo',ruleRef:undoRuleId,reason:'user_undo_after_pick',candidateAction:null,appliedAction:'allow'}).catch(()=>{});
+-          showToast('Cosmetic rule removed.');
++          if(undoAction.author){
++            await send('FG_FORGET_AUTHOR',{author:undoAction.author});
++            showToast('Author removed from your local lists.');
++            refresh(true);
++          } else {
++            await send('FG_RULE_DELETE',{id:undoAction.ruleId,expect:settings.revisions?.cosmetic});
++            cosmetic.restored++;
++            send('FG_COSMETIC_EVENT',{kind:'undo',ruleRef:undoAction.ruleId,reason:'user_undo_after_pick',candidateAction:null,appliedAction:'allow'}).catch(()=>{});
++            showToast('Cosmetic rule removed.');
++          }
+         }catch(error){showToast(C.userError(error).message);}
+       });
+@@ -596,5 +614,5 @@
+           cosmetic.applied++;
+           send('FG_COSMETIC_EVENT',{kind:'applied',ruleRef:saved.rule.id,reason:'user_created',candidateAction:'collapse',appliedAction:'collapse'}).catch(()=>{});
+-          showToast('Cosmetic rule created. It stays local to FeedGate.',saved.rule.id);
++          showToast('Cosmetic rule created. It stays local to FeedGate.',{ruleId:saved.rule.id});
+           cleanup();refresh();
+         }catch(error){create.disabled=false;showToast(C.userError(error).message);}
+@@ -623,4 +641,73 @@
+       target=picked;
+       showPreview(picked,selector,matches);
++      timeout=setTimeout(cleanup,60000);
++    }
++    document.addEventListener('mousemove',move,true);document.addEventListener('click',click,true);document.addEventListener('keydown',key,true);pickerCleanup=cleanup;
++    return {started:true};
++  }
++  // The status panel offers the same author decision as the cards, but for any
++  // post on the page: hover a post, preview it, then mute or allow its author.
++  function startAuthorPicker(mode) {
++    if(!enabled||demo||recoveryPaused)return {started:false};
++    const allow=mode==='allow';
++    pickerCleanup?.();
++    const bar=make('div',`FeedGate: hover a post, click it to ${allow?'allow':'mute'} its author. Escape cancels.`);
++    bar.setAttribute('data-fg-ui','');
++    bar.style.cssText='position:fixed;z-index:2147483647;top:12px;left:50%;transform:translateX(-50%);background:#202820;color:#e5ffc8;border:1px solid #9eb886;border-radius:8px;padding:15px 20px;font:14px system-ui;max-width:90vw;pointer-events:none';
++    document.documentElement.append(bar);
++    let target=null,outline='',priority='',preview=null,previewTarget=null,timeout=null;
++    function undoOutline(){if(previewTarget){if(outline)previewTarget.style.setProperty('outline',outline,priority);else previewTarget.style.removeProperty('outline');previewTarget=null;}}
++    function clearPreview(){preview?.remove();preview=null;}
++    function cleanup(){undoOutline();clearPreview();bar.remove();document.removeEventListener('mousemove',move,true);document.removeEventListener('click',click,true);document.removeEventListener('keydown',key,true);if(timeout)clearTimeout(timeout);pickerCleanup=null;}
++    function postRoot(node){
++      if(!(node instanceof Element))return null;
++      const spec=A.SPECS?.[site];
++      if(!spec||!spec.posts)return null;
++      try{const root=node.closest(spec.posts);return root instanceof HTMLElement?root:null;}catch{return null;}
++    }
++    function move(ev){
++      if(!ev.isTrusted||own(ev.target)||preview)return;
++      undoOutline();const root=postRoot(ev.target);target=root;
++      if(!root)return;
++      outline=root.style.getPropertyValue('outline');priority=root.style.getPropertyPriority('outline');
++      root.style.setProperty('outline','2px solid #df832d','important');
++      previewTarget=root;
++    }
++    function key(ev){if(ev.key==='Escape'){cleanup();}}
++    function reject(message){showToast(message);cleanup();}
++    function showPreview(root,author) {
++      clearPreview();
++      const info=make('div',undefined);
++      info.style.cssText='pointer-events:auto;background:#202820;color:#e5ffc8;border:1px solid #9eb886;border-radius:8px;padding:12px 16px;font:13px system-ui;max-width:min(430px,88vw)';
++      info.append(make('div',`${allow?'Allow':'Mute'} preview: ${location.hostname}`,undefined));
++      info.append(make('div',`Author: ${author}`));
++      info.append(make('div',allow?'Their posts stay visible here. This local choice makes no model request.':'Their posts will be hidden locally. This local choice makes no model request.'));
++      const buttons=make('div');buttons.style.cssText='display:flex;gap:8px;margin-top:9px';
++      const confirm=make('button',allow?'Allow author':'Mute author');
++      const cancel=make('button','Cancel');
++      confirm.addEventListener('click',async ev=>{
++        if(!ev.isTrusted)return;confirm.disabled=true;
++        if(!root.isConnected){reject('That post was replaced before saving. Nothing was saved.');return;}
++        try{
++          await send(allow?'FG_ALLOW_AUTHOR':'FG_MUTE_AUTHOR',{author});
++          showToast(allow?'Author allowed on this site. Their posts stay visible here.':'Author muted on this site. Their posts are hidden from now on. Their posts are never sent to the model again.',{author});
++          cleanup();refresh(true);
++        }catch(error){confirm.disabled=false;showToast(C.userError(error).message);}
++      });
++      cancel.addEventListener('click',ev=>{if(ev.isTrusted){cleanup();}});
++      buttons.append(confirm,cancel);info.append(buttons);
++      preview=make('div');preview.setAttribute('data-fg-ui','');preview.style.cssText='position:fixed;z-index:2147483647;bottom:18px;left:50%;transform:translateX(-50%);pointer-events:none';
++      preview.append(info);document.documentElement.append(preview);
++    }
++    async function click(ev){
++      if(!ev.isTrusted)return;
++      if(own(ev.target)||preview?.contains(ev.target))return;
++      if(preview)return;
++      ev.preventDefault();ev.stopImmediatePropagation();
++      const root=postRoot(ev.target)||(target&&target.isConnected?target:null);
++      if(!root){reject('Click a post itself to choose its author. Nothing was saved.');return;}
++      const rec=A.extract(root,site);
++      if(!rec||!rec.author){reject('This post has no readable author. Nothing was saved.');return;}
++      showPreview(root,rec.author);
+       timeout=setTimeout(cleanup,60000);
+     }
+
+--- a/src/core.js
++++ b/src/core.js
+--- a/src/core.js
++++ b/src/core.js
+@@ -4,12 +4,12 @@
+   // Separate versions: the release, the semantic rubric, the local ad detector,
+   // the DOM extraction and the policy engine can change independently.
+-  const VERSION = '3.0.1';
++  const VERSION = '3.1.1';
+   const RUBRIC_VERSION = 'feed-v2.1.0';
+-  const POLICY_VERSION = 'policy-2.1.1';
++  const POLICY_VERSION = 'policy-3.1.0';
+   const AD_DETECTOR_VERSION = 'ad-3.0.0';
+   const EXTRACTION_VERSION = 'extract-3.0.0';
+-  const SETTINGS_VERSION = 4;
++  const SETTINGS_VERSION = 5;
+   const RUNTIME_VERSION = 5;
+-  const DIAGNOSTICS_VERSION = 5;
++  const DIAGNOSTICS_VERSION = 6;
+   // The settings schema is split into scoped revisions so an old form cannot
+   // overwrite a newer cosmetic, UI, recovery or site decision.
+@@ -122,4 +122,8 @@
+     customInstruction: '',
+     allowedAuthors: [],
++    // One deterministic local list that hides every post from an author on a
++    // site. Kept separate from allowedAuthors; sanitizeSettings enforces that
++    // a key can never sit on both lists (an explicit allow wins).
++    blockedAuthors: [],
+     categories: cloneCategories(),
+     // v3 control surfaces. hudMode replaces the old showStatus boolean.
+@@ -488,4 +492,11 @@
+     if (!object(legacy)) return Object.assign(clone(DEFAULTS), { categories: cloneCategories() });
+     if (legacy.version === SETTINGS_VERSION) return sanitizeSettings(legacy);
++    // Schema 4 (3.0.x) already stores cosmeticFilters as structured rules.
++    // It only needs the new blocked-authors list, which defaults to empty.
++    if (legacy.version === 4) {
++      const carried = clone(legacy);
++      carried.version = SETTINGS_VERSION;
++      return sanitizeSettings(carried);
++    }
+     const preset = legacy.preset === 'aggressive' || legacy.preset === 'observe' ? legacy.preset : 'balanced';
+     const patch = presetPatch(preset);
+@@ -510,4 +521,5 @@
+       customInstruction: legacy.customInstruction,
+       allowedAuthors: Array.isArray(legacy.allowedAuthors) ? legacy.allowedAuthors : [],
++      blockedAuthors: Array.isArray(legacy.blockedAuthors) ? legacy.blockedAuthors : [],
+       categories: patch.categories,
+       hudMode: HUD_MODES.includes(legacy.hudMode) ? legacy.hudMode : legacy.showStatus === false ? 'hidden' : 'compact',
+@@ -586,4 +598,16 @@
+       }
+     }
++
++    out.blockedAuthors = [];
++    if (Array.isArray(raw.blockedAuthors)) {
++      for (const key of raw.blockedAuthors.slice(0, 500)) {
++        if (typeof key === 'string' && /^[a-z]+:.{1,120}$/.test(key) && !out.blockedAuthors.includes(key)) {
++          out.blockedAuthors.push(key);
++        }
++      }
++    }
++    // A key can never sit on both author lists. The explicit allow wins, so a
++    // stale form or a hand-edited export cannot silently re-mute someone.
++    out.blockedAuthors = out.blockedAuthors.filter((key) => !out.allowedAuthors.includes(key));
+ 
+     const categories = object(raw.categories) || {};
+@@ -800,4 +824,17 @@
+       decision.source = 'override';
+       return decision;
++    }
++
++    // Your own mute list wins over every model estimate and over the local
++    // sponsored marker. It is deterministic, costs no provider request and
++    // stays fully reversible from settings. An allowlisted author is checked
++    // first, and "Keep this post" still overrides a mute for one post.
++    if (record && record.author && s.blockedAuthors.includes(authorKey(record.site, record.author))) {
++      decision.action = 'collapse';
++      decision.reason = 'You muted this author';
++      decision.rule = 'author_muted';
++      decision.source = 'author';
++      decision.category = 'custom';
++      return observe(decision, s);
+     }
+ 
+
+--- a/src/options.js
++++ b/src/options.js
+--- a/src/options.js
++++ b/src/options.js
+@@ -101,4 +101,16 @@
+   if(!state.settings.allowedAuthors.length){list.append(el('p','No author exceptions yet.','fine'));return;}
+   for(const author of state.settings.allowedAuthors){const row=el('div',undefined,'allow-item'),button=el('button','Remove','small-btn');button.addEventListener('click',()=>action(async()=>{const fresh=await rpc('FG_STATUS');await rpc('FG_PATCH_SETTINGS',{patch:{allowedAuthors:fresh.settings.allowedAuthors.filter(a=>a!==author)},domain:'settings',expect:fresh.settings.revisions.settings});await load();}));row.append(el('span',author),button);list.append(row);}
++}
++function fillMuted(){
++  const list=$('mute-list');list.replaceChildren();
++  if(!state.settings.blockedAuthors.length){list.append(el('p','No muted authors yet. Use “Mute author…” in the status panel (click a post) or on a filtered post card.','fine'));return;}
++  for(const author of state.settings.blockedAuthors){const row=el('div',undefined,'allow-item'),button=el('button','Unmute','small-btn');button.addEventListener('click',()=>action(async()=>{const fresh=await rpc('FG_STATUS');await rpc('FG_PATCH_SETTINGS',{patch:{blockedAuthors:fresh.settings.blockedAuthors.filter(a=>a!==author)},domain:'settings',expect:fresh.settings.revisions.settings});await load();toast('Author unmuted. Posts from this author can appear again after the next scan.');}));row.append(el('span',author),button);list.append(row);}
++}
++function updateCustomStatus(){
++  const field=$('custom-instruction');if(!field)return;
++  const value=field.value.trim();
++  $('custom-count').textContent=`${value.length} / 700 characters sent as an extra question`;
++  const chip=$('custom-status');chip.textContent=value?'Sent with every cloud request':'Not active';
++  chip.classList.toggle('ok',value.length>0);
+ }
+ function fillLog(){
+@@ -196,9 +208,9 @@
+   state=await rpc('FG_STATUS');fillMetrics();
+   if(!full)return;
+-  const s=state.settings;fillFeeds();fillCategories();fillAllowlist();fillLog();fillRuleManager();fillRecovery();
++  const s=state.settings;fillFeeds();fillCategories();fillAllowlist();fillMuted();fillLog();fillRuleManager();fillRecovery();
+   $('application-mode').value=s.mode;$('profile-mode').value=s.profileMode;$('protect-useful').checked=s.protectUseful;
+   $('labelled-ads').checked=s.labelledAds;$('consent').checked=s.consent;$('hud-mode').value=s.hudMode||'compact';
+   $('feeds-details').open=s.feedsOpen===true;
+-  $('custom-instruction').value=s.customInstruction;$('daily-limit').value=String(s.dailyLimit);$('concurrency').value=String(s.concurrency);$('cache-minutes').value=String(s.cacheMinutes);$('model-id').value=s.model;
++  $('custom-instruction').value=s.customInstruction;updateCustomStatus();$('daily-limit').value=String(s.dailyLimit);$('concurrency').value=String(s.concurrency);$('cache-minutes').value=String(s.cacheMinutes);$('model-id').value=s.model;
+ }
+ $('feeds-details').addEventListener('toggle',()=>action(()=>patchSettings({feedsOpen:$('feeds-details').open},'ui')));
+@@ -224,4 +236,5 @@
+ $('global-toggle').addEventListener('click',()=>action(async()=>{const current=await rpc('FG_STATUS');await rpc('FG_PATCH_SETTINGS',{patch:{enabled:!current.settings.enabled},domain:'settings',expect:current.settings.revisions.settings});await load();}));
+ $('open-demo').addEventListener('click',()=>action(()=>rpc('FG_OPEN_DEMO')));
++$('custom-instruction').addEventListener('input',updateCustomStatus);
+ $('policy-form').addEventListener('submit',ev=>{ev.preventDefault();action(async()=>{
+   const categories={};for(const n of document.querySelectorAll('[data-category-mode]')){const id=n.dataset.categoryMode;categories[id]={mode:n.value,threshold:Number(document.querySelector(`[data-category-threshold="${id}"]`).value)/100};}
+@@ -276,5 +289,5 @@
+ $('export-diagnostics').addEventListener('click',()=>action(async()=>{
+   const data=await rpc('FG_DIAGNOSTICS');
+-  saveDownload('feedgate-3.0.1-diagnostics-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json',data);
++  saveDownload('feedgate-3.1.1-diagnostics-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json',data);
+   toast('Diagnostic file prepared. It does not contain keys, post text, authors, full browsing URLs or raw cosmetic selectors.');
+ }));
+
+--- a/static/manifest.json
++++ b/static/manifest.json
+--- a/static/manifest.json
++++ b/static/manifest.json
+@@ -1,8 +1,8 @@
+ {
+   "manifest_version": 3,
+-  "name": "FeedGate 3.0.1 | TypeSafe filter",
++  "name": "FeedGate 3.1.1 | TypeSafe filter",
+   "short_name": "FeedGate",
+   "description": "Safe-controls Jev feed filtering for X, Reddit, LinkedIn, Facebook, Instagram and Wykop: reversible cosmetics with a transactional picker, per-site recovery, a status panel you can hide, and a precision-first policy.",
+-  "version": "3.0.1",
++  "version": "3.1.1",
+   "minimum_chrome_version": "120",
+   "permissions": [
+
+--- a/static/options.html
++++ b/static/options.html
+--- a/static/options.html
++++ b/static/options.html
+@@ -1,10 +1,10 @@
+ <!doctype html>
+ <html lang="en">
+-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FeedGate 3.0.1 · Control room</title><link rel="stylesheet" href="ui.css"></head>
++<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FeedGate 3.1.1 · Control room</title><link rel="stylesheet" href="ui.css"></head>
+ <body>
+ <div class="app">
+ <aside class="sidebar">
+   <div class="wordmark"><img class="brand-icon" src="icons/48.png" alt="">FeedGate</div>
+-  <div class="eyebrow">Your feed, on your terms</div><div class="version">3.0.1 / safe controls preview</div>
++  <div class="eyebrow">Your feed, on your terms</div><div class="version">3.1.1 / safe controls preview</div>
+   <nav class="nav" aria-label="Settings">
+     <button data-page="overview" class="active"><span>01</span>Overview</button>
+@@ -17,7 +17,7 @@
+ </aside>
+ <main class="main">
+-  <header class="topline"><div><div class="eyebrow">Chrome / TypeSafe Jev</div><strong>FeedGate 3.0.1</strong></div><div class="top-actions"><span id="key-badge" class="badge warn">Checking key</span><button id="global-toggle" class="small-btn">Pause filtering</button></div></header>
++  <header class="topline"><div><div class="eyebrow">Chrome / TypeSafe Jev</div><strong>FeedGate 3.1.1</strong></div><div class="top-actions"><span id="key-badge" class="badge warn">Checking key</span><button id="global-toggle" class="small-btn">Pause filtering</button></div></header>
+   <div id="last-error" class="note warning hidden" role="status"></div>
+-  <div id="upgrade-banner" class="note hidden" role="status"><p><b>FeedGate 3.0.1 adds Wykop and safer cosmetics.</b> Your earlier settings were kept. One-time choice: <button id="upgrade-all" class="small-btn">Select all six supported feeds</button> <button id="upgrade-dismiss" class="small-btn">Keep my current feeds</button></p></div>
++  <div id="upgrade-banner" class="note hidden" role="status"><p><b>FeedGate 3.1.1 adds Wykop and safer cosmetics.</b> Your earlier settings were kept. One-time choice: <button id="upgrade-all" class="small-btn">Select all six supported feeds</button> <button id="upgrade-dismiss" class="small-btn">Keep my current feeds</button></p></div>
+   <section id="overview" class="page active">
+     <div class="intro"><div class="eyebrow">A better filter starts with better rules</div><h1>Useful posts stay.</h1><p>Live Jev judgments help reduce spam while preserving useful projects, experiments and explanations. You can inspect or reverse every filtered post.</p></div>
+@@ -58,5 +58,5 @@
+         <p class="fine">Hiding the status panel never pauses filtering. Pausing keeps your chosen panel setting. Gentler profiles do not exempt your own exclusion rule or concrete fraud-like solicitation. Truncated semantic content is normally dimmed rather than collapsed.</p>
+       </div>
+-      <div class="panel"><h2>Noise rules</h2><div id="categories"></div><div class="separator"></div><label class="field"><span>Optional personal exclusion criterion</span><textarea id="custom-instruction" maxlength="700" rows="3" placeholder="Example: empty requests to comment a keyword to receive a generic document."></textarea></label><p class="fine">This is your explicit preference. Enable “Your exclusion rule” above to use it. It can override useful-content protection. A non-empty criterion is sent with cloud requests even when its action is Off; clear the text to stop sending it. Never put secrets in this field.</p></div>
++      <div class="panel"><h2>Noise rules</h2><div id="categories"></div><div class="separator"></div><div class="row spread"><h2>My exception rule (optional)</h2><span id="custom-status" class="badge">Not active</span></div><label class="field"><span>Plain-language description of what you do not want to see</span><textarea id="custom-instruction" maxlength="700" rows="3" placeholder="Example: empty requests to comment a keyword to receive a generic document."></textarea></label><output id="custom-count" class="fine">0 / 700 characters sent as an extra question</output><p class="fine">This is a hint for the model, not a guaranteed filter: Jev can still ignore it, and it never hides a platform-labelled ad on its own. While the text is not empty it is sent with every cloud request as an extra question, even when “Your exclusion rule” is Off — that costs tokens. Turn the rule On below to let a match actually dim or collapse. Clear the text to stop sending it. Never put secrets in this field.</p></div>
+       <div class="panel"><h2>Inference controls</h2><div class="tri"><label class="field"><span>Parallel requests</span><input id="concurrency" type="number" min="1" max="12"></label><label class="field"><span>Daily request limit (UTC)</span><input id="daily-limit" type="number" min="10" max="100000"></label><label class="field"><span>Cache minutes (0 disables)</span><input id="cache-minutes" type="number" min="0" max="1440"></label></div><p class="fine">Changing thresholds reuses cached feature scores and reapplies the policy. Changing the model, rubric or personal question invalidates the corresponding cache key. Requests, including failed attempts, can be billed.</p><button type="submit" class="primary">Save policy</button><div id="policy-status" class="statusline" role="status"></div></div>
+     </form>
+@@ -89,4 +89,5 @@
+       <div class="panel"><h2>Recovery</h2><p class="fine">Restore persists a pause for one site first, then asks its open tabs to remove visible effects. Pending work is cancelled; other sites are untouched. If a page cannot respond, it stays paused and you can reload it paused.</p><div id="recovery-list"></div><div id="recovery-status" class="statusline" role="status"></div></div>
+       <div class="panel"><h2>Allowed authors</h2><p class="fine">These local exceptions override semantic and labelled-ad post filtering, but not your cosmetic rules.</p><div id="allowlist"></div></div>
++      <div class="panel"><h2>Muted authors</h2><p class="fine">One click hides every post from an author on this site. This is a deterministic local list: no model request is used, “Keep this post” still wins for a specific post, and your cosmetic rules are unaffected. Muting and allowing are mutually exclusive for the same author.</p><div id="mute-list"></div></div>
+       <div class="panel"><h2>Saved post choices</h2><p class="fine">“Keep this post” remembers a hash of the specific visible post, not a training label for the author. Edited content is evaluated again. Up to 2,000 choices stay on this device.</p><button id="reset-feedback">Reset saved post choices</button></div>
+     </div></div>
+
+--- a/static/popup.html
++++ b/static/popup.html
+--- a/static/popup.html
++++ b/static/popup.html
+@@ -1,4 +1,4 @@
+ <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FeedGate</title><link rel="stylesheet" href="ui.css"></head><body class="popup">
+-<div class="topline"><div class="wordmark"><img class="brand-icon" src="icons/48.png" alt="">FeedGate 3.0.1</div><span id="connection" class="badge warn">Locked</span></div><div class="eyebrow">This tab</div><h1 id="host">Loading...</h1><p id="page-info">Reading extension status.</p><button id="site-toggle" class="primary site-button" disabled>Enable on this platform</button>
++<div class="topline"><div class="wordmark"><img class="brand-icon" src="icons/48.png" alt="">FeedGate 3.1.1</div><span id="connection" class="badge warn">Locked</span></div><div class="eyebrow">This tab</div><h1 id="host">Loading...</h1><p id="page-info">Reading extension status.</p><button id="site-toggle" class="primary site-button" disabled>Enable on this platform</button>
+ <div class="metrics"><div class="metric first"><div class="eyebrow">Hidden now</div><strong id="filtered">0</strong><small>Current page only</small></div><div class="metric"><div class="eyebrow">Observed</div><strong id="observed">0</strong><small id="pending">No pending requests</small></div></div>
+ <div class="row-labelled"><label for="hud-mode">Status panel</label><select id="hud-mode"><option value="compact">Compact pill</option><option value="expanded">Open panel</option><option value="hidden">Hidden</option></select></div>
+
+--- a/tests/browser.py
++++ b/tests/browser.py
+--- a/tests/browser.py
++++ b/tests/browser.py
+@@ -47,6 +47,8 @@
+  if(message.type==='FG_KEEP_POST'){H.kept.push(message.record.id);H.refresh();return {ok:true,data:{saved:true}};}
+  if(message.type==='FG_PAGE_STATS'){H.pages=[{...message.stats,site:'x',context:'feed'}];return {ok:true,data:{}};}
+- if(message.type==='FG_DIAGNOSTICS')return {ok:true,data:{format:'feedgate-diagnostics',version:5,build:{release:'3.0.1',rubric:'feed-v2.1.0',policy:'policy-2.1.1',detector:'ad-3.0.0',extraction:'extract-3.0.0',schema:5},pages:H.pages,cosmeticEvents:H.cosmeticEvents}};
+- if(message.type==='FG_ALLOW_AUTHOR'){H.settings.allowedAuthors.push(C.authorKey('x',message.author));H.refresh();return {ok:true,data:{}};}
++ if(message.type==='FG_DIAGNOSTICS')return {ok:true,data:{format:'feedgate-diagnostics',version:6,build:{release:'3.1.1',rubric:'feed-v2.1.0',policy:'policy-3.1.0',detector:'ad-3.0.0',extraction:'extract-3.0.0',schema:6},pages:H.pages,cosmeticEvents:H.cosmeticEvents}};
++ if(message.type==='FG_ALLOW_AUTHOR'){const key=C.authorKey('x',message.author);H.settings.allowedAuthors=[...H.settings.allowedAuthors.filter(a=>a!==key),key];H.settings.blockedAuthors=H.settings.blockedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{}};}
++ if(message.type==='FG_MUTE_AUTHOR'){const key=C.authorKey('x',message.author);H.settings.blockedAuthors=[...H.settings.blockedAuthors.filter(a=>a!==key),key];H.settings.allowedAuthors=H.settings.allowedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{}};}
++ if(message.type==='FG_FORGET_AUTHOR'){const key=C.authorKey('x',message.author);H.settings.allowedAuthors=H.settings.allowedAuthors.filter(a=>a!==key);H.settings.blockedAuthors=H.settings.blockedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{}};}
+  if(message.type==='FG_ADD_RULE'){
+    const rule=C.sanitizeCosmeticRule({id:'r-'+Math.random().toString(36).slice(2,10),host:new URL(H.location.href).hostname,selector:message.selector,status:'active',source:'picker',reason:'user_created',createdAt:Date.now(),validatedAt:Date.now()});
+@@ -70,5 +72,5 @@
+  if(message.type==='FG_LOCK'){H.keyReady=false;return {ok:true,data:{}};}
+  if(message.type==='FG_TEST_CONNECTION'){H.verifiedAt=Date.now();return {ok:true,data:{model:'jev-fixture-only',latencyMs:1,usage:{input_tokens:0,output_tokens:0},scores:{},decision:{action:'allow',reason:'Synthetic test fixture'}}};}
+- if(message.type==='FG_EXPORT_SETTINGS')return {ok:true,data:{format:'feedgate-settings',version:4,settings:{...H.settings,sites:[],consent:false}}};
++ if(message.type==='FG_EXPORT_SETTINGS')return {ok:true,data:{format:'feedgate-settings',version:5,settings:{...H.settings,sites:[],consent:false}}};
+  if(message.type==='FG_TAB_COMMAND')return {ok:true,data:{}};
+  return {ok:true,data:{}};
+@@ -276,5 +278,5 @@
+             await code(pg,source('adapters.js'),True);await code(pg,source('demo.js'));await code(pg,source('content.js'),True)
+             await pg.wait_for_function("document.querySelectorAll('feedgate-card').length===1")
+-            assert await pg.evaluate("FeedGateCore.VERSION")=='3.0.1'
++            assert await pg.evaluate("FeedGateCore.VERSION")=='3.1.1'
+             assert await pg.locator('feedgate-status').count()==0,'demo mode keeps the HUD out of the fixture'
+             await pg.screenshot(path=str(ROOT/'evidence/test-feed-local.png'),full_page=True)
+@@ -400,6 +402,6 @@
+             await pg.wait_for_function('window.savedBlobs.length===1')
+             data=await pg.evaluate('async()=>JSON.parse(await window.savedBlobs[0].text())')
+-            assert data['format']=='feedgate-diagnostics' and data['version']==5
+-            assert data['build']['detector']=='ad-3.0.0' and data['build']['release']=='3.0.1'
++            assert data['format']=='feedgate-diagnostics' and data['version']==6
++            assert data['build']['detector']=='ad-3.0.0' and data['build']['release']=='3.1.1'
+             assert not errors,errors
+             await pg.screenshot(path=str(ROOT/'evidence/diagnostics-fixture.png'),full_page=True)
+@@ -738,4 +740,53 @@
+         await run_case('WYK09: an unverified Wykop placement is never labelled a platform ad and auth routes stay private',wykop_policy_and_privacy)
+ 
++        async def mute_author():
++            pg=await fixture(browser,tweet('s1','SPAM_FIXTURE','','spamwriter')+tweet('n1','Useful note from the same author','','spamwriter')+tweet('other','Another useful note','','someoneelse'))
++            await pg.wait_for_function("getComputedStyle(document.querySelector('#s1')).display==='none'")
++            await pg.wait_for_function("harness.requests.length===3")
++            assert await pg.locator('#n1').is_visible()
++            await pg.locator('feedgate-card').first.get_by_role('button',name='Mute author').click()
++            assert await pg.wait_for_function("harness.settings.blockedAuthors.includes('x:@spamwriter')")
++            await pg.wait_for_function("getComputedStyle(document.querySelector('#n1')).display==='none'")
++            sent=await pg.evaluate("harness.requests.map(r=>r.text)")
++            assert sum(1 for t in sent if 'same author' in t)<=1,'a muted author must not be re-sent to the model'
++            notes=await pg.evaluate("[...document.querySelectorAll('feedgate-card')].map(c=>c.shadowRoot.textContent).join('|')")
++            assert 'Your mute list' in notes,notes
++            assert await pg.locator('#other').is_visible()
++            await pg.evaluate("harness.settings.blockedAuthors=[];harness.command('FG_CONFIG_CHANGED')")
++            await pg.wait_for_function("getComputedStyle(document.querySelector('#n1')).display!=='none'")
++            await pg.close()
++        await run_case('MUTE01: muting an author hides their posts locally with no extra provider request and unmuting restores them',mute_author)
++
++        async def panel_author_picker():
++            pg=await fixture(browser,tweet('a1','Useful note from the writer','','panelwriter')+tweet('b1','Another useful note','','someoneelse'))
++            await pg.wait_for_function("harness.requests.length===2")
++            assert await pg.locator('feedgate-status').count()==1
++            await pg.locator('feedgate-status').locator('button').first.click()
++            assert await pg.wait_for_function("harness.settings.hudMode==='expanded'")
++            assert await pg.get_by_role('button',name='Allow author',exact=False).count()>=1
++            await pg.get_by_role('button',name='Mute author…').click()
++            await pg.get_by_text('hover a post').wait_for()
++            await pg.locator('#a1').click()
++            await pg.get_by_text('Author: @panelwriter').wait_for()
++            await pg.get_by_text('makes no model request').wait_for()
++            await pg.screenshot(path=str(ROOT/'evidence/panel-author-picker.png'),full_page=True)
++            await pg.get_by_role('button',name='Mute author',exact=True).click()
++            assert await pg.wait_for_function("harness.settings.blockedAuthors.includes('x:@panelwriter')")
++            await pg.wait_for_function("getComputedStyle(document.querySelector('#a1')).display==='none'")
++            sent=await pg.evaluate("harness.requests.map(r=>r.text)")
++            assert sum(1 for t in sent if 'from the writer' in t)<=1,'a muted author must not be re-sent to the model'
++            toast=await pg.evaluate("document.querySelector('feedgate-toast').shadowRoot.textContent")
++            assert 'hidden from now on' in toast,toast
++            await pg.get_by_role('button',name='Undo').click()
++            assert await pg.wait_for_function("harness.settings.blockedAuthors.length===0")
++            await pg.wait_for_function("getComputedStyle(document.querySelector('#a1')).display!=='none'")
++            await pg.get_by_role('button',name='Mute author…').click()
++            await pg.get_by_text('hover a post').wait_for()
++            await pg.keyboard.press('Escape')
++            assert await pg.get_by_text('hover a post').count()==0,'Escape cancels the author picker'
++            assert await pg.evaluate("harness.settings.blockedAuthors.length")==0
++            await pg.close()
++        await run_case('PANEL01: the status panel mutes and allows an author by clicking a post, with preview and Undo',panel_author_picker)
++
+         await browser.close()
+     report={'scope':'Real Chromium DOM; mocked Chrome APIs, page location and Jev responses. No extension installed; no live API or signed-in feeds tested.','browser':version,'results':REPORT,'passed':sum(r['status']=='PASS' for r in REPORT)}
+
+--- a/tests/core.test.mjs
++++ b/tests/core.test.mjs
+--- a/tests/core.test.mjs
++++ b/tests/core.test.mjs
+@@ -15,12 +15,12 @@
+ 
+ test('release, rubric, detector, extraction, policy and schema versions are separate',()=>{
+-  assert.equal(C.VERSION,'3.0.1');
++  assert.equal(C.VERSION,'3.1.1');
+   assert.equal(C.RUBRIC_VERSION,'feed-v2.1.0');
+-  assert.equal(C.POLICY_VERSION,'policy-2.1.1');
++  assert.equal(C.POLICY_VERSION,'policy-3.1.0');
+   assert.equal(C.AD_DETECTOR_VERSION,'ad-3.0.0');
+   assert.equal(C.EXTRACTION_VERSION,'extract-3.0.0');
+-  assert.equal(C.SETTINGS_VERSION,4);
++  assert.equal(C.SETTINGS_VERSION,5);
+   assert.equal(C.RUNTIME_VERSION,5);
+-  assert.equal(C.DIAGNOSTICS_VERSION,5);
++  assert.equal(C.DIAGNOSTICS_VERSION,6);
+ });
+ 
+@@ -46,5 +46,5 @@
+   const dirty=JSON.parse('{"__proto__":{"polluted":true},"version":2,"consent":"yes","concurrency":99,"dailyLimit":1,"cacheMinutes":-5,"model":"gpt","sites":["x","youtube","x"],"allowedAuthors":["x:allowed","bad key","y:other"],"categories":{"promotion":{"mode":"collapse","threshold":0.1},"risk":{"mode":"nope","threshold":"0.9"}}}');
+   const s=C.sanitizeSettings(dirty);
+-  assert.equal(s.version,4);
++  assert.equal(s.version,5);
+   assert.equal(s.consent,false);
+   assert.equal(s.concurrency,12);
+@@ -70,5 +70,5 @@
+     allowedAuthors:['x:friend'],categories:{promotion:{mode:'collapse',threshold:0.55},spam:{mode:'collapse',threshold:0.6},bait:{mode:'collapse',threshold:0.7}}};
+   const s=C.migrateSettings(legacy);
+-  assert.equal(s.version,4);
++  assert.equal(s.version,5);
+   assert.equal(s.consent,true);
+   assert.deepEqual(s.sites,['x']);
+@@ -301,4 +301,35 @@
+   assert.equal(C.decide(record({}),spam,list).source,'allowlist');
+   assert.equal(C.decide(record({}),spam,settings(),{revealed:true}).source,'override');
++});
++
++test('muting an author is deterministic, local and fully reversible',()=>{
++  const muted=settings({blockedAuthors:['x:@a']});
++  const d=C.decide(record({}),result({}),muted);
++  assert.equal(d.action,'collapse');
++  assert.equal(d.rule,'author_muted');
++  assert.equal(d.source,'author');
++  assert.equal(d.category,'custom');
++  assert.equal(C.decide(record({}),null,muted).rule,'author_muted','a mute needs no provider result');
++  assert.equal(C.decide(record({author:'@A'}),result({}),muted).rule,'author_muted','author keys are lowercased');
++  const observed=C.decide(record({}),result({}),settings({blockedAuthors:['x:@a'],mode:'observe'}));
++  assert.equal(observed.action,'allow');
++  assert.equal(observed.wouldAction,'collapse');
++  assert.equal(C.decide(record({}),result({}),muted,{revealed:true}).rule,'kept_by_you');
++  const both=settings({allowedAuthors:['x:@a'],blockedAuthors:['x:@a']});
++  assert.deepEqual(both.blockedAuthors,[]);
++  assert.equal(C.decide(record({}),result({}),both).rule,'author_allowlisted');
++  assert.notEqual(C.decide(record({author:'@b'}),result({}),muted).rule,'author_muted');
++});
++
++test('muted and allowed author lists stay bounded and validated',()=>{
++  const s=settings({blockedAuthors:['x:ok','bad key','y:ok','x:ok',42]});
++  assert.deepEqual(s.blockedAuthors,['x:ok','y:ok']);
++  const many=settings({blockedAuthors:Array.from({length:600},(_,i)=>'x:name'+i)});
++  assert.equal(many.blockedAuthors.length,500);
++  const migrated=C.migrateSettings({version:4,consent:true,sites:['x'],allowedAuthors:['x:@friend'],cosmeticFilters:{version:3,revision:2,rules:[]}});
++  assert.equal(migrated.version,5);
++  assert.deepEqual(migrated.blockedAuthors,[]);
++  assert.deepEqual(migrated.allowedAuthors,['x:@friend']);
++  assert.equal(migrated.cosmeticFilters.revision,2,'v4 settings keep their cosmetic rules on upgrade');
+ });
+ 
+
+--- a/tests/diagnostics-v21.test.mjs
++++ b/tests/diagnostics-v21.test.mjs
+--- a/tests/diagnostics-v21.test.mjs
++++ b/tests/diagnostics-v21.test.mjs
+@@ -6,8 +6,9 @@
+  const w=await createWorker();await w.enable();const r=await w.classify({...post('Labelled placement'),adEvidence:adEvidenceVerified});
+  assert.equal(r.decision.source,'local');assert.equal(r.decision.rule,'platform_labelled_ad');assert.equal(w.calls.length,0);
+- const d=await w.ok({type:'FG_DIAGNOSTICS'});assert.equal(d.connection.transport,'direct TypeSafe HTTPS');assert.equal(d.version,5);assert.equal(d.rubric,'feed-v2.1.0');
+- assert.equal(d.build.release,'3.0.1');assert.equal(d.build.rubric,'feed-v2.1.0');assert.equal(d.build.policy,'policy-2.1.1');assert.equal(d.build.detector,'ad-3.0.0');assert.equal(d.build.extraction,'extract-3.0.0');assert.equal(d.build.schema,5);
++ const d=await w.ok({type:'FG_DIAGNOSTICS'});assert.equal(d.connection.transport,'direct TypeSafe HTTPS');assert.equal(d.version,6);assert.equal(d.rubric,'feed-v2.1.0');
++ assert.equal(d.build.release,'3.1.1');assert.equal(d.build.rubric,'feed-v2.1.0');assert.equal(d.build.policy,'policy-3.1.0');assert.equal(d.build.detector,'ad-3.0.0');assert.equal(d.build.extraction,'extract-3.0.0');assert.equal(d.build.schema,6);
+  const local=d.decisions.find(x=>x.rule==='platform_labelled_ad');
+  assert.equal(local.adEvidence.status,'verified');assert.equal(local.adEvidence.markerKind,'x_is_promoted_attribute');assert.equal(local.adEvidence.scope,'outer_post');assert.equal(local.protectionEligible,false);
++ assert.equal(d.settings.mutedAuthorCount,0);
+ });
+ test('diagnostics record rule names but omit secrets, text, author identities, custom rules and post hashes',async()=>{
+@@ -56,12 +57,12 @@
+ test('legacy settings keep safe preferences but never reuse old thresholds',async()=>{
+  const w=await createWorker({local:{settings:{version:1,consent:true,sites:['x'],categories:{promotion:{mode:'collapse',threshold:.5}}}},session:{runtimeState:{metrics:{requests:999},log:[{reason:'OLD'}]}}});
+- const s=await w.ok({type:'FG_STATUS'});assert.equal(s.settings.version,4);assert.equal(s.settings.hudMode,'compact');assert.equal(s.settings.consent,true);assert.deepEqual(s.settings.sites,['x']);assert.equal(s.settings.categories.unwantedAd.threshold,.85);assert.equal(s.settings.categories.promotion,undefined);assert.equal(s.metrics.requests,0);
++ const s=await w.ok({type:'FG_STATUS'});assert.equal(s.settings.version,5);assert.equal(s.settings.hudMode,'compact');assert.equal(s.settings.consent,true);assert.deepEqual(s.settings.sites,['x']);assert.equal(s.settings.categories.unwantedAd.threshold,.85);assert.equal(s.settings.categories.promotion,undefined);assert.equal(s.metrics.requests,0);
+ });
+-test('settings export format is explicitly v4, v3 and v2 imports migrate and v1 imports are rejected',async()=>{
+- const w=await createWorker();const data=await w.ok({type:'FG_EXPORT_SETTINGS'});assert.equal(data.version,4);
++test('settings export format is explicitly v5, v4/v3/v2 imports migrate and v1 imports are rejected',async()=>{
++ const w=await createWorker();const data=await w.ok({type:'FG_EXPORT_SETTINGS'});assert.equal(data.version,5);
+  const r=await w.send({type:'FG_IMPORT_SETTINGS',data:{...data,version:1}});assert.equal(r.error.code,'INVALID_RECORD');
+  const legacy={format:'feedgate-settings',version:2,settings:{version:2,consent:true,sites:['x'],categories:{promotion:{mode:'collapse',threshold:.5},spam:{mode:'collapse',threshold:.5}},allowedAuthors:['x:@friend'],dailyLimit:321}};
+  const imported=await w.ok({type:'FG_IMPORT_SETTINGS',data:legacy});
+- assert.equal(imported.settings.version,4);assert.equal(imported.settings.consent,false);assert.deepEqual(imported.settings.sites,[]);
++ assert.equal(imported.settings.version,5);assert.equal(imported.settings.consent,false);assert.deepEqual(imported.settings.sites,[]);
+  assert.equal(imported.settings.categories.unwantedAd.threshold,.85);assert.equal(imported.settings.categories.feedSpam.threshold,.9);
+  assert.deepEqual(imported.settings.allowedAuthors,['x:@friend']);assert.equal(imported.settings.dailyLimit,321);
+
+--- a/tests/extension_smoke.py
++++ b/tests/extension_smoke.py
+--- a/tests/extension_smoke.py
++++ b/tests/extension_smoke.py
+@@ -124,5 +124,5 @@
+             worker_errors.append(f"evaluate failed: {exc}")
+         result["version"] = version
+-        check("worker reports release version 3.0.1", version == "3.0.1", str(version))
++        check("worker reports release version 3.1.1", version == "3.1.1", str(version))
+ 
+         await page.goto(f"chrome-extension://{result['extensionId']}/demo.html")
+@@ -147,5 +147,5 @@
+         label = await page.locator(".version, [data-version], #version").first.inner_text() if await page.locator(".version, [data-version], #version").count() else ""
+         result["optionsVersionLabel"] = label
+-        check("options page opens as the real extension page", "3.0.1" in label, label.strip()[:60])
++        check("options page opens as the real extension page", "3.1.1" in label, label.strip()[:60])
+ 
+         check("no localhost or bridge traffic", not result["localhostHits"], ",".join(result["localhostHits"][:3]))
+
+--- a/tests/policy-v21.test.mjs
++++ b/tests/policy-v21.test.mjs
+--- a/tests/policy-v21.test.mjs
++++ b/tests/policy-v21.test.mjs
+@@ -182,5 +182,5 @@
+   const w=await createWorker({local:{settings:legacy}});
+   const status=await w.ok({type:'FG_STATUS'});
+-  assert.equal(status.settings.version,4);
++  assert.equal(status.settings.version,5);
+   assert.equal(status.settings.consent,true);
+   assert.deepEqual(status.settings.sites,['x']);
+
+--- a/tests/v3-features.test.mjs
++++ b/tests/v3-features.test.mjs
+--- a/tests/v3-features.test.mjs
++++ b/tests/v3-features.test.mjs
+@@ -56,5 +56,5 @@
+ test('legacy settings migrate to HUD modes and quarantined cosmetic review',()=>{
+   const hidden=C.migrateSettings({version:3,showStatus:false,cosmeticRules:'x.com##.ad'});
+-  assert.equal(hidden.version,4);
++  assert.equal(hidden.version,5);
+   assert.equal(hidden.hudMode,'hidden');
+   assert.equal(hidden.cosmeticFilters.rules.length,1);
+@@ -270,6 +270,6 @@
+   const w=await createWorker();
+   const exported=await w.ok({type:'FG_EXPORT_SETTINGS'});
+-  assert.equal(exported.version,4);
+-  const data={format:'feedgate-settings',version:4,settings:{...base(),cosmeticFilters:{version:3,revision:0,rules:[
++  assert.equal(exported.version,5);
++   const data={format:'feedgate-settings',version:4,settings:{...base(),version:4,cosmeticFilters:{version:3,revision:0,rules:[
+     rule({id:'r-keep0001',selector:'.keep',validatedAt:5}),
+     rule({id:'r-review01',selector:'.review',validatedAt:0})
+
+--- a/tests/worker.test.mjs
++++ b/tests/worker.test.mjs
+--- a/tests/worker.test.mjs
++++ b/tests/worker.test.mjs
+@@ -68,5 +68,37 @@
+ });
+ test('author allowlist restores locally without further model requests',async()=>{
+- const w=await createWorker();await w.enable();await w.ok({type:'FG_ALLOW_AUTHOR',author:'@fixture'},sender);const d=await w.classify(post('SPAM_FIXTURE'));assert.equal(d.decision.source,'allowlist');assert.equal(w.calls.length,0);
++  const w=await createWorker();await w.enable();await w.ok({type:'FG_ALLOW_AUTHOR',author:'@fixture'},sender);const d=await w.classify(post('SPAM_FIXTURE'));assert.equal(d.decision.source,'allowlist');assert.equal(w.calls.length,0);
++});
++test('a muted author is hidden locally, unmuting clears the mute and lists stay mutually exclusive',async()=>{
++  const w=await createWorker();await w.enable({cacheMinutes:0});
++  await w.ok({type:'FG_MUTE_AUTHOR',author:'@fixture'},sender);
++  const mute=await w.classify(post('SPAM_FIXTURE'));
++  assert.equal(mute.decision.rule,'author_muted');assert.equal(mute.decision.source,'author');assert.equal(mute.decision.action,'collapse');
++  assert.equal(w.calls.length,0,'a mute is resolved before any provider call');
++  const diag=await w.ok({type:'FG_DIAGNOSTICS'});
++  assert.equal(diag.settings.mutedAuthorCount,1);
++  assert.ok(diag.decisions.some((entry)=>entry.rule==='author_muted'));
++  await w.ok({type:'FG_ALLOW_AUTHOR',author:'@fixture'},sender);
++  const s=await w.ok({type:'FG_STATUS'});
++  assert.deepEqual(s.settings.blockedAuthors,[]);
++  assert.ok(s.settings.allowedAuthors.includes('x:@fixture'));
++  const allowed=await w.classify(post('SPAM_FIXTURE'));
++  assert.equal(allowed.decision.rule,'author_allowlisted');
++  assert.equal(w.calls.length,0);
++});
++test('forget-author clears a key from both local lists and model checks resume',async()=>{
++  const w=await createWorker();await w.enable({cacheMinutes:0});
++  await w.ok({type:'FG_MUTE_AUTHOR',author:'@fixture'},sender);
++  await w.ok({type:'FG_ALLOW_AUTHOR',author:'@fixture'},sender);
++  const before=await w.ok({type:'FG_STATUS'});
++  assert.deepEqual(before.settings.allowedAuthors,['x:@fixture']);
++  const out=await w.ok({type:'FG_FORGET_AUTHOR',author:'@fixture'},sender);
++  assert.equal(out.saved,true);
++  const after=await w.ok({type:'FG_STATUS'});
++  assert.deepEqual(after.settings.allowedAuthors,[]);
++  assert.deepEqual(after.settings.blockedAuthors,[]);
++  const decision=await w.classify(post('SPAM_FIXTURE'));
++  assert.equal(decision.decision.rule,'feed_spam');
++  assert.equal(w.calls.length,1,'without local lists the post needs the model again');
+ });
+ test('element picker may add only a selector for its actual sender host',async()=>{
+@@ -85,5 +117,5 @@
+ });
+ test('config responses carry the release version so a stale content script can detect an update',async()=>{
+- const w=await createWorker();const cfg=await w.ok({type:'FG_GET_CONFIG'},sender);assert.equal(cfg.appVersion,'3.0.1');
++ const w=await createWorker();const cfg=await w.ok({type:'FG_GET_CONFIG'},sender);assert.equal(cfg.appVersion,'3.1.1');
+ });
+ test('runtime state written by an older schema is dropped, not replayed',async()=>{
+

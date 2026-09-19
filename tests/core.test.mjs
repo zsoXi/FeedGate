@@ -14,14 +14,14 @@ const adVerified=patch=>C.sanitizeAdEvidence({adapter:'x',status:'verified',mark
 const sanitized=patch=>C.sanitizeRecord(record(patch),'x');
 
 test('release, rubric, detector, extraction, policy and schema versions are separate',()=>{
-  assert.equal(C.VERSION,'3.0.1');
+  assert.equal(C.VERSION,'3.1.1');
   assert.equal(C.RUBRIC_VERSION,'feed-v2.1.0');
-  assert.equal(C.POLICY_VERSION,'policy-2.1.1');
+  assert.equal(C.POLICY_VERSION,'policy-3.1.0');
   assert.equal(C.AD_DETECTOR_VERSION,'ad-3.0.0');
   assert.equal(C.EXTRACTION_VERSION,'extract-3.0.0');
-  assert.equal(C.SETTINGS_VERSION,4);
+  assert.equal(C.SETTINGS_VERSION,5);
   assert.equal(C.RUNTIME_VERSION,5);
-  assert.equal(C.DIAGNOSTICS_VERSION,5);
+  assert.equal(C.DIAGNOSTICS_VERSION,6);
 });
 
 test('host matching rejects lookalikes and accepts subdomains',()=>{
@@ -45,7 +45,7 @@ test('private routes are detected including percent-encoded paths',()=>{
 test('settings sanitization keeps bounds, resets versions and ignores junk keys',()=>{
   const dirty=JSON.parse('{"__proto__":{"polluted":true},"version":2,"consent":"yes","concurrency":99,"dailyLimit":1,"cacheMinutes":-5,"model":"gpt","sites":["x","youtube","x"],"allowedAuthors":["x:allowed","bad key","y:other"],"categories":{"promotion":{"mode":"collapse","threshold":0.1},"risk":{"mode":"nope","threshold":"0.9"}}}');
   const s=C.sanitizeSettings(dirty);
-  assert.equal(s.version,4);
+  assert.equal(s.version,5);
   assert.equal(s.consent,false);
   assert.equal(s.concurrency,12);
   assert.equal(s.dailyLimit,10);
@@ -69,7 +69,7 @@ test('legacy settings migrate without mapping old promotion thresholds onto unwa
     protectUseful:true,profileMode:'normal',concurrency:4,dailyLimit:120,cacheMinutes:60,customInstruction:'no memes',cosmeticRules:'x.com##.ad',
     allowedAuthors:['x:friend'],categories:{promotion:{mode:'collapse',threshold:0.55},spam:{mode:'collapse',threshold:0.6},bait:{mode:'collapse',threshold:0.7}}};
   const s=C.migrateSettings(legacy);
-  assert.equal(s.version,4);
+  assert.equal(s.version,5);
   assert.equal(s.consent,true);
   assert.deepEqual(s.sites,['x']);
   assert.deepEqual(s.allowedAuthors,['x:friend']);
@@ -300,6 +300,37 @@ test('paused, allowlisted and revealed posts bypass every rule',()=>{
   const list=settings({allowedAuthors:['x:@a']});
   assert.equal(C.decide(record({}),spam,list).source,'allowlist');
   assert.equal(C.decide(record({}),spam,settings(),{revealed:true}).source,'override');
+});
+
+test('muting an author is deterministic, local and fully reversible',()=>{
+  const muted=settings({blockedAuthors:['x:@a']});
+  const d=C.decide(record({}),result({}),muted);
+  assert.equal(d.action,'collapse');
+  assert.equal(d.rule,'author_muted');
+  assert.equal(d.source,'author');
+  assert.equal(d.category,'custom');
+  assert.equal(C.decide(record({}),null,muted).rule,'author_muted','a mute needs no provider result');
+  assert.equal(C.decide(record({author:'@A'}),result({}),muted).rule,'author_muted','author keys are lowercased');
+  const observed=C.decide(record({}),result({}),settings({blockedAuthors:['x:@a'],mode:'observe'}));
+  assert.equal(observed.action,'allow');
+  assert.equal(observed.wouldAction,'collapse');
+  assert.equal(C.decide(record({}),result({}),muted,{revealed:true}).rule,'kept_by_you');
+  const both=settings({allowedAuthors:['x:@a'],blockedAuthors:['x:@a']});
+  assert.deepEqual(both.blockedAuthors,[]);
+  assert.equal(C.decide(record({}),result({}),both).rule,'author_allowlisted');
+  assert.notEqual(C.decide(record({author:'@b'}),result({}),muted).rule,'author_muted');
+});
+
+test('muted and allowed author lists stay bounded and validated',()=>{
+  const s=settings({blockedAuthors:['x:ok','bad key','y:ok','x:ok',42]});
+  assert.deepEqual(s.blockedAuthors,['x:ok','y:ok']);
+  const many=settings({blockedAuthors:Array.from({length:600},(_,i)=>'x:name'+i)});
+  assert.equal(many.blockedAuthors.length,500);
+  const migrated=C.migrateSettings({version:4,consent:true,sites:['x'],allowedAuthors:['x:@friend'],cosmeticFilters:{version:3,revision:2,rules:[]}});
+  assert.equal(migrated.version,5);
+  assert.deepEqual(migrated.blockedAuthors,[]);
+  assert.deepEqual(migrated.allowedAuthors,['x:@friend']);
+  assert.equal(migrated.cosmeticFilters.revision,2,'v4 settings keep their cosmetic rules on upgrade');
 });
 
 test('observe mode records the intended action without allowing a hide',()=>{

@@ -1,15 +1,15 @@
-# Test report: FeedGate 3.0.0
+# Test report: FeedGate 3.1.1
 
 ## Baseline and results
 
-The preserved 2.1.1 copy was measured before any change (evidence in `evidence/baseline-3.0.0-npm-test.txt` and `evidence/baseline/`).
-The 3.0.1 build was measured after the change (evidence in `evidence/`).
+The preserved 3.1.0 release was measured before any change; its results are the baseline column. (Older 2.1.x baselines remain in `evidence/baseline/`.)
+The 3.1.1 build was measured after the change (evidence in `evidence/`).
 
-| Layer | 2.1.1 baseline | 3.0.1 result | Scope |
+| Layer | 3.1.0 baseline | 3.1.1 result | Scope |
 | --- | --- | --- | --- |
 | JavaScript syntax | Passed | Passed | Node syntax checks on source, scripts and JavaScript tests |
-| Node tests | 118 passed, 0 failed | 139 passed, 0 failed | Actual policy, ad-evidence, cosmetic model, recovery, vault, HTTP and worker code with mocked Chrome storage/messaging and controlled HTTP |
-| Chromium DOM/UI | 46 passed, 0 failed | 59 passed, 0 failed | Actual adapters, content script (status panel, picker, cosmetics), options and popup on representative HTML; mocked Chrome APIs, page locations and model responses |
+| Node tests | 142 passed, 0 failed | 143 passed, 0 failed | Actual policy, ad-evidence, cosmetic model, recovery, vault, HTTP and worker code with mocked Chrome storage/messaging and controlled HTTP |
+| Chromium DOM/UI | 60 passed, 0 failed | 61 passed, 0 failed | Actual adapters, content script (status panel, pickers, cosmetics, mute/allow author), options and popup on representative HTML; mocked Chrome APIs, page locations and model responses |
 | Unpacked extension smoke | 7 checks passed | 7 checks passed | The real `extension/` loaded into a local Chromium profile; demo page collapsed its promoted sample through the real content script |
 | Release integrity | 8 checks passed | 8 checks passed | Version agreement, manifest bounds, source/output byte equality, no bridge or dynamic code |
 | Real TypeSafe API | Not run | Not run | No user key was used |
@@ -17,7 +17,7 @@ The 3.0.1 build was measured after the change (evidence in `evidence/`).
 | Managed-profile installation | Not run | Not run | Enterprise policy was not altered |
 
 Test browser: Chromium 151.0.7922.34, recorded in `evidence/browser-dom-tests.json`. Node 24.14.0.
-Per-suite Node counts (TAP, `evidence/unit-tests.tap`): core 31, policy 34, worker 29, diagnostics 9, HTTP 12, incident replay 4, v3 features 20.
+Per-suite Node counts (TAP, `evidence/unit-tests.tap`): core 33, policy 34, worker 31, diagnostics 9, HTTP 12, incident replay 4, v3 features 20.
 
 ## Reproduce
 
@@ -32,19 +32,19 @@ python tests/extension_smoke.py
 
 ## What the suites cover
 
-`tests/core.test.mjs` covers the separated version constants, the structured ad-evidence contract (verified only with ownership, outer-post scope, a known marker and a rendered or metadata basis), legacy boolean flags downgraded to ambiguous, threshold boundaries, truthful rule names, the shuffled-answer API contract with preserved zeros and rejection of malformed values, cache identity including the detector, extraction and item-kind versions, redaction, the selector-safety subset and the vault.
+`tests/core.test.mjs` covers the separated version constants, the structured ad-evidence contract (verified only with ownership, outer-post scope, a known marker and a rendered or metadata basis), legacy boolean flags downgraded to ambiguous, threshold boundaries, truthful rule names, the deterministic author-mute branch (precedence, observe-mode wrapping, keep-this-post winning, mutual exclusion and list bounds), the v4→v5 settings migration, the shuffled-answer API contract with preserved zeros and rejection of malformed values, cache identity including the detector, extraction and item-kind versions, redaction, the selector-safety subset and the vault.
 
 `tests/policy-v21.test.mjs` maps one case to each of the 25 precision-first requirements and replays the six anonymous score vectors from the incident appendix (R1-R6), including the corrected `below_noise_thresholds` reason for R1/R2 and the lowered protection eligibility boundary. The 2.1.1 ad-evidence contracts (verified-only local collapse, legacy flags never hiding) remain in place.
 
-`tests/worker.test.mjs` covers optional permissions, foreign senders, private routes, key lock/unlock, race cancellation, budgets, rate limits, malformed responses, restart behaviour, the bounded 150-entry history window with explicit dropped counts, verified local ads costing zero provider requests and legacy ad flags never hiding content.
+`tests/worker.test.mjs` covers optional permissions, foreign senders, private routes, key lock/unlock, race cancellation, budgets, rate limits, malformed responses, restart behaviour, the bounded 150-entry history window with explicit dropped counts, verified local ads costing zero provider requests, legacy ad flags never hiding content, and the muted-author round trip (mute hides with zero provider requests, unmute/allow clears the mute, `FG_FORGET_AUTHOR` clears both lists and the post needs the model again, and the lists stay mutually exclusive).
 
-`tests/diagnostics-v21.test.mjs` checks privacy, the schema-5 envelope with the build fingerprint, and that raw cosmetic selectors never appear in a diagnostic export.
+`tests/diagnostics-v21.test.mjs` checks privacy, the schema-6 envelope with the build fingerprint and the muted-author count, and that raw cosmetic selectors and muted author names never appear in a diagnostic export.
 
 `tests/http.test.mjs` checks the fixed endpoint, header hygiene and every error mapping. `tests/incident.test.mjs` replays three real diagnostic exports (2.1.0 and 2.1.1 snapshots) as a frozen regression fixture; it skips with `INSUFFICIENT` when the fixtures are absent.
 
 `tests/v3-features.test.mjs` covers the v3 control surface: selector-safety rejects (`body`, `#root`, `div:has(main)`, comma unions, overlength), cosmetic rule sanitization and host matching, legacy-CSS quarantine migration, HUD-mode migration, record kinds and kind-aware cache keys, the new error codes, the Wykop registry and conservative ad evidence, rule lifecycle (add/edit/disable/delete/undo/revalidate), bulk disable/delete, revision conflicts (`STALE_SETTINGS`), per-domain revision independence, recovery persist-first with bounded acknowledgement (including an unresponsive-tab worker), `FG_RELOAD_PAUSED` route guards, cosmetic event accounting, the site-status reason matrix, v4 export/import with quarantine of unverified imports, log-window accounting (`logDropped`) and cleanup tracking.
 
-DOM scenarios cover the previous 46 cases plus the status panel modes (compact pill, expanded panel, genuinely hidden), hidden status never returning on its own while filtering continues, explicit reopen via settings, structural picker rejections (main column, FeedGate's own UI, aggregate sets), tall-card geometry warning instead of rejection, runtime quarantine of a previously safe selector that now matches a container, cosmetic/semantic ownership separation, the bounded breaker, re-injection keeping one controller and one status host, and the Wykop link/entry fixtures (Polish text, reply exclusion, `Poleca` note never a verified ad, auth routes private). Screenshots of the real built UI are stored in `evidence/` (`hud-compact.png`, `hud-expanded.png`, `hud-hidden.png`, `picker-preview.png`, `picker-rejected-root.png`, `wykop-fixture.png`, options pages, popup, setup completion, diagnostics, test feed).
+DOM scenarios cover the previous 60 cases plus a status-panel author-picker flow (`PANEL01`: the expanded panel's **Mute author…** highlights a clicked post, previews the author, commits with **Undo** and Escape cancels) and the earlier mute-author flow: a filter card's **Mute author** hides every post from that author on the site without a new provider request, the card names the local mute list, another author's post is untouched, and clearing the list restores the hidden post. The earlier cases include the status panel modes (compact pill, expanded panel, genuinely hidden), hidden status never returning on its own while filtering continues, explicit reopen via settings, structural picker rejections (main column, FeedGate's own UI, aggregate sets), tall-card geometry warning instead of rejection, runtime quarantine of a previously safe selector that now matches a container, cosmetic/semantic ownership separation, the bounded breaker, re-injection keeping one controller and one status host, and the Wykop link/entry fixtures (Polish text, reply exclusion, `Poleca` note never a verified ad, auth routes private). Screenshots of the real built UI are stored in `evidence/` (`hud-compact.png`, `hud-expanded.png`, `hud-hidden.png`, `picker-preview.png`, `picker-rejected-root.png`, `wykop-fixture.png`, options pages, popup, setup completion, diagnostics, test feed).
 
 The extension smoke test loads the real `extension/` folder into a local Chromium profile, waits for the service worker, reads the release version, opens the demo feed and verifies that a card names the verified platform label, plus no localhost traffic, no page errors and no worker errors.
 
@@ -64,8 +64,10 @@ Use a Chrome profile where unpacked extensions are permitted. Load `extension/`,
 6. Use **Pick element** on a sidebar-sized element and confirm the preview states scope and match count before anything is saved; cancel with Escape and confirm nothing was saved.
 7. Use **Restore this site** from the popup and confirm the pause survives a reload of the tab; resume when ready.
 8. Leave a tab open, reload the extension, and confirm the tab shows the reload prompt instead of silently mixing schemas.
-9. Export diagnostics and verify `build.release` is `3.0.1`, `build.detector` is `ad-3.0.0` and the export contains no raw cosmetic selectors.
+9. Export diagnostics and verify `build.release` is `3.1.1`, `build.detector` is `ad-3.0.0` and the export contains no raw cosmetic selectors.
 10. On Wykop, confirm link cards and Mikroblog entries are classified separately, that comments are never extracted, and that an old "Wykop Poleca" note never produces a platform-ad collapse.
+11. Mute an author from a filter card, confirm the other posts from that author hide without new provider requests in Diagnostics, then unmute in Settings → Muted authors and confirm they return.
+12. Expand the status panel, use **Mute author…**, click a visible post: confirm the preview names the author, saving hides their posts with no new provider request, and **Undo** in the toast brings them back.
 
 ## Live validation status
 

@@ -1,6 +1,6 @@
 {
   "name": "feedgate",
-  "version": "3.0.1",
+  "version": "3.1.1",
   "private": true,
   "description": "A zero-dependency Chrome feed filter with safe cosmetic controls, per-site recovery, a hideable status panel and Wykop support on a precision-first TypeSafe Jev policy.",
   "type": "module",

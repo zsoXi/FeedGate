@@ -3,14 +3,14 @@
 
   // Separate versions: the release, the semantic rubric, the local ad detector,
   // the DOM extraction and the policy engine can change independently.
-  const VERSION = '3.0.1';
+  const VERSION = '3.1.1';
   const RUBRIC_VERSION = 'feed-v2.1.0';
-  const POLICY_VERSION = 'policy-2.1.1';
+  const POLICY_VERSION = 'policy-3.1.0';
   const AD_DETECTOR_VERSION = 'ad-3.0.0';
   const EXTRACTION_VERSION = 'extract-3.0.0';
-  const SETTINGS_VERSION = 4;
+  const SETTINGS_VERSION = 5;
   const RUNTIME_VERSION = 5;
-  const DIAGNOSTICS_VERSION = 5;
+  const DIAGNOSTICS_VERSION = 6;
   // The settings schema is split into scoped revisions so an old form cannot
   // overwrite a newer cosmetic, UI, recovery or site decision.
   const SETTINGS_DOMAINS = ['settings', 'ui', 'cosmetic', 'recovery'];
@@ -121,6 +121,10 @@
     cacheMinutes: 120,
     customInstruction: '',
     allowedAuthors: [],
+    // One deterministic local list that hides every post from an author on a
+    // site. Kept separate from allowedAuthors; sanitizeSettings enforces that
+    // a key can never sit on both lists (an explicit allow wins).
+    blockedAuthors: [],
     categories: cloneCategories(),
     // v3 control surfaces. hudMode replaces the old showStatus boolean.
     hudMode: 'compact',
@@ -487,6 +491,13 @@
   function migrateSettings(legacy) {
     if (!object(legacy)) return Object.assign(clone(DEFAULTS), { categories: cloneCategories() });
     if (legacy.version === SETTINGS_VERSION) return sanitizeSettings(legacy);
+    // Schema 4 (3.0.x) already stores cosmeticFilters as structured rules.
+    // It only needs the new blocked-authors list, which defaults to empty.
+    if (legacy.version === 4) {
+      const carried = clone(legacy);
+      carried.version = SETTINGS_VERSION;
+      return sanitizeSettings(carried);
+    }
     const preset = legacy.preset === 'aggressive' || legacy.preset === 'observe' ? legacy.preset : 'balanced';
     const patch = presetPatch(preset);
     // Legacy cosmetic lines become reversible "Needs review" quarantine
@@ -509,6 +520,7 @@
       cacheMinutes: legacy.cacheMinutes,
       customInstruction: legacy.customInstruction,
       allowedAuthors: Array.isArray(legacy.allowedAuthors) ? legacy.allowedAuthors : [],
+      blockedAuthors: Array.isArray(legacy.blockedAuthors) ? legacy.blockedAuthors : [],
       categories: patch.categories,
       hudMode: HUD_MODES.includes(legacy.hudMode) ? legacy.hudMode : legacy.showStatus === false ? 'hidden' : 'compact',
       feedsOpen: legacy.feedsOpen === true,
@@ -585,6 +597,18 @@
         }
       }
     }
+
+    out.blockedAuthors = [];
+    if (Array.isArray(raw.blockedAuthors)) {
+      for (const key of raw.blockedAuthors.slice(0, 500)) {
+        if (typeof key === 'string' && /^[a-z]+:.{1,120}$/.test(key) && !out.blockedAuthors.includes(key)) {
+          out.blockedAuthors.push(key);
+        }
+      }
+    }
+    // A key can never sit on both author lists. The explicit allow wins, so a
+    // stale form or a hand-edited export cannot silently re-mute someone.
+    out.blockedAuthors = out.blockedAuthors.filter((key) => !out.allowedAuthors.includes(key));
 
     const categories = object(raw.categories) || {};
     for (const key of Object.keys(CATEGORIES)) {
@@ -799,6 +823,19 @@
       decision.rule = 'kept_by_you';
       decision.source = 'override';
       return decision;
+    }
+
+    // Your own mute list wins over every model estimate and over the local
+    // sponsored marker. It is deterministic, costs no provider request and
+    // stays fully reversible from settings. An allowlisted author is checked
+    // first, and "Keep this post" still overrides a mute for one post.
+    if (record && record.author && s.blockedAuthors.includes(authorKey(record.site, record.author))) {
+      decision.action = 'collapse';
+      decision.reason = 'You muted this author';
+      decision.rule = 'author_muted';
+      decision.source = 'author';
+      decision.category = 'custom';
+      return observe(decision, s);
     }
 
     if (s.labelledAds && record && record.sponsored === true && record.adEvidence && record.adEvidence.status === 'verified') {

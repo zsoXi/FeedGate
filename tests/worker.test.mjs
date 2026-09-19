@@ -67,7 +67,39 @@ test('settings export never contains key/vault; import requires fresh permission
  const w=await createWorker();await w.enable();const data=await w.ok({type:'FG_EXPORT_SETTINGS'});assert.equal(data.settings.consent,false);assert.deepEqual(data.settings.sites,[]);assert.ok(!JSON.stringify(data).includes('dummy-worker-test-key'));data.settings.consent=true;data.settings.sites=['x'];await w.ok({type:'FG_IMPORT_SETTINGS',data});const s=await w.ok({type:'FG_STATUS'});assert.equal(s.settings.consent,false);assert.deepEqual(s.settings.sites,[]);
 });
 test('author allowlist restores locally without further model requests',async()=>{
- const w=await createWorker();await w.enable();await w.ok({type:'FG_ALLOW_AUTHOR',author:'@fixture'},sender);const d=await w.classify(post('SPAM_FIXTURE'));assert.equal(d.decision.source,'allowlist');assert.equal(w.calls.length,0);
+  const w=await createWorker();await w.enable();await w.ok({type:'FG_ALLOW_AUTHOR',author:'@fixture'},sender);const d=await w.classify(post('SPAM_FIXTURE'));assert.equal(d.decision.source,'allowlist');assert.equal(w.calls.length,0);
+});
+test('a muted author is hidden locally, unmuting clears the mute and lists stay mutually exclusive',async()=>{
+  const w=await createWorker();await w.enable({cacheMinutes:0});
+  await w.ok({type:'FG_MUTE_AUTHOR',author:'@fixture'},sender);
+  const mute=await w.classify(post('SPAM_FIXTURE'));
+  assert.equal(mute.decision.rule,'author_muted');assert.equal(mute.decision.source,'author');assert.equal(mute.decision.action,'collapse');
+  assert.equal(w.calls.length,0,'a mute is resolved before any provider call');
+  const diag=await w.ok({type:'FG_DIAGNOSTICS'});
+  assert.equal(diag.settings.mutedAuthorCount,1);
+  assert.ok(diag.decisions.some((entry)=>entry.rule==='author_muted'));
+  await w.ok({type:'FG_ALLOW_AUTHOR',author:'@fixture'},sender);
+  const s=await w.ok({type:'FG_STATUS'});
+  assert.deepEqual(s.settings.blockedAuthors,[]);
+  assert.ok(s.settings.allowedAuthors.includes('x:@fixture'));
+  const allowed=await w.classify(post('SPAM_FIXTURE'));
+  assert.equal(allowed.decision.rule,'author_allowlisted');
+  assert.equal(w.calls.length,0);
+});
+test('forget-author clears a key from both local lists and model checks resume',async()=>{
+  const w=await createWorker();await w.enable({cacheMinutes:0});
+  await w.ok({type:'FG_MUTE_AUTHOR',author:'@fixture'},sender);
+  await w.ok({type:'FG_ALLOW_AUTHOR',author:'@fixture'},sender);
+  const before=await w.ok({type:'FG_STATUS'});
+  assert.deepEqual(before.settings.allowedAuthors,['x:@fixture']);
+  const out=await w.ok({type:'FG_FORGET_AUTHOR',author:'@fixture'},sender);
+  assert.equal(out.saved,true);
+  const after=await w.ok({type:'FG_STATUS'});
+  assert.deepEqual(after.settings.allowedAuthors,[]);
+  assert.deepEqual(after.settings.blockedAuthors,[]);
+  const decision=await w.classify(post('SPAM_FIXTURE'));
+  assert.equal(decision.decision.rule,'feed_spam');
+  assert.equal(w.calls.length,1,'without local lists the post needs the model again');
 });
 test('element picker may add only a selector for its actual sender host',async()=>{
  const w=await createWorker();await w.enable();
@@ -84,7 +116,7 @@ test('a legacy boolean sponsored flag cannot trigger local hiding and goes throu
  const w=await createWorker();await w.enable();const r=await w.classify({...post('Organic text with a legacy flag'),sponsored:true});assert.equal(r.decision.action,'allow');assert.equal(r.decision.rule,'no_noise_rule_matched');assert.equal(w.calls.length,1);
 });
 test('config responses carry the release version so a stale content script can detect an update',async()=>{
- const w=await createWorker();const cfg=await w.ok({type:'FG_GET_CONFIG'},sender);assert.equal(cfg.appVersion,'3.0.1');
+ const w=await createWorker();const cfg=await w.ok({type:'FG_GET_CONFIG'},sender);assert.equal(cfg.appVersion,'3.1.1');
 });
 test('runtime state written by an older schema is dropped, not replayed',async()=>{
  const legacy={version:3,metrics:{decisions:99},log:[{action:'collapse',reason:'legacy entry'}],cache:[],pageReports:[]};

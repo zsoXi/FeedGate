@@ -152,6 +152,7 @@ async function saveSettings(patch, domain='settings', expect) {
 function publicConfig(site) {
   const value = C.clone(settings);
   value.allowedAuthors = value.allowedAuthors.filter(a=>a.startsWith(site+':'));
+  value.blockedAuthors = value.blockedAuthors.filter(a=>a.startsWith(site+':'));
   // appVersion lets a content script detect a reloaded worker with new schemas.
   return {settings:value,keyReady:!!apiKey && !authRejected,revision,appVersion:C.VERSION,
     recoveryPaused:settings.recoverySites.includes(site),cleanupRequired:cleanupSites.includes(site)};
@@ -321,7 +322,7 @@ async function classify(record,sender,trusted) {
   }
   const stamp = revision;
   const early = C.decide(r,null,settings);
-  if (early.source==='allowlist' || early.source==='local') {addLog(r,early,null);return {decision:early,result:null,cached:false};}
+  if (early.source==='allowlist' || early.source==='local' || early.source==='author') {addLog(r,early,null);return {decision:early,result:null,cached:false};}
   if (!r.text && !r.mediaAlt && !r.sponsored) return {decision:early,result:null,cached:false};
   try {
     checkReady();
@@ -413,7 +414,8 @@ async function diagnostics() {
       mode:settings.mode,protectUseful:settings.protectUseful,profileMode:settings.profileMode,labelledAds:settings.labelledAds,
       categories:settings.categories,concurrency:settings.concurrency,dailyLimit:settings.dailyLimit,cacheMinutes:settings.cacheMinutes,
       hasCustomRule:!!settings.customInstruction,cosmeticEnabled:settings.cosmeticEnabled,recoverySites:[...settings.recoverySites],
-      allowedAuthorCount:settings.allowedAuthors.length,savedPostChoices:keptPosts.size},
+      allowedAuthorCount:settings.allowedAuthors.length,savedPostChoices:keptPosts.size,
+      mutedAuthorCount:settings.blockedAuthors.length},
     metrics:C.clone(metrics),daily:s.daily,queue:queue.length,active,cached:cache.size,
     permissions:{permissions:permissions.permissions||[],origins:permissions.origins||[]},
     pages:reports.filter(p=>now-(Number(p.updatedAt)||0)<86400000),
@@ -451,7 +453,30 @@ async function handle(message,sender) {
     const site = trusted ? message.site : await validateContentSender(sender);
     const key = C.authorKey(site,message.author);
     if (!key) throw new Error('INVALID_RECORD');
-    await saveSettings({allowedAuthors:[...settings.allowedAuthors,key]});
+    await saveSettings({
+      allowedAuthors:[...settings.allowedAuthors.filter(a=>a!==key),key],
+      blockedAuthors:settings.blockedAuthors.filter(a=>a!==key),
+    });
+    return {saved:true};
+  }
+  if (message.type==='FG_MUTE_AUTHOR') {
+    const site = trusted ? message.site : await validateContentSender(sender);
+    const key = C.authorKey(site,message.author);
+    if (!key) throw new Error('INVALID_RECORD');
+    await saveSettings({
+      blockedAuthors:[...settings.blockedAuthors.filter(a=>a!==key),key],
+      allowedAuthors:settings.allowedAuthors.filter(a=>a!==key),
+    });
+    return {saved:true};
+  }
+  if (message.type==='FG_FORGET_AUTHOR') {
+    const site = trusted ? message.site : await validateContentSender(sender);
+    const key = C.authorKey(site,message.author);
+    if (!key) throw new Error('INVALID_RECORD');
+    await saveSettings({
+      allowedAuthors:settings.allowedAuthors.filter(a=>a!==key),
+      blockedAuthors:settings.blockedAuthors.filter(a=>a!==key),
+    });
     return {saved:true};
   }
   if (message.type==='FG_ADD_RULE') {
@@ -677,7 +702,7 @@ async function handle(message,sender) {
     }
     case 'FG_IMPORT_SETTINGS': {
       const version = message.data&&C.finite(message.data.version);
-      if (!C.object(message.data)||message.data.format!=='feedgate-settings'||![4,3,2].includes(version===null?NaN:version)) throw new Error('INVALID_RECORD');
+      if (!C.object(message.data)||message.data.format!=='feedgate-settings'||![5,4,3,2].includes(version===null?NaN:version)) throw new Error('INVALID_RECORD');
       // Older exports are migrated safely: thresholds never map promotion onto unwanted advertising,
       // and legacy selector lines arrive quarantined for review.
       const imported=C.migrateSettings(message.data.settings);

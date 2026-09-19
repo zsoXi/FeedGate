@@ -1,6 +1,23 @@
-# Migration notes: FeedGate 2.0 to 3.0
+# Migration notes: FeedGate 2.0 to 3.1.1
 
-FeedGate 3.0 keeps the working 2.0 architecture. Settings, keys, allowlists, saved post choices and cosmetic rules are preserved where their meaning is unchanged. The filtering semantics are unchanged from 2.1.1; the 3.0 work is local control, safety and coverage (HUD modes, recovery, cosmetic management, Wykop).
+FeedGate 3.1 keeps the working 2.0 architecture. Settings, keys, allowlists, saved post choices and cosmetic rules are preserved where their meaning is unchanged. The filtering semantics are unchanged from 2.1.1; the 3.0 work is local control, safety and coverage (HUD modes, recovery, cosmetic management, Wykop), and 3.1 adds the local author mute list and a clearer exception-rule panel.
+
+## Upgrading from 3.1.0 to 3.1.1
+
+* **No schema or policy change.** Settings schema 5, runtime state 5, diagnostics schema 6, rubric `feed-v2.1.0`, policy `policy-3.1.0`, detector `ad-3.0.0` and extraction `extract-3.0.0` are all unchanged. Nothing migrates; existing settings, lists, rules and session state restore as-is.
+* **New status-panel actions.** The expanded panel gains **Mute author…** and **Allow author…**: click a post on the page, review the preview (author name, no model request), and save. The toast offers **Undo**, which sends the new content-callable `FG_FORGET_AUTHOR` message to remove the author from the mute and allow lists.
+* **Reload open tabs.** A content script from 3.1.0 detects the new release and shows "Extension updated: reload this page". Press F5 on affected tabs.
+
+## Upgrading from 3.0.1 to 3.1.0
+
+* **Settings schema moves to version 5.** A 3.0.1 settings object (version 4) is carried over as-is — selected sites, consent, cosmetic rules and their revisions, recovery latches, HUD mode, presets, thresholds and lists — and gains one new empty field, `blockedAuthors`. Nothing to re-enter.
+* **Runtime state is unchanged (version 5).** A 3.0.1 session still restores: cache, decision log, cosmetic event log and counters survive the upgrade. No cache or budget reset.
+* **New local rule: `author_muted`.** Authors you mute are hidden deterministically before any model estimate, with source `author`. Mute and allow lists are mutually exclusive; the allow list wins if an import or stale form ever contains both. Muted posts cost no provider requests.
+* **Exception rule panel.** The existing custom instruction is the same field with a clearer panel, a character counter and a visible status. It is a model hint, not a guaranteed filter, and it is sent with every cloud request as an extra question even when the `Your exclusion rule` category is Off — that costs tokens.
+* **Diagnostics schema 6.** Exports now include `settings.mutedAuthorCount` (a count; author names are never exported) and decision entries may carry the `author_muted` rule with source `author`. Schema-5 exports remain readable as files.
+* **Settings exports are version 5.** Imports accept v5, v4, v3 and v2 (through the same safe migration) and reject v1. Unvalidated or unsafe cosmetic rules in an import become quarantined, not active.
+* **No model change.** Rubric `feed-v2.1.0`, thresholds, detector `ad-3.0.0` and extraction `extract-3.0.0` are untouched.
+* **Reload open tabs.** A content script from a previous release shows "Extension updated: reload this page" instead of filtering with a stale schema. Press F5 on affected tabs.
 
 ## Upgrading from 2.1.0 to 2.1.1
 

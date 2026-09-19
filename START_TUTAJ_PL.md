@@ -1,20 +1,20 @@
-# FeedGate 3.0.1 — start tutaj (PL)
+# FeedGate 3.1.1 — start tutaj (PL)
 
-Ten plik to krótki przewodnik po wersji 3.0.1. Pełniejsze, starsze instrukcje po
+Ten plik to krótki przewodnik po wersji 3.1.1. Pełniejsze, starsze instrukcje po
 polsku są w [INSTRUKCJA_PL.md](INSTRUKCJA_PL.md); dokumentacja techniczna jest
 po angielsku w katalogu `docs/`.
 
 ## 1. Zanim zaczniesz
 
-* Zrób kopię zapasową obecnego katalogu FeedGate (np. `FeedGate-2.1.1`).
+* Zrób kopię zapasową obecnego katalogu FeedGate (np. `FeedGate-3.0.1`).
 * Nigdy nie usuwaj starego katalogu „na naprawę” — najpierw eksportuj ustawienia.
 * Rozszerzenia nie trzeba przeinstalowywać, jeśli podmieniasz pliki w tej samej
   ścieżce. Wtedy Chrome zachowuje tożsamość rozszerzenia, a klucz i sejf działają
   dalej. Inny katalog = nowa tożsamość i nowe uprawnienia.
 
-## 2. Aktualizacja do 3.0.1
+## 2. Aktualizacja do 3.1.1
 
-1. Rozpakuj wydanie do docelowego katalogu (np. `D:\FeedGate-3.0.1`).
+1. Rozpakuj wydanie do docelowego katalogu (np. `D:\FeedGate-3.1.1`).
 2. `chrome://extensions` → tryb programisty → **Załaduj rozpakowane** → wskaż
    katalog `extension` z plikiem `manifest.json`.
 3. Przy pierwszym starcie po aktualizacji pojawi się jednorazowy pasek
@@ -37,6 +37,24 @@ po angielsku w katalogu `docs/`.
 * **Show** przywraca pojedynczy post na tej stronie. **Keep this post** zapamiętuje
   wyjątek dla tego konkretnego posta. **Allow author** wyłącza autora w obrębie
   serwisu. **Alt + Shift + F** pokazuje lub ponownie filtruje całą stronę.
+* **Mute author** (obok „Allow author” na karcie posta) ukrywa wszystkie posty
+  tego autora w danym serwisie — deterministycznie, bez zapytania do modelu.
+  Lista jest lokalna i odwracalna w Ustawieniach → **Muted authors** (przycisk
+  Unmute). „Keep this post” nadal wygrywa z tą listą.
+* Te same akcje masz w rozwiniętym panelu statusu: **Mute author…** /
+  **Allow author…**. Kliknij dowolny post na stronie — zobaczysz podgląd z
+  nazwą autora i informacją, że to lokalna decyzja bez zapytania do modelu.
+  Zapis pokaże toast z **Undo**; Escape anuluje bez zapisywania.
+
+## 3a. Mój wyjątek (My exception rule)
+
+W Ustawieniach, w sekcji reguł, znajdziesz pole **My exception rule (optional)**
+z licznikiem znaków i plakietką statusu. To *wskazówka* dla modelu, nie
+gwarantowany filtr: model może ją zignorować. Jest wysyłana jako dodatkowe
+pytanie przy każdym zapytaniu do chmury — nawet gdy kategoria „Your exclusion
+rule” jest wyłączona — więc zwiększa koszt tokenów. Nigdy nie wpisuj tam
+sekretów; eksport diagnostyki pokazuje tylko informację, czy reguła jest
+ustawiona, nigdy jej treść.
 
 ## 4. Własne filtry kosmetyczne (bezpieczne)
 
@@ -65,11 +83,11 @@ Wybrany element nie staje się „postem” dla modelu — to wyłącznie lokaln
 ## 6. Diagnostyka i kopie
 
 * **Export diagnostics** tworzy plik
-  `feedgate-3.0.1-diagnostics-….json` bez kluczy, tekstów postów, autorów,
+  `feedgate-3.1.1-diagnostics-….json` bez kluczy, tekstów postów, autorów,
   pełnych adresów URL i surowych selektorów. Zawiera m.in. sekcje `ui`, `sites`,
   `cosmetic`, `renderer` i `provider` oraz odcisk wersji (`build`).
-* **Export settings** zapisuje ustawienia w formacie wersji 4 (z regułami
-  kosmetycznymi — to Twoja lokalna kopia). Import akceptuje też formaty 2.x;
+* **Export settings** zapisuje ustawienia w formacie wersji 5 (z regułami
+  kosmetycznymi — to Twoja lokalna kopia). Import akceptuje też formaty 2.x i 3.x;
   niezweryfikowane reguły stają się kwarantanną.
 
 ## 7. Szybka lista kontrolna po aktualizacji
@@ -79,10 +97,10 @@ Wybrany element nie staje się „postem” dla modelu — to wyłącznie lokaln
 2. Otwórz zwykły post techniczny — ma pozostać widoczny.
 3. Sprawdź w pasku statusu, że tryb to „Running”, a w popupie, że sześć
    serwisów ma stan „ready”.
-4. W eksporcie diagnostyki sprawdź `build.release` = `3.0.1` oraz
+4. W eksporcie diagnostyki sprawdź `build.release` = `3.1.1` oraz
    `build.detector` = `ad-3.0.0`.
 
-## 8. Czego 3.0.1 świadomie nie robi
+## 8. Czego 3.1.1 świadomie nie robi
 
 * Nie zmienia progów kategorii ani modelu — to wydanie o kontroli, nie o
   skuteczności modelu.

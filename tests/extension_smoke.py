@@ -123,7 +123,7 @@ async def main():
             version = None
             worker_errors.append(f"evaluate failed: {exc}")
         result["version"] = version
-        check("worker reports release version 3.0.1", version == "3.0.1", str(version))
+        check("worker reports release version 3.1.1", version == "3.1.1", str(version))
 
         await page.goto(f"chrome-extension://{result['extensionId']}/demo.html")
         await page.wait_for_timeout(2000)
@@ -146,7 +146,7 @@ async def main():
         await page.wait_for_timeout(600)
         label = await page.locator(".version, [data-version], #version").first.inner_text() if await page.locator(".version, [data-version], #version").count() else ""
         result["optionsVersionLabel"] = label
-        check("options page opens as the real extension page", "3.0.1" in label, label.strip()[:60])
+        check("options page opens as the real extension page", "3.1.1" in label, label.strip()[:60])
 
         check("no localhost or bridge traffic", not result["localhostHits"], ",".join(result["localhostHits"][:3]))
         check("no page errors during the demo run", not page_errors, "; ".join(page_errors[:2]))

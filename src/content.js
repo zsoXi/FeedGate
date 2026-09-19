@@ -170,14 +170,14 @@
     if(settings.hudMode==='compact'&&s.state!=='recovery') {
       hudRoot.textContent='';
       const pill=make('button',`● FeedGate · ${label} · ${s.collapsed+s.dimmed+(s.cosmeticHidden||0)} filtered`,'pill');
-      pill.title='FeedGate 3.0.1 status. Open the panel.';
+      pill.title='FeedGate 3.1.1 status. Open the panel.';
       pill.addEventListener('click',ev=>{if(ev.isTrusted)persistHudMode('expanded');});
       hudRoot.append(pill);
       return;
     }
     hudRoot.textContent='';
     const panel=make('div',undefined,'panel'),header=make('header');
-    const title=make('strong','FeedGate 3.0.1');
+    const title=make('strong','FeedGate 3.1.1');
     const minimize=make('button','–');minimize.title='Minimize to a small status pill';
     const close=make('button','×');close.title='Hide status. Filtering continues.';
     minimize.addEventListener('click',ev=>{if(ev.isTrusted)persistHudMode('compact');});
@@ -204,9 +204,13 @@
       });
       const pick=make('button','Pick element');
       pick.addEventListener('click',ev=>{if(ev.isTrusted)startPicker();});
+      const mutePick=make('button','Mute author…');mutePick.title='Click a post on the page to hide everything from its author.';
+      mutePick.addEventListener('click',ev=>{if(ev.isTrusted)startAuthorPicker('mute');});
+      const allowPick=make('button','Allow author…');allowPick.title='Click a post on the page to keep everything from its author visible.';
+      allowPick.addEventListener('click',ev=>{if(ev.isTrusted)startAuthorPicker('allow');});
       const open=make('button','Settings');
       open.addEventListener('click',ev=>{if(ev.isTrusted)send('FG_OPEN_SETTINGS_FROM_PAGE').catch(()=>{});});
-      actions.append(showAll,pause,pick,open);
+      actions.append(showAll,pause,pick,mutePick,allowPick,open);
     }
     panel.append(actions);
     panel.append(make('div','Hiding this panel does not pause filtering.','hint'));
@@ -228,6 +232,7 @@
     if(settings.mode==='observe'&&decision.wouldAction)return `Observe Only: Would ${decision.wouldAction==='collapse'?'hide':'dim'}; content left unchanged`;
     if(decision.source==='cosmetic')return 'User cosmetic rule: Hidden by your cosmetic filter';
     if(decision.source==='local')return 'Verified platform placement: Platform-labelled ad';
+    if(decision.source==='author')return 'Your mute list: Hidden by your request';
     const label=C.CATEGORIES?.[decision.category]?.label||(decision.rule==='manipulative_bait'?'Manipulative engagement bait':'Filtered by policy');
     return 'Semantic filter: '+label;
   }
@@ -278,9 +283,15 @@
       const allow=make('button','Allow author');
       allow.addEventListener('click',async ev=>{
         if(!ev.isTrusted)return;allow.disabled=true;
-        try{await send('FG_ALLOW_AUTHOR',{author:state.record.author});}
+        try{await send('FG_ALLOW_AUTHOR',{author:state.record.author});showToast('Author allowed on this site. Their posts stay visible here.');}
         catch(error){details.hidden=false;details.append(make('div',C.userError(error).message));allow.disabled=false;}
       });row.append(allow);
+      const mute=make('button','Mute author');
+      mute.addEventListener('click',async ev=>{
+        if(!ev.isTrusted)return;mute.disabled=true;
+        try{await send('FG_MUTE_AUTHOR',{author:state.record.author});showToast('Author muted on this site. This is a local list; manage it in FeedGate settings.');}
+        catch(error){details.hidden=false;details.append(make('div',C.userError(error).message));mute.disabled=false;}
+      });row.append(mute);
     }
     card.append(row,details);shadow.append(style,card);
     el.before(host);state.placeholder=host;state.cardSignature=signature;report();
@@ -302,8 +313,9 @@
     const r=state.record;
     if(!r)return;
     // Explicit local decisions stay separate from model failures.
-    render(state,C.decide(r,null,settings));
-    if(C.decide(r,null,settings).source==='allowlist'){state.completed=true;report();return;}
+    const early=C.decide(r,null,settings);
+    render(state,early);
+    if(early.source==='allowlist'||early.source==='author'){state.completed=true;report();return;}
     if(!r.text&&!r.mediaAlt&&!r.sponsored){state.completed=true;return;}
     state.pending=true;report();
     const token=++state.token,stamp=epoch,snapshot=state.snapshot;
@@ -467,7 +479,7 @@
     report();
   }
   function configSignature(s) {
-    return JSON.stringify({enabled:s.enabled,sites:s.sites,mode:s.mode,preset:s.preset,categories:s.categories,cosmeticEnabled:s.cosmeticEnabled,filters:s.cosmeticFilters,recovery:s.recoverySites,consent:s.consent,labelledAds:s.labelledAds,protectUseful:s.protectUseful,profileMode:s.profileMode,customInstruction:s.customInstruction,allowedAuthors:s.allowedAuthors});
+    return JSON.stringify({enabled:s.enabled,sites:s.sites,mode:s.mode,preset:s.preset,categories:s.categories,cosmeticEnabled:s.cosmeticEnabled,filters:s.cosmeticFilters,recovery:s.recoverySites,consent:s.consent,labelledAds:s.labelledAds,protectUseful:s.protectUseful,profileMode:s.profileMode,customInstruction:s.customInstruction,allowedAuthors:s.allowedAuthors,blockedAuthors:s.blockedAuthors});
   }
   let lastSignature='';
   async function refresh(force=false) {
@@ -520,7 +532,7 @@
     }
     return parts.join(' > ');
   }
-  function showToast(message,undoRuleId=null) {
+  function showToast(message,undoAction=null) {
     toast?.remove();
     toast=document.createElement('feedgate-toast');toast.setAttribute('data-fg-ui','');
     toast.style.cssText='position:fixed!important;bottom:18px!important;right:18px!important;z-index:2147483647!important;display:block!important';
@@ -528,15 +540,21 @@
     const style=make('style');
     style.textContent=':host{all:initial;color-scheme:light dark}.box{display:flex;gap:10px;align-items:center;background:#17221c;color:#def0dc;border:1px solid #3d5745;border-radius:9px;box-shadow:0 4px 22px #0004;padding:9px 12px;font:12px/1.4 system-ui;max-width:min(380px,86vw)}button{font:inherit;color:#def0dc;background:#233227;border:1px solid #3d5745;border-radius:6px;padding:3px 8px;cursor:pointer}button:focus-visible{outline:2px solid #c6fa8c;outline-offset:2px}';
     const box=make('div',undefined,'box');box.append(make('span',message));
-    if(undoRuleId){
+    if(undoAction){
       const undo=make('button','Undo');
       undo.addEventListener('click',async ev=>{
         if(!ev.isTrusted)return;undo.disabled=true;
         try{
-          await send('FG_RULE_DELETE',{id:undoRuleId,expect:settings.revisions?.cosmetic});
-          cosmetic.restored++;
-          send('FG_COSMETIC_EVENT',{kind:'undo',ruleRef:undoRuleId,reason:'user_undo_after_pick',candidateAction:null,appliedAction:'allow'}).catch(()=>{});
-          showToast('Cosmetic rule removed.');
+          if(undoAction.author){
+            await send('FG_FORGET_AUTHOR',{author:undoAction.author});
+            showToast('Author removed from your local lists.');
+            refresh(true);
+          } else {
+            await send('FG_RULE_DELETE',{id:undoAction.ruleId,expect:settings.revisions?.cosmetic});
+            cosmetic.restored++;
+            send('FG_COSMETIC_EVENT',{kind:'undo',ruleRef:undoAction.ruleId,reason:'user_undo_after_pick',candidateAction:null,appliedAction:'allow'}).catch(()=>{});
+            showToast('Cosmetic rule removed.');
+          }
         }catch(error){showToast(C.userError(error).message);}
       });
       box.append(undo);
@@ -595,7 +613,7 @@
           lastCommittedRule=saved.rule;
           cosmetic.applied++;
           send('FG_COSMETIC_EVENT',{kind:'applied',ruleRef:saved.rule.id,reason:'user_created',candidateAction:'collapse',appliedAction:'collapse'}).catch(()=>{});
-          showToast('Cosmetic rule created. It stays local to FeedGate.',saved.rule.id);
+          showToast('Cosmetic rule created. It stays local to FeedGate.',{ruleId:saved.rule.id});
           cleanup();refresh();
         }catch(error){create.disabled=false;showToast(C.userError(error).message);}
       });
@@ -622,6 +640,75 @@
       if(aggregate){reject(aggregate);return;}
       target=picked;
       showPreview(picked,selector,matches);
+      timeout=setTimeout(cleanup,60000);
+    }
+    document.addEventListener('mousemove',move,true);document.addEventListener('click',click,true);document.addEventListener('keydown',key,true);pickerCleanup=cleanup;
+    return {started:true};
+  }
+  // The status panel offers the same author decision as the cards, but for any
+  // post on the page: hover a post, preview it, then mute or allow its author.
+  function startAuthorPicker(mode) {
+    if(!enabled||demo||recoveryPaused)return {started:false};
+    const allow=mode==='allow';
+    pickerCleanup?.();
+    const bar=make('div',`FeedGate: hover a post, click it to ${allow?'allow':'mute'} its author. Escape cancels.`);
+    bar.setAttribute('data-fg-ui','');
+    bar.style.cssText='position:fixed;z-index:2147483647;top:12px;left:50%;transform:translateX(-50%);background:#202820;color:#e5ffc8;border:1px solid #9eb886;border-radius:8px;padding:15px 20px;font:14px system-ui;max-width:90vw;pointer-events:none';
+    document.documentElement.append(bar);
+    let target=null,outline='',priority='',preview=null,previewTarget=null,timeout=null;
+    function undoOutline(){if(previewTarget){if(outline)previewTarget.style.setProperty('outline',outline,priority);else previewTarget.style.removeProperty('outline');previewTarget=null;}}
+    function clearPreview(){preview?.remove();preview=null;}
+    function cleanup(){undoOutline();clearPreview();bar.remove();document.removeEventListener('mousemove',move,true);document.removeEventListener('click',click,true);document.removeEventListener('keydown',key,true);if(timeout)clearTimeout(timeout);pickerCleanup=null;}
+    function postRoot(node){
+      if(!(node instanceof Element))return null;
+      const spec=A.SPECS?.[site];
+      if(!spec||!spec.posts)return null;
+      try{const root=node.closest(spec.posts);return root instanceof HTMLElement?root:null;}catch{return null;}
+    }
+    function move(ev){
+      if(!ev.isTrusted||own(ev.target)||preview)return;
+      undoOutline();const root=postRoot(ev.target);target=root;
+      if(!root)return;
+      outline=root.style.getPropertyValue('outline');priority=root.style.getPropertyPriority('outline');
+      root.style.setProperty('outline','2px solid #df832d','important');
+      previewTarget=root;
+    }
+    function key(ev){if(ev.key==='Escape'){cleanup();}}
+    function reject(message){showToast(message);cleanup();}
+    function showPreview(root,author) {
+      clearPreview();
+      const info=make('div',undefined);
+      info.style.cssText='pointer-events:auto;background:#202820;color:#e5ffc8;border:1px solid #9eb886;border-radius:8px;padding:12px 16px;font:13px system-ui;max-width:min(430px,88vw)';
+      info.append(make('div',`${allow?'Allow':'Mute'} preview: ${location.hostname}`,undefined));
+      info.append(make('div',`Author: ${author}`));
+      info.append(make('div',allow?'Their posts stay visible here. This local choice makes no model request.':'Their posts will be hidden locally. This local choice makes no model request.'));
+      const buttons=make('div');buttons.style.cssText='display:flex;gap:8px;margin-top:9px';
+      const confirm=make('button',allow?'Allow author':'Mute author');
+      const cancel=make('button','Cancel');
+      confirm.addEventListener('click',async ev=>{
+        if(!ev.isTrusted)return;confirm.disabled=true;
+        if(!root.isConnected){reject('That post was replaced before saving. Nothing was saved.');return;}
+        try{
+          await send(allow?'FG_ALLOW_AUTHOR':'FG_MUTE_AUTHOR',{author});
+          showToast(allow?'Author allowed on this site. Their posts stay visible here.':'Author muted on this site. Their posts are hidden from now on. Their posts are never sent to the model again.',{author});
+          cleanup();refresh(true);
+        }catch(error){confirm.disabled=false;showToast(C.userError(error).message);}
+      });
+      cancel.addEventListener('click',ev=>{if(ev.isTrusted){cleanup();}});
+      buttons.append(confirm,cancel);info.append(buttons);
+      preview=make('div');preview.setAttribute('data-fg-ui','');preview.style.cssText='position:fixed;z-index:2147483647;bottom:18px;left:50%;transform:translateX(-50%);pointer-events:none';
+      preview.append(info);document.documentElement.append(preview);
+    }
+    async function click(ev){
+      if(!ev.isTrusted)return;
+      if(own(ev.target)||preview?.contains(ev.target))return;
+      if(preview)return;
+      ev.preventDefault();ev.stopImmediatePropagation();
+      const root=postRoot(ev.target)||(target&&target.isConnected?target:null);
+      if(!root){reject('Click a post itself to choose its author. Nothing was saved.');return;}
+      const rec=A.extract(root,site);
+      if(!rec||!rec.author){reject('This post has no readable author. Nothing was saved.');return;}
+      showPreview(root,rec.author);
       timeout=setTimeout(cleanup,60000);
     }
     document.addEventListener('mousemove',move,true);document.addEventListener('click',click,true);document.addEventListener('keydown',key,true);pickerCleanup=cleanup;

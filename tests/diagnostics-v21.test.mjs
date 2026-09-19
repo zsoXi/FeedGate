@@ -5,10 +5,11 @@ import {createWorker,post,sender,trusted,sleep,adEvidenceVerified} from './worke
 test('direct transport never opens a localhost bridge and verified local ads cost no API request',async()=>{
  const w=await createWorker();await w.enable();const r=await w.classify({...post('Labelled placement'),adEvidence:adEvidenceVerified});
  assert.equal(r.decision.source,'local');assert.equal(r.decision.rule,'platform_labelled_ad');assert.equal(w.calls.length,0);
- const d=await w.ok({type:'FG_DIAGNOSTICS'});assert.equal(d.connection.transport,'direct TypeSafe HTTPS');assert.equal(d.version,5);assert.equal(d.rubric,'feed-v2.1.0');
- assert.equal(d.build.release,'3.0.1');assert.equal(d.build.rubric,'feed-v2.1.0');assert.equal(d.build.policy,'policy-2.1.1');assert.equal(d.build.detector,'ad-3.0.0');assert.equal(d.build.extraction,'extract-3.0.0');assert.equal(d.build.schema,5);
+ const d=await w.ok({type:'FG_DIAGNOSTICS'});assert.equal(d.connection.transport,'direct TypeSafe HTTPS');assert.equal(d.version,6);assert.equal(d.rubric,'feed-v2.1.0');
+ assert.equal(d.build.release,'3.1.1');assert.equal(d.build.rubric,'feed-v2.1.0');assert.equal(d.build.policy,'policy-3.1.0');assert.equal(d.build.detector,'ad-3.0.0');assert.equal(d.build.extraction,'extract-3.0.0');assert.equal(d.build.schema,6);
  const local=d.decisions.find(x=>x.rule==='platform_labelled_ad');
  assert.equal(local.adEvidence.status,'verified');assert.equal(local.adEvidence.markerKind,'x_is_promoted_attribute');assert.equal(local.adEvidence.scope,'outer_post');assert.equal(local.protectionEligible,false);
+ assert.equal(d.settings.mutedAuthorCount,0);
 });
 test('diagnostics record rule names but omit secrets, text, author identities, custom rules and post hashes',async()=>{
  const w=await createWorker();await w.enable({customInstruction:'PERSONAL_FILTER_SECRET',allowedAuthors:['x:PRIVATE_AUTHOR']});
@@ -55,14 +56,14 @@ test('worker derives profile context from actual current tab, not submitted reco
 });
 test('legacy settings keep safe preferences but never reuse old thresholds',async()=>{
  const w=await createWorker({local:{settings:{version:1,consent:true,sites:['x'],categories:{promotion:{mode:'collapse',threshold:.5}}}},session:{runtimeState:{metrics:{requests:999},log:[{reason:'OLD'}]}}});
- const s=await w.ok({type:'FG_STATUS'});assert.equal(s.settings.version,4);assert.equal(s.settings.hudMode,'compact');assert.equal(s.settings.consent,true);assert.deepEqual(s.settings.sites,['x']);assert.equal(s.settings.categories.unwantedAd.threshold,.85);assert.equal(s.settings.categories.promotion,undefined);assert.equal(s.metrics.requests,0);
+ const s=await w.ok({type:'FG_STATUS'});assert.equal(s.settings.version,5);assert.equal(s.settings.hudMode,'compact');assert.equal(s.settings.consent,true);assert.deepEqual(s.settings.sites,['x']);assert.equal(s.settings.categories.unwantedAd.threshold,.85);assert.equal(s.settings.categories.promotion,undefined);assert.equal(s.metrics.requests,0);
 });
-test('settings export format is explicitly v4, v3 and v2 imports migrate and v1 imports are rejected',async()=>{
- const w=await createWorker();const data=await w.ok({type:'FG_EXPORT_SETTINGS'});assert.equal(data.version,4);
+test('settings export format is explicitly v5, v4/v3/v2 imports migrate and v1 imports are rejected',async()=>{
+ const w=await createWorker();const data=await w.ok({type:'FG_EXPORT_SETTINGS'});assert.equal(data.version,5);
  const r=await w.send({type:'FG_IMPORT_SETTINGS',data:{...data,version:1}});assert.equal(r.error.code,'INVALID_RECORD');
  const legacy={format:'feedgate-settings',version:2,settings:{version:2,consent:true,sites:['x'],categories:{promotion:{mode:'collapse',threshold:.5},spam:{mode:'collapse',threshold:.5}},allowedAuthors:['x:@friend'],dailyLimit:321}};
  const imported=await w.ok({type:'FG_IMPORT_SETTINGS',data:legacy});
- assert.equal(imported.settings.version,4);assert.equal(imported.settings.consent,false);assert.deepEqual(imported.settings.sites,[]);
+ assert.equal(imported.settings.version,5);assert.equal(imported.settings.consent,false);assert.deepEqual(imported.settings.sites,[]);
  assert.equal(imported.settings.categories.unwantedAd.threshold,.85);assert.equal(imported.settings.categories.feedSpam.threshold,.9);
  assert.deepEqual(imported.settings.allowedAuthors,['x:@friend']);assert.equal(imported.settings.dailyLimit,321);
 });

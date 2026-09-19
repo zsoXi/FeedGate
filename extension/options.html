@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FeedGate 3.0.1 · Control room</title><link rel="stylesheet" href="ui.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FeedGate 3.1.1 · Control room</title><link rel="stylesheet" href="ui.css"></head>
 <body>
 <div class="app">
 <aside class="sidebar">
   <div class="wordmark"><img class="brand-icon" src="icons/48.png" alt="">FeedGate</div>
-  <div class="eyebrow">Your feed, on your terms</div><div class="version">3.0.1 / safe controls preview</div>
+  <div class="eyebrow">Your feed, on your terms</div><div class="version">3.1.1 / safe controls preview</div>
   <nav class="nav" aria-label="Settings">
     <button data-page="overview" class="active"><span>01</span>Overview</button>
     <button data-page="policy"><span>02</span>Filter policy</button>
@@ -16,9 +16,9 @@
   <div class="sidebar-bottom"><b>Your decisions stay reversible.</b><p>Jev estimates content features. It does not prove bot identity, originality or truth.</p><button id="open-demo">Open live test feed</button><p class="fine">Fictional posts. Actual API calls when enabled.</p></div>
 </aside>
 <main class="main">
-  <header class="topline"><div><div class="eyebrow">Chrome / TypeSafe Jev</div><strong>FeedGate 3.0.1</strong></div><div class="top-actions"><span id="key-badge" class="badge warn">Checking key</span><button id="global-toggle" class="small-btn">Pause filtering</button></div></header>
+  <header class="topline"><div><div class="eyebrow">Chrome / TypeSafe Jev</div><strong>FeedGate 3.1.1</strong></div><div class="top-actions"><span id="key-badge" class="badge warn">Checking key</span><button id="global-toggle" class="small-btn">Pause filtering</button></div></header>
   <div id="last-error" class="note warning hidden" role="status"></div>
-  <div id="upgrade-banner" class="note hidden" role="status"><p><b>FeedGate 3.0.1 adds Wykop and safer cosmetics.</b> Your earlier settings were kept. One-time choice: <button id="upgrade-all" class="small-btn">Select all six supported feeds</button> <button id="upgrade-dismiss" class="small-btn">Keep my current feeds</button></p></div>
+  <div id="upgrade-banner" class="note hidden" role="status"><p><b>FeedGate 3.1.1 adds Wykop and safer cosmetics.</b> Your earlier settings were kept. One-time choice: <button id="upgrade-all" class="small-btn">Select all six supported feeds</button> <button id="upgrade-dismiss" class="small-btn">Keep my current feeds</button></p></div>
   <section id="overview" class="page active">
     <div class="intro"><div class="eyebrow">A better filter starts with better rules</div><h1>Useful posts stay.</h1><p>Live Jev judgments help reduce spam while preserving useful projects, experiments and explanations. You can inspect or reverse every filtered post.</p></div>
     <div class="metrics">
@@ -57,7 +57,7 @@
         <label class="field"><span>Status panel on enabled pages</span><select id="hud-mode"><option value="compact">Compact pill</option><option value="expanded">Expanded panel</option><option value="hidden">Hidden (filtering continues)</option></select></label>
         <p class="fine">Hiding the status panel never pauses filtering. Pausing keeps your chosen panel setting. Gentler profiles do not exempt your own exclusion rule or concrete fraud-like solicitation. Truncated semantic content is normally dimmed rather than collapsed.</p>
       </div>
-      <div class="panel"><h2>Noise rules</h2><div id="categories"></div><div class="separator"></div><label class="field"><span>Optional personal exclusion criterion</span><textarea id="custom-instruction" maxlength="700" rows="3" placeholder="Example: empty requests to comment a keyword to receive a generic document."></textarea></label><p class="fine">This is your explicit preference. Enable “Your exclusion rule” above to use it. It can override useful-content protection. A non-empty criterion is sent with cloud requests even when its action is Off; clear the text to stop sending it. Never put secrets in this field.</p></div>
+      <div class="panel"><h2>Noise rules</h2><div id="categories"></div><div class="separator"></div><div class="row spread"><h2>My exception rule (optional)</h2><span id="custom-status" class="badge">Not active</span></div><label class="field"><span>Plain-language description of what you do not want to see</span><textarea id="custom-instruction" maxlength="700" rows="3" placeholder="Example: empty requests to comment a keyword to receive a generic document."></textarea></label><output id="custom-count" class="fine">0 / 700 characters sent as an extra question</output><p class="fine">This is a hint for the model, not a guaranteed filter: Jev can still ignore it, and it never hides a platform-labelled ad on its own. While the text is not empty it is sent with every cloud request as an extra question, even when “Your exclusion rule” is Off — that costs tokens. Turn the rule On below to let a match actually dim or collapse. Clear the text to stop sending it. Never put secrets in this field.</p></div>
       <div class="panel"><h2>Inference controls</h2><div class="tri"><label class="field"><span>Parallel requests</span><input id="concurrency" type="number" min="1" max="12"></label><label class="field"><span>Daily request limit (UTC)</span><input id="daily-limit" type="number" min="10" max="100000"></label><label class="field"><span>Cache minutes (0 disables)</span><input id="cache-minutes" type="number" min="0" max="1440"></label></div><p class="fine">Changing thresholds reuses cached feature scores and reapplies the policy. Changing the model, rubric or personal question invalidates the corresponding cache key. Requests, including failed attempts, can be billed.</p><button type="submit" class="primary">Save policy</button><div id="policy-status" class="statusline" role="status"></div></div>
     </form>
   </section>
@@ -88,6 +88,7 @@
     </div><div>
       <div class="panel"><h2>Recovery</h2><p class="fine">Restore persists a pause for one site first, then asks its open tabs to remove visible effects. Pending work is cancelled; other sites are untouched. If a page cannot respond, it stays paused and you can reload it paused.</p><div id="recovery-list"></div><div id="recovery-status" class="statusline" role="status"></div></div>
       <div class="panel"><h2>Allowed authors</h2><p class="fine">These local exceptions override semantic and labelled-ad post filtering, but not your cosmetic rules.</p><div id="allowlist"></div></div>
+      <div class="panel"><h2>Muted authors</h2><p class="fine">One click hides every post from an author on this site. This is a deterministic local list: no model request is used, “Keep this post” still wins for a specific post, and your cosmetic rules are unaffected. Muting and allowing are mutually exclusive for the same author.</p><div id="mute-list"></div></div>
       <div class="panel"><h2>Saved post choices</h2><p class="fine">“Keep this post” remembers a hash of the specific visible post, not a training label for the author. Edited content is evaluated again. Up to 2,000 choices stay on this device.</p><button id="reset-feedback">Reset saved post choices</button></div>
     </div></div>
   </section>

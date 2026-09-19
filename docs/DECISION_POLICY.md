@@ -1,6 +1,6 @@
-# Decision policy reference (FeedGate 3.0.0)
+# Decision policy reference (FeedGate 3.1.1)
 
-Policy version: `policy-2.1.1` (unchanged in 3.0.0). Semantic rubric: `feed-v2.1.0`. Ad detector: `ad-3.0.0`. Extraction: `extract-3.0.0`. This file documents what the code actually
+Policy version: `policy-3.1.0`. Semantic rubric: `feed-v2.1.0` (unchanged). Ad detector: `ad-3.0.0`. Extraction: `extract-3.0.0`. This file documents what the code actually
 does, in evaluation order. When wording and code disagree, the code wins.
 
 ## Inputs the policy evaluates
@@ -24,6 +24,7 @@ generic rendered labels and hidden templates are never verified.
 | 1 | `enabled === false` | allow (paused) | `filtering_paused` | `policy` |
 | 2 | author is allowlisted | allow | `author_allowlisted` | `allowlist` |
 | 3 | user kept this post | allow | `kept_by_you` | `override` |
+| 3a | author is on your mute list | collapse | `author_muted` | `author` |
 | 4 | labelled ads on and verified outer ad evidence | collapse | `platform_labelled_ad` | `local` |
 | 5 | no model result (provider failure) | allow | `no_model_judgment` | `unclassified` |
 | 6 | `sufficient` missing or `< 0.65` | allow | `insufficient_evidence` | `unclassified` |

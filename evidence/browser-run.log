@@ -57,4 +57,6 @@ PASS LOOP04: the bounded circuit breaker contains a runaway self-write storm
 PASS UI06/LOOP06: re-injection keeps exactly one controller and one status host
 PASS WYK01/WYK02/WYK07/WYK11: Wykop link and entry fixtures stay separate, Polish text intact and the Poleca note is not a verified ad
 PASS WYK09: an unverified Wykop placement is never labelled a platform ad and auth routes stay private
-{"passed": 59, "browser": "151.0.7922.34"}
+PASS MUTE01: muting an author hides their posts locally with no extra provider request and unmuting restores them
+PASS PANEL01: the status panel mutes and allows an author by clicking a post, with preview and Undo
+{"passed": 61, "browser": "151.0.7922.34"}

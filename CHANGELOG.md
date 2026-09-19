@@ -1,5 +1,28 @@
 # Changelog
 
+## 3.1.1
+
+Status-panel author controls. No model, rubric, threshold, detector, extraction or schema change; settings schema 5, runtime state 5, diagnostics schema 6 and policy `policy-3.1.0` are unchanged.
+
+* **Author actions where you browse.** The expanded status panel now offers **Mute author…** and **Allow author…** next to **Pick element**. Hovering highlights the post under the pointer; clicking one shows a preview that names the author and states that this local choice makes no model request; saving runs the same deterministic `author_muted` / `author_allowlisted` branch as the filter cards.
+* **Undo for both directions.** The confirmation toast offers **Undo**, which sends `FG_FORGET_AUTHOR` — a new content-callable message that removes the author from the mute and allow lists without adding the opposite entry. Escape or the Cancel button abandons the selection with nothing saved.
+* **Tests.** A new worker case covers the forget round trip (both lists cleared, the post needs the model again), and a Chromium scenario (`PANEL01`) mutes and unmutes an author from the panel, checks the preview text, and confirms the muted author is never re-sent to the model.
+
+Validation: 143 Node tests, 61 Chromium DOM/UI scenarios, a 7-check unpacked-extension smoke test and 8 release integrity checks passed locally. All fixtures are synthetic except the three real privacy-safe diagnostics exports used only for count replay. Live provider, signed-in-site and live Wykop validation remain manual gates and are reported as not performed.
+
+## 3.1.0
+
+User controls, not model changes. No rubric, threshold, detector or extraction change; the semantic policy gains exactly one deterministic local branch.
+
+* **Mute author.** Every filter card now offers **Mute author** next to **Allow author**. Muting hides that author's posts on that platform only, deterministically and without any provider request (the decision rule is `author_muted`, source `author`). The mute list is local, capped at 500 entries, mutually exclusive with the allow list, and fully reversible: unmute in FeedGate settings or via a settings export round-trip. A post you explicitly kept with **Keep this post** still wins over the mute list, and cosmetic rules are unaffected.
+* **Clearer exception rule.** The custom instruction is now a first-class **My exception rule (optional)** panel with a live character counter and a status badge. The fine print states plainly that it is a hint for the model rather than a guaranteed filter, that it is sent as an extra question with every cloud request even when the `Your exclusion rule` category is Off (which costs tokens), and that secrets must never be placed there. Diagnostics still report only a boolean, never the text.
+* **Policy `policy-3.1.0`.** One new precedence row: a muted author collapses before verified ads and all semantic branches. Nothing else in the decision table changed.
+* **Settings schema 5.** Adds `blockedAuthors`; a 3.0.1 (version 4) settings object migrates automatically, keeping cosmetic rules and revisions. Runtime state stays version 5, so a 3.0.1 session still restores its cache and counters.
+* **Diagnostics schema 6.** Adds `settings.mutedAuthorCount` (count only) and the `author_muted` rule with source `author` in decision entries. Settings exports are now version 5; imports accept v5/v4/v3/v2 and reject v1.
+* **Tests.** New cases cover the mute branch end to end: policy precedence and observe-mode wrapping, keep-this-post winning, mutual exclusion on allow/mute, list bounds, v4→v5 migration, zero provider requests for muted authors, muted-author counts in diagnostics, and a Chromium scenario that mutes an author from a filter card and confirms the hidden post returns after unmuting.
+
+Validation: 142 Node tests, 60 Chromium DOM/UI scenarios, a 7-check unpacked-extension smoke test and 8 release integrity checks passed locally. All fixtures are synthetic except the three real privacy-safe diagnostics exports used only for count replay. Live provider, signed-in-site and live Wykop validation remain manual gates and are reported as not performed.
+
 ## 3.0.1
 
 Maintenance fix for the site list. No policy, rubric, detector or extraction change; thresholds and defaults are untouched.

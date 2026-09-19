@@ -101,6 +101,18 @@ function fillAllowlist(){
   if(!state.settings.allowedAuthors.length){list.append(el('p','No author exceptions yet.','fine'));return;}
   for(const author of state.settings.allowedAuthors){const row=el('div',undefined,'allow-item'),button=el('button','Remove','small-btn');button.addEventListener('click',()=>action(async()=>{const fresh=await rpc('FG_STATUS');await rpc('FG_PATCH_SETTINGS',{patch:{allowedAuthors:fresh.settings.allowedAuthors.filter(a=>a!==author)},domain:'settings',expect:fresh.settings.revisions.settings});await load();}));row.append(el('span',author),button);list.append(row);}
 }
+function fillMuted(){
+  const list=$('mute-list');list.replaceChildren();
+  if(!state.settings.blockedAuthors.length){list.append(el('p','No muted authors yet. Use “Mute author…” in the status panel (click a post) or on a filtered post card.','fine'));return;}
+  for(const author of state.settings.blockedAuthors){const row=el('div',undefined,'allow-item'),button=el('button','Unmute','small-btn');button.addEventListener('click',()=>action(async()=>{const fresh=await rpc('FG_STATUS');await rpc('FG_PATCH_SETTINGS',{patch:{blockedAuthors:fresh.settings.blockedAuthors.filter(a=>a!==author)},domain:'settings',expect:fresh.settings.revisions.settings});await load();toast('Author unmuted. Posts from this author can appear again after the next scan.');}));row.append(el('span',author),button);list.append(row);}
+}
+function updateCustomStatus(){
+  const field=$('custom-instruction');if(!field)return;
+  const value=field.value.trim();
+  $('custom-count').textContent=`${value.length} / 700 characters sent as an extra question`;
+  const chip=$('custom-status');chip.textContent=value?'Sent with every cloud request':'Not active';
+  chip.classList.toggle('ok',value.length>0);
+}
 function fillLog(){
   const list=$('log');list.replaceChildren();
   if(!state?.log.length){list.append(el('div','No decisions yet. Enable a feed or open the test feed after adding your key.','log-empty'));return;}
@@ -195,11 +207,11 @@ function fillUpgradeBanner(){
 async function load(full=true){
   state=await rpc('FG_STATUS');fillMetrics();
   if(!full)return;
-  const s=state.settings;fillFeeds();fillCategories();fillAllowlist();fillLog();fillRuleManager();fillRecovery();
+  const s=state.settings;fillFeeds();fillCategories();fillAllowlist();fillMuted();fillLog();fillRuleManager();fillRecovery();
   $('application-mode').value=s.mode;$('profile-mode').value=s.profileMode;$('protect-useful').checked=s.protectUseful;
   $('labelled-ads').checked=s.labelledAds;$('consent').checked=s.consent;$('hud-mode').value=s.hudMode||'compact';
   $('feeds-details').open=s.feedsOpen===true;
-  $('custom-instruction').value=s.customInstruction;$('daily-limit').value=String(s.dailyLimit);$('concurrency').value=String(s.concurrency);$('cache-minutes').value=String(s.cacheMinutes);$('model-id').value=s.model;
+  $('custom-instruction').value=s.customInstruction;updateCustomStatus();$('daily-limit').value=String(s.dailyLimit);$('concurrency').value=String(s.concurrency);$('cache-minutes').value=String(s.cacheMinutes);$('model-id').value=s.model;
 }
 $('feeds-details').addEventListener('toggle',()=>action(()=>patchSettings({feedsOpen:$('feeds-details').open},'ui')));
 $('enable-all').addEventListener('click',()=>action(async()=>{
@@ -223,6 +235,7 @@ $('upgrade-all').addEventListener('click',()=>action(async()=>{
 $('upgrade-dismiss').addEventListener('click',()=>action(async()=>{await chrome.storage.local.remove('upgrade');fillUpgradeBanner();}));
 $('global-toggle').addEventListener('click',()=>action(async()=>{const current=await rpc('FG_STATUS');await rpc('FG_PATCH_SETTINGS',{patch:{enabled:!current.settings.enabled},domain:'settings',expect:current.settings.revisions.settings});await load();}));
 $('open-demo').addEventListener('click',()=>action(()=>rpc('FG_OPEN_DEMO')));
+$('custom-instruction').addEventListener('input',updateCustomStatus);
 $('policy-form').addEventListener('submit',ev=>{ev.preventDefault();action(async()=>{
   const categories={};for(const n of document.querySelectorAll('[data-category-mode]')){const id=n.dataset.categoryMode;categories[id]={mode:n.value,threshold:Number(document.querySelector(`[data-category-threshold="${id}"]`).value)/100};}
   const lr=await rpc('FG_STATUS');
@@ -275,7 +288,7 @@ function saveDownload(filename,data){
 }
 $('export-diagnostics').addEventListener('click',()=>action(async()=>{
   const data=await rpc('FG_DIAGNOSTICS');
-  saveDownload('feedgate-3.0.1-diagnostics-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json',data);
+  saveDownload('feedgate-3.1.1-diagnostics-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json',data);
   toast('Diagnostic file prepared. It does not contain keys, post text, authors, full browsing URLs or raw cosmetic selectors.');
 }));
 $('clear-cache').addEventListener('click',()=>action(async()=>{await rpc('FG_CLEAR_CACHE');await load();toast('Cached scores cleared. Enabled feeds may make new API requests.');}));

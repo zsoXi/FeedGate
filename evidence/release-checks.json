@@ -1,10 +1,10 @@
 {
-  "version": "3.0.1",
-  "createdAt": "2026-09-19T14:46:47.359Z",
+  "version": "3.1.1",
+  "createdAt": "2026-09-19T15:21:30.727Z",
   "scope": "Static packaging integrity only; not native installation, live provider validation or a security audit",
   "checks": [
     {
-      "name": "Single 3.0.1 version",
+      "name": "Single 3.1.1 version",
       "passed": true
     },
     {
@@ -54,18 +54,18 @@
     },
     {
       "path": "background.js",
-      "bytes": 40772,
-      "sha256": "5a7a090a367da34deb33ee6021522d5201fcc2bdaf4b8fa4c6fd59cda88ad309"
+      "bytes": 41867,
+      "sha256": "5afafd0be318bbff711d1ff46dd17d27331bd407eea65c7bf8d1ca134cb317e3"
     },
     {
       "path": "content.js",
-      "bytes": 39992,
-      "sha256": "6a2fbc9a95e46ebd03fec1580c061f6c4b24b7bb9d9c86fd01460e0a304e028b"
+      "bytes": 46219,
+      "sha256": "4234a7e1b92de67496ae2ef8bc2a74c9493d75bc2622b7868fb3dfc75e116ce8"
     },
     {
       "path": "core.js",
-      "bytes": 42024,
-      "sha256": "d4a19c24d6281ebeab32802da767f756b5c5434ac666ece665c2335551da8eda"
+      "bytes": 43868,
+      "sha256": "eefcbd70beeeb49be59dc17acc797d7576e391371536e11c81e2203b910abd51"
     },
     {
       "path": "demo.html",
@@ -100,22 +100,22 @@
     {
       "path": "manifest.json",
       "bytes": 1703,
-      "sha256": "205c492dba91a657a3db847ab83b95265d119df09854be05fd93d7ff0145f7e5"
+      "sha256": "8c3e046f62a0f9c6480902e72a526309f2e50f00a90fde167697f4a86fdb4f81"
     },
     {
       "path": "options.html",
-      "bytes": 18521,
-      "sha256": "7711dd813a76a40e6c23e87b00d1cfebe3700316452ad32a96ac7d3eda0ef6d1"
+      "bytes": 19274,
+      "sha256": "97d82a2b689cb2c810b835b3d6fc176011c763be3aba1c36c8bb5ba0c084cc58"
     },
     {
       "path": "options.js",
-      "bytes": 28144,
-      "sha256": "f406f8d643cf5bd505485e003977cafe88533787a5ee1a36ceb2cef9e80688c7"
+      "bytes": 29431,
+      "sha256": "54f797881bd38c96fbef435e12a0bf8d01c61e48d0eddcde2de9b6e86db07b22"
     },
     {
       "path": "popup.html",
       "bytes": 2737,
-      "sha256": "a74e396dc5df35b1d1cf9500e2f2b9c1188e5bd4d56dfb90c849d12f083c66d6"
+      "sha256": "d187aa6c01000ff09666ec3acb5fa0da5ab09bb35979a96cc998b5338d1d0006"
     },
     {
       "path": "popup.js",

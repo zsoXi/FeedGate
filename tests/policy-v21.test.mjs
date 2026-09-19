@@ -181,7 +181,7 @@ test('25. legacy worker settings migrate without reusing old thresholds',async()
     allowedAuthors:['x:@friend'],categories:{promotion:{mode:'collapse',threshold:0.5},spam:{mode:'collapse',threshold:0.5},bait:{mode:'off',threshold:0.6}}};
   const w=await createWorker({local:{settings:legacy}});
   const status=await w.ok({type:'FG_STATUS'});
-  assert.equal(status.settings.version,4);
+  assert.equal(status.settings.version,5);
   assert.equal(status.settings.consent,true);
   assert.deepEqual(status.settings.sites,['x']);
   assert.deepEqual(status.settings.allowedAuthors,['x:@friend']);

@@ -46,8 +46,10 @@ window.chrome={runtime:{id:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',onMessage:{addList
  }
  if(message.type==='FG_KEEP_POST'){H.kept.push(message.record.id);H.refresh();return {ok:true,data:{saved:true}};}
  if(message.type==='FG_PAGE_STATS'){H.pages=[{...message.stats,site:'x',context:'feed'}];return {ok:true,data:{}};}
- if(message.type==='FG_DIAGNOSTICS')return {ok:true,data:{format:'feedgate-diagnostics',version:5,build:{release:'3.0.1',rubric:'feed-v2.1.0',policy:'policy-2.1.1',detector:'ad-3.0.0',extraction:'extract-3.0.0',schema:5},pages:H.pages,cosmeticEvents:H.cosmeticEvents}};
- if(message.type==='FG_ALLOW_AUTHOR'){H.settings.allowedAuthors.push(C.authorKey('x',message.author));H.refresh();return {ok:true,data:{}};}
+ if(message.type==='FG_DIAGNOSTICS')return {ok:true,data:{format:'feedgate-diagnostics',version:6,build:{release:'3.1.1',rubric:'feed-v2.1.0',policy:'policy-3.1.0',detector:'ad-3.0.0',extraction:'extract-3.0.0',schema:6},pages:H.pages,cosmeticEvents:H.cosmeticEvents}};
+ if(message.type==='FG_ALLOW_AUTHOR'){const key=C.authorKey('x',message.author);H.settings.allowedAuthors=[...H.settings.allowedAuthors.filter(a=>a!==key),key];H.settings.blockedAuthors=H.settings.blockedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{}};}
+ if(message.type==='FG_MUTE_AUTHOR'){const key=C.authorKey('x',message.author);H.settings.blockedAuthors=[...H.settings.blockedAuthors.filter(a=>a!==key),key];H.settings.allowedAuthors=H.settings.allowedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{}};}
+ if(message.type==='FG_FORGET_AUTHOR'){const key=C.authorKey('x',message.author);H.settings.allowedAuthors=H.settings.allowedAuthors.filter(a=>a!==key);H.settings.blockedAuthors=H.settings.blockedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{}};}
  if(message.type==='FG_ADD_RULE'){
    const rule=C.sanitizeCosmeticRule({id:'r-'+Math.random().toString(36).slice(2,10),host:new URL(H.location.href).hostname,selector:message.selector,status:'active',source:'picker',reason:'user_created',createdAt:Date.now(),validatedAt:Date.now()});
    if(!rule)return {ok:false,error:{code:'UNSAFE_SELECTOR',message:'selector rejected'}};
@@ -69,7 +71,7 @@ window.chrome={runtime:{id:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',onMessage:{addList
  if(message.type==='FG_SET_KEY'){H.keyReady=true;H.hasVault=message.remember;return {ok:true,data:{saved:true}};}
  if(message.type==='FG_LOCK'){H.keyReady=false;return {ok:true,data:{}};}
  if(message.type==='FG_TEST_CONNECTION'){H.verifiedAt=Date.now();return {ok:true,data:{model:'jev-fixture-only',latencyMs:1,usage:{input_tokens:0,output_tokens:0},scores:{},decision:{action:'allow',reason:'Synthetic test fixture'}}};}
- if(message.type==='FG_EXPORT_SETTINGS')return {ok:true,data:{format:'feedgate-settings',version:4,settings:{...H.settings,sites:[],consent:false}}};
+ if(message.type==='FG_EXPORT_SETTINGS')return {ok:true,data:{format:'feedgate-settings',version:5,settings:{...H.settings,sites:[],consent:false}}};
  if(message.type==='FG_TAB_COMMAND')return {ok:true,data:{}};
  return {ok:true,data:{}};
 }},storage:{local:{get:async()=>({}),set:async()=>{},remove:async()=>{}},session:{get:async()=>({}),set:async()=>{}}},permissions:{request:async()=>!H.permissionDenied,remove:async()=>true,contains:async()=>!H.permissionDenied,getAll:async()=>({permissions:['storage','scripting','activeTab'],origins:H.permissionDenied?[]:['https://x.com/*','https://twitter.com/*']})},tabs:{getCurrent:async()=>({id:1,url:H.location.href}),create:async()=>({id:2}),sendMessage:async(_id,m)=>H.command(m.type),query:async()=>[{id:1,url:'https://x.com/home'}]}};
@@ -275,7 +277,7 @@ async def main():
             await pg.evaluate("Object.assign(harness.location,{protocol:'chrome-extension:',hostname:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',pathname:'/demo.html',href:'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/demo.html'});harness.mode='offline'")
             await code(pg,source('adapters.js'),True);await code(pg,source('demo.js'));await code(pg,source('content.js'),True)
             await pg.wait_for_function("document.querySelectorAll('feedgate-card').length===1")
-            assert await pg.evaluate("FeedGateCore.VERSION")=='3.0.1'
+            assert await pg.evaluate("FeedGateCore.VERSION")=='3.1.1'
             assert await pg.locator('feedgate-status').count()==0,'demo mode keeps the HUD out of the fixture'
             await pg.screenshot(path=str(ROOT/'evidence/test-feed-local.png'),full_page=True)
             await pg.locator('#demo-restore').click();await pg.wait_for_function("document.querySelectorAll('feedgate-card').length===0")
@@ -399,8 +401,8 @@ async def main():
             await pg.locator('#export-diagnostics').click()
             await pg.wait_for_function('window.savedBlobs.length===1')
             data=await pg.evaluate('async()=>JSON.parse(await window.savedBlobs[0].text())')
-            assert data['format']=='feedgate-diagnostics' and data['version']==5
-            assert data['build']['detector']=='ad-3.0.0' and data['build']['release']=='3.0.1'
+            assert data['format']=='feedgate-diagnostics' and data['version']==6
+            assert data['build']['detector']=='ad-3.0.0' and data['build']['release']=='3.1.1'
             assert not errors,errors
             await pg.screenshot(path=str(ROOT/'evidence/diagnostics-fixture.png'),full_page=True)
             await pg.close()
@@ -736,6 +738,55 @@ async def main():
             assert await pg.evaluate("FeedGateCore.siteForURL('https://wykop.pl/')")=='wykop'
             await pg.close()
         await run_case('WYK09: an unverified Wykop placement is never labelled a platform ad and auth routes stay private',wykop_policy_and_privacy)
+
+        async def mute_author():
+            pg=await fixture(browser,tweet('s1','SPAM_FIXTURE','','spamwriter')+tweet('n1','Useful note from the same author','','spamwriter')+tweet('other','Another useful note','','someoneelse'))
+            await pg.wait_for_function("getComputedStyle(document.querySelector('#s1')).display==='none'")
+            await pg.wait_for_function("harness.requests.length===3")
+            assert await pg.locator('#n1').is_visible()
+            await pg.locator('feedgate-card').first.get_by_role('button',name='Mute author').click()
+            assert await pg.wait_for_function("harness.settings.blockedAuthors.includes('x:@spamwriter')")
+            await pg.wait_for_function("getComputedStyle(document.querySelector('#n1')).display==='none'")
+            sent=await pg.evaluate("harness.requests.map(r=>r.text)")
+            assert sum(1 for t in sent if 'same author' in t)<=1,'a muted author must not be re-sent to the model'
+            notes=await pg.evaluate("[...document.querySelectorAll('feedgate-card')].map(c=>c.shadowRoot.textContent).join('|')")
+            assert 'Your mute list' in notes,notes
+            assert await pg.locator('#other').is_visible()
+            await pg.evaluate("harness.settings.blockedAuthors=[];harness.command('FG_CONFIG_CHANGED')")
+            await pg.wait_for_function("getComputedStyle(document.querySelector('#n1')).display!=='none'")
+            await pg.close()
+        await run_case('MUTE01: muting an author hides their posts locally with no extra provider request and unmuting restores them',mute_author)
+
+        async def panel_author_picker():
+            pg=await fixture(browser,tweet('a1','Useful note from the writer','','panelwriter')+tweet('b1','Another useful note','','someoneelse'))
+            await pg.wait_for_function("harness.requests.length===2")
+            assert await pg.locator('feedgate-status').count()==1
+            await pg.locator('feedgate-status').locator('button').first.click()
+            assert await pg.wait_for_function("harness.settings.hudMode==='expanded'")
+            assert await pg.get_by_role('button',name='Allow author',exact=False).count()>=1
+            await pg.get_by_role('button',name='Mute author…').click()
+            await pg.get_by_text('hover a post').wait_for()
+            await pg.locator('#a1').click()
+            await pg.get_by_text('Author: @panelwriter').wait_for()
+            await pg.get_by_text('makes no model request').wait_for()
+            await pg.screenshot(path=str(ROOT/'evidence/panel-author-picker.png'),full_page=True)
+            await pg.get_by_role('button',name='Mute author',exact=True).click()
+            assert await pg.wait_for_function("harness.settings.blockedAuthors.includes('x:@panelwriter')")
+            await pg.wait_for_function("getComputedStyle(document.querySelector('#a1')).display==='none'")
+            sent=await pg.evaluate("harness.requests.map(r=>r.text)")
+            assert sum(1 for t in sent if 'from the writer' in t)<=1,'a muted author must not be re-sent to the model'
+            toast=await pg.evaluate("document.querySelector('feedgate-toast').shadowRoot.textContent")
+            assert 'hidden from now on' in toast,toast
+            await pg.get_by_role('button',name='Undo').click()
+            assert await pg.wait_for_function("harness.settings.blockedAuthors.length===0")
+            await pg.wait_for_function("getComputedStyle(document.querySelector('#a1')).display!=='none'")
+            await pg.get_by_role('button',name='Mute author…').click()
+            await pg.get_by_text('hover a post').wait_for()
+            await pg.keyboard.press('Escape')
+            assert await pg.get_by_text('hover a post').count()==0,'Escape cancels the author picker'
+            assert await pg.evaluate("harness.settings.blockedAuthors.length")==0
+            await pg.close()
+        await run_case('PANEL01: the status panel mutes and allows an author by clicking a post, with preview and Undo',panel_author_picker)
 
         await browser.close()
     report={'scope':'Real Chromium DOM; mocked Chrome APIs, page location and Jev responses. No extension installed; no live API or signed-in feeds tested.','browser':version,'results':REPORT,'passed':sum(r['status']=='PASS' for r in REPORT)}

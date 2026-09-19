@@ -8,8 +8,8 @@ was used.
 
 Evidence files:
 
-* `evidence/unit-tests.tap` — 139 Node tests / 0 fail
-* `evidence/browser-dom-tests.json` — 59 Chromium DOM/UI scenarios / 0 fail
+* `evidence/unit-tests.tap` — 143 Node tests / 0 fail
+* `evidence/browser-dom-tests.json` — 61 Chromium DOM/UI scenarios / 0 fail
 * `evidence/extension-smoke.json` — 7 checks on the real `extension/` folder
 * `evidence/release-checks.json` — 8 release integrity checks
 * `evidence/baseline/` — 2.1.x baseline logs and the 2.1.1 patch
@@ -122,6 +122,17 @@ Evidence files:
 | LOOP07 | Late responses cannot rehide after pause/Undo | MET | epoch/token guards; worker tests |
 | LOOP08 | Static fixture converges | MET | bounded sweep + request-count stability |
 
+## 7a. Author controls and exception rule (3.1)
+
+| ID | Requirement | Status | Evidence |
+| --- | --- | --- | --- |
+| MUTE01 | Mute from a card hides that author's posts locally, no provider request | MET | `MUTE01` browser scenario; worker mute round-trip test |
+| MUTE02 | Allow and mute lists stay mutually exclusive | MET | core + worker tests (`blockedAuthors` cleared on allow and vice versa) |
+| MUTE03 | Keep this post wins over the mute list; observe mode wraps it | MET | core author-mute test; policy precedence table row 3a |
+| MUTE04 | Mute list is bounded, validated and reversible from settings | MET | core bounds/migration tests; options Muted authors list with Unmute |
+| MUTE05 | The status panel mutes or allows an author by clicking a post, with preview, Escape cancel and toast Undo | MET | `PANEL01` browser scenario; `FG_FORGET_AUTHOR` worker test |
+| EXC01 | Exception rule panel states hint semantics and token cost | MET | options panel copy + counter/status; TESTING.md manual pilot |
+
 ## 8. Wykop
 
 | ID | Requirement | Status | Evidence |
@@ -169,7 +180,7 @@ Evidence files:
 
 | Requirement | Status | Evidence |
 | --- | --- | --- |
-| Privacy-safe diagnostics schema 5 | MET | `docs/DIAGNOSTICS_SCHEMA.md`; privacy tests |
+| Privacy-safe diagnostics schema 6 | MET | `docs/DIAGNOSTICS_SCHEMA.md`; privacy tests; `mutedAuthorCount` count-only |
 | Cosmetic/semantic/UI metrics separated | MET | diagnostics worker tests |
 | Renderer heartbeat vs absence explained | MET | schema doc + renderer section test |
 | Retained vs dropped history explicit | MET | `logStats` test (150/10) |
@@ -195,9 +206,9 @@ Evidence files:
 | --- | --- | --- |
 | Complete project folder | MET | `D:\FeedGate\FeedGate-3.0.0` |
 | Ready-to-load `extension/` | MET | `D:\FeedGate\FeedGate-3.0.0\extension` |
-| ZIP + SHA256 sidecar | MET | `D:\FeedGate\PLIKI\FeedGate-3.0.1.zip` + `.sha256` |
+| ZIP + SHA256 sidecar | MET | `D:\FeedGate\PLIKI\FeedGate-3.1.1.zip` + `.sha256` |
 | Shipped-asset manifest/hash list | MET | `evidence/shipped-assets.json` |
-| Reviewable diff vs 2.1.1 | MET | `evidence/feedgate-3.0.1.patch` |
+| Reviewable diff vs 2.1.1 | MET | `evidence/feedgate-3.1.1.patch` |
 | CHANGELOG / README / Polish guide / MIGRATION | MET | `CHANGELOG.md`, `README.md`, `START_TUTAJ_PL.md`, `docs/MIGRATION.md` |
 | RECOVERY / ROOT_CAUSE / WYKOP_SUPPORT / DIAGNOSTICS_SCHEMA / TESTING | MET | `docs/` |
 | Screenshots of the real built UI | MET | `evidence/*.png` |
