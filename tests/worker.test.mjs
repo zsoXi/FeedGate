@@ -84,7 +84,7 @@ test('a legacy boolean sponsored flag cannot trigger local hiding and goes throu
  const w=await createWorker();await w.enable();const r=await w.classify({...post('Organic text with a legacy flag'),sponsored:true});assert.equal(r.decision.action,'allow');assert.equal(r.decision.rule,'no_noise_rule_matched');assert.equal(w.calls.length,1);
 });
 test('config responses carry the release version so a stale content script can detect an update',async()=>{
- const w=await createWorker();const cfg=await w.ok({type:'FG_GET_CONFIG'},sender);assert.equal(cfg.appVersion,'3.0.0');
+ const w=await createWorker();const cfg=await w.ok({type:'FG_GET_CONFIG'},sender);assert.equal(cfg.appVersion,'3.0.1');
 });
 test('runtime state written by an older schema is dropped, not replayed',async()=>{
  const legacy={version:3,metrics:{decisions:99},log:[{action:'collapse',reason:'legacy entry'}],cache:[],pageReports:[]};

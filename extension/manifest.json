@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "FeedGate 3.0.0 | TypeSafe filter",
+  "name": "FeedGate 3.0.1 | TypeSafe filter",
   "short_name": "FeedGate",
   "description": "Safe-controls Jev feed filtering for X, Reddit, LinkedIn, Facebook, Instagram and Wykop: reversible cosmetics with a transactional picker, per-site recovery, a status panel you can hide, and a precision-first policy.",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "minimum_chrome_version": "120",
   "permissions": [
     "storage",

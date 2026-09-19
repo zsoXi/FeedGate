@@ -1,4 +1,4 @@
-# FeedGate 3.0.0: start here
+# FeedGate 3.0.1: start here
 
 **This release has no terminal, no local bridge and no pairing code.** Do not run any file from version 0.1. You need Chrome and your own direct TypeSafe key.
 
@@ -52,7 +52,7 @@ Upgrading from 2.x? Your key, allowlist, saved post choices and cosmetic rules a
 
 There is a small FeedGate pill with status and counters at the bottom left of the page. Clicking it expands the panel (with minimize and close), and the popup can reopen it when it is hidden.
 
-Go to **Diagnostics → Export diagnostics**. This produces a `feedgate-3.0.0-diagnostics-....json` file that you can pass on for review. It contains no API key, vault, post text, author names, full page URLs, raw cosmetic selectors or the text of your own rule.
+Go to **Diagnostics → Export diagnostics**. This produces a `feedgate-3.0.1-diagnostics-....json` file that you can pass on for review. It contains no API key, vault, post text, author names, full page URLs, raw cosmetic selectors or the text of your own rule.
 
 | Status | Meaning |
 | --- | --- |

@@ -170,14 +170,14 @@
     if(settings.hudMode==='compact'&&s.state!=='recovery') {
       hudRoot.textContent='';
       const pill=make('button',`● FeedGate · ${label} · ${s.collapsed+s.dimmed+(s.cosmeticHidden||0)} filtered`,'pill');
-      pill.title='FeedGate 3.0.0 status. Open the panel.';
+      pill.title='FeedGate 3.0.1 status. Open the panel.';
       pill.addEventListener('click',ev=>{if(ev.isTrusted)persistHudMode('expanded');});
       hudRoot.append(pill);
       return;
     }
     hudRoot.textContent='';
     const panel=make('div',undefined,'panel'),header=make('header');
-    const title=make('strong','FeedGate 3.0.0');
+    const title=make('strong','FeedGate 3.0.1');
     const minimize=make('button','–');minimize.title='Minimize to a small status pill';
     const close=make('button','×');close.title='Hide status. Filtering continues.';
     minimize.addEventListener('click',ev=>{if(ev.isTrusted)persistHudMode('compact');});

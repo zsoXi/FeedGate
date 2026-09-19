@@ -3,9 +3,9 @@
 ## Baseline and results
 
 The preserved 2.1.1 copy was measured before any change (evidence in `evidence/baseline-3.0.0-npm-test.txt` and `evidence/baseline/`).
-The 3.0.0 build was measured after the change (evidence in `evidence/`).
+The 3.0.1 build was measured after the change (evidence in `evidence/`).
 
-| Layer | 2.1.1 baseline | 3.0.0 result | Scope |
+| Layer | 2.1.1 baseline | 3.0.1 result | Scope |
 | --- | --- | --- | --- |
 | JavaScript syntax | Passed | Passed | Node syntax checks on source, scripts and JavaScript tests |
 | Node tests | 118 passed, 0 failed | 139 passed, 0 failed | Actual policy, ad-evidence, cosmetic model, recovery, vault, HTTP and worker code with mocked Chrome storage/messaging and controlled HTTP |
@@ -64,7 +64,7 @@ Use a Chrome profile where unpacked extensions are permitted. Load `extension/`,
 6. Use **Pick element** on a sidebar-sized element and confirm the preview states scope and match count before anything is saved; cancel with Escape and confirm nothing was saved.
 7. Use **Restore this site** from the popup and confirm the pause survives a reload of the tab; resume when ready.
 8. Leave a tab open, reload the extension, and confirm the tab shows the reload prompt instead of silently mixing schemas.
-9. Export diagnostics and verify `build.release` is `3.0.0`, `build.detector` is `ad-3.0.0` and the export contains no raw cosmetic selectors.
+9. Export diagnostics and verify `build.release` is `3.0.1`, `build.detector` is `ad-3.0.0` and the export contains no raw cosmetic selectors.
 10. On Wykop, confirm link cards and Mikroblog entries are classified separately, that comments are never extracted, and that an old "Wykop Poleca" note never produces a platform-ad collapse.
 
 ## Live validation status

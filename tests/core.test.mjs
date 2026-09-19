@@ -14,7 +14,7 @@ const adVerified=patch=>C.sanitizeAdEvidence({adapter:'x',status:'verified',mark
 const sanitized=patch=>C.sanitizeRecord(record(patch),'x');
 
 test('release, rubric, detector, extraction, policy and schema versions are separate',()=>{
-  assert.equal(C.VERSION,'3.0.0');
+  assert.equal(C.VERSION,'3.0.1');
   assert.equal(C.RUBRIC_VERSION,'feed-v2.1.0');
   assert.equal(C.POLICY_VERSION,'policy-2.1.1');
   assert.equal(C.AD_DETECTOR_VERSION,'ad-3.0.0');

@@ -46,7 +46,7 @@ window.chrome={runtime:{id:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',onMessage:{addList
  }
  if(message.type==='FG_KEEP_POST'){H.kept.push(message.record.id);H.refresh();return {ok:true,data:{saved:true}};}
  if(message.type==='FG_PAGE_STATS'){H.pages=[{...message.stats,site:'x',context:'feed'}];return {ok:true,data:{}};}
- if(message.type==='FG_DIAGNOSTICS')return {ok:true,data:{format:'feedgate-diagnostics',version:5,build:{release:'3.0.0',rubric:'feed-v2.1.0',policy:'policy-2.1.1',detector:'ad-3.0.0',extraction:'extract-3.0.0',schema:5},pages:H.pages,cosmeticEvents:H.cosmeticEvents}};
+ if(message.type==='FG_DIAGNOSTICS')return {ok:true,data:{format:'feedgate-diagnostics',version:5,build:{release:'3.0.1',rubric:'feed-v2.1.0',policy:'policy-2.1.1',detector:'ad-3.0.0',extraction:'extract-3.0.0',schema:5},pages:H.pages,cosmeticEvents:H.cosmeticEvents}};
  if(message.type==='FG_ALLOW_AUTHOR'){H.settings.allowedAuthors.push(C.authorKey('x',message.author));H.refresh();return {ok:true,data:{}};}
  if(message.type==='FG_ADD_RULE'){
    const rule=C.sanitizeCosmeticRule({id:'r-'+Math.random().toString(36).slice(2,10),host:new URL(H.location.href).hostname,selector:message.selector,status:'active',source:'picker',reason:'user_created',createdAt:Date.now(),validatedAt:Date.now()});
@@ -275,7 +275,7 @@ async def main():
             await pg.evaluate("Object.assign(harness.location,{protocol:'chrome-extension:',hostname:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',pathname:'/demo.html',href:'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/demo.html'});harness.mode='offline'")
             await code(pg,source('adapters.js'),True);await code(pg,source('demo.js'));await code(pg,source('content.js'),True)
             await pg.wait_for_function("document.querySelectorAll('feedgate-card').length===1")
-            assert await pg.evaluate("FeedGateCore.VERSION")=='3.0.0'
+            assert await pg.evaluate("FeedGateCore.VERSION")=='3.0.1'
             assert await pg.locator('feedgate-status').count()==0,'demo mode keeps the HUD out of the fixture'
             await pg.screenshot(path=str(ROOT/'evidence/test-feed-local.png'),full_page=True)
             await pg.locator('#demo-restore').click();await pg.wait_for_function("document.querySelectorAll('feedgate-card').length===0")
@@ -400,7 +400,7 @@ async def main():
             await pg.wait_for_function('window.savedBlobs.length===1')
             data=await pg.evaluate('async()=>JSON.parse(await window.savedBlobs[0].text())')
             assert data['format']=='feedgate-diagnostics' and data['version']==5
-            assert data['build']['detector']=='ad-3.0.0' and data['build']['release']=='3.0.0'
+            assert data['build']['detector']=='ad-3.0.0' and data['build']['release']=='3.0.1'
             assert not errors,errors
             await pg.screenshot(path=str(ROOT/'evidence/diagnostics-fixture.png'),full_page=True)
             await pg.close()

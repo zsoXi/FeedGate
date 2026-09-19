@@ -275,7 +275,7 @@ function saveDownload(filename,data){
 }
 $('export-diagnostics').addEventListener('click',()=>action(async()=>{
   const data=await rpc('FG_DIAGNOSTICS');
-  saveDownload('feedgate-3.0.0-diagnostics-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json',data);
+  saveDownload('feedgate-3.0.1-diagnostics-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json',data);
   toast('Diagnostic file prepared. It does not contain keys, post text, authors, full browsing URLs or raw cosmetic selectors.');
 }));
 $('clear-cache').addEventListener('click',()=>action(async()=>{await rpc('FG_CLEAR_CACHE');await load();toast('Cached scores cleared. Enabled feeds may make new API requests.');}));

@@ -195,9 +195,9 @@ Evidence files:
 | --- | --- | --- |
 | Complete project folder | MET | `D:\FeedGate\FeedGate-3.0.0` |
 | Ready-to-load `extension/` | MET | `D:\FeedGate\FeedGate-3.0.0\extension` |
-| ZIP + SHA256 sidecar | MET | `D:\FeedGate\PLIKI\FeedGate-3.0.0.zip` + `.sha256` |
+| ZIP + SHA256 sidecar | MET | `D:\FeedGate\PLIKI\FeedGate-3.0.1.zip` + `.sha256` |
 | Shipped-asset manifest/hash list | MET | `evidence/shipped-assets.json` |
-| Reviewable diff vs 2.1.1 | MET | `evidence/feedgate-3.0.0.patch` |
+| Reviewable diff vs 2.1.1 | MET | `evidence/feedgate-3.0.1.patch` |
 | CHANGELOG / README / Polish guide / MIGRATION | MET | `CHANGELOG.md`, `README.md`, `START_TUTAJ_PL.md`, `docs/MIGRATION.md` |
 | RECOVERY / ROOT_CAUSE / WYKOP_SUPPORT / DIAGNOSTICS_SCHEMA / TESTING | MET | `docs/` |
 | Screenshots of the real built UI | MET | `evidence/*.png` |

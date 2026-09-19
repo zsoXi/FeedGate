@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.0.1
+
+Maintenance fix for the site list. No policy, rubric, detector or extraction change; thresholds and defaults are untouched.
+
+* Fixed phantom **Refresh required** states. Disabling feeds (including **Disable all feeds** followed by **Enable all supported feeds**) used to leave a cleanup marker for every removed site, even when that site had no open tab. Those markers never cleared until a page of that site was visited, so rows could show **Refresh required** forever and the site stayed ineffective. Cleanup is now only tracked while the removed site still has an open supported tab, and site status aggregation prunes any marker whose site no longer has one — opening the popup, settings or a diagnostics export self-heals older state. A site with no open tab has nothing to refresh.
+* Added regression coverage for the pruning path: the site-state matrix now asserts that a marker with an open tab reads `refresh_required`, and that closing the last tab returns the site to `ready` and removes the stored marker.
+* Settings schema, runtime schema, diagnostics schema, rubric `feed-v2.1.0`, policy `policy-2.1.1`, detector `ad-3.0.0` and extraction `extract-3.0.0` are unchanged. Release version is `3.0.1`.
+
+Validation: 139 Node tests, 59 Chromium DOM/UI scenarios, a 7-check unpacked-extension smoke test and 8 release integrity checks passed locally. All fixtures are synthetic except the three real privacy-safe diagnostics exports used only for count replay. Live provider, signed-in-site and live Wykop validation remain manual gates and are reported as not performed.
+
 ## 3.0.0
 
 Safe controls, Wykop and complete recovery. This release does not retune the model, lower thresholds, enable Low-signal filler, convert dims into collapses, or add keyword blocking. It makes the local controls safe and complete.

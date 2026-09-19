@@ -1,6 +1,6 @@
-# FeedGate 3.0.0 — start tutaj (PL)
+# FeedGate 3.0.1 — start tutaj (PL)
 
-Ten plik to krótki przewodnik po wersji 3.0.0. Pełniejsze, starsze instrukcje po
+Ten plik to krótki przewodnik po wersji 3.0.1. Pełniejsze, starsze instrukcje po
 polsku są w [INSTRUKCJA_PL.md](INSTRUKCJA_PL.md); dokumentacja techniczna jest
 po angielsku w katalogu `docs/`.
 
@@ -12,9 +12,9 @@ po angielsku w katalogu `docs/`.
   ścieżce. Wtedy Chrome zachowuje tożsamość rozszerzenia, a klucz i sejf działają
   dalej. Inny katalog = nowa tożsamość i nowe uprawnienia.
 
-## 2. Aktualizacja do 3.0.0
+## 2. Aktualizacja do 3.0.1
 
-1. Rozpakuj wydanie do docelowego katalogu (np. `D:\FeedGate-3.0.0`).
+1. Rozpakuj wydanie do docelowego katalogu (np. `D:\FeedGate-3.0.1`).
 2. `chrome://extensions` → tryb programisty → **Załaduj rozpakowane** → wskaż
    katalog `extension` z plikiem `manifest.json`.
 3. Przy pierwszym starcie po aktualizacji pojawi się jednorazowy pasek
@@ -65,7 +65,7 @@ Wybrany element nie staje się „postem” dla modelu — to wyłącznie lokaln
 ## 6. Diagnostyka i kopie
 
 * **Export diagnostics** tworzy plik
-  `feedgate-3.0.0-diagnostics-….json` bez kluczy, tekstów postów, autorów,
+  `feedgate-3.0.1-diagnostics-….json` bez kluczy, tekstów postów, autorów,
   pełnych adresów URL i surowych selektorów. Zawiera m.in. sekcje `ui`, `sites`,
   `cosmetic`, `renderer` i `provider` oraz odcisk wersji (`build`).
 * **Export settings** zapisuje ustawienia w formacie wersji 4 (z regułami
@@ -79,10 +79,10 @@ Wybrany element nie staje się „postem” dla modelu — to wyłącznie lokaln
 2. Otwórz zwykły post techniczny — ma pozostać widoczny.
 3. Sprawdź w pasku statusu, że tryb to „Running”, a w popupie, że sześć
    serwisów ma stan „ready”.
-4. W eksporcie diagnostyki sprawdź `build.release` = `3.0.0` oraz
+4. W eksporcie diagnostyki sprawdź `build.release` = `3.0.1` oraz
    `build.detector` = `ad-3.0.0`.
 
-## 8. Czego 3.0.0 świadomie nie robi
+## 8. Czego 3.0.1 świadomie nie robi
 
 * Nie zmienia progów kategorii ani modelu — to wydanie o kontroli, nie o
   skuteczności modelu.

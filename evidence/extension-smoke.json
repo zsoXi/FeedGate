@@ -3,17 +3,17 @@
   "state": "PASS",
   "reason": null,
   "extensionId": "hmhlikegichjeembjobgdcagdmambncc",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "cards": 1,
-  "optionsVersionLabel": "3.0.0 / safe controls preview",
+  "optionsVersionLabel": "3.0.1 / safe controls preview",
   "requests": 13,
   "localhostHits": [],
   "consoleErrors": [],
   "checks": [
     {
-      "name": "worker reports release version 3.0.0",
+      "name": "worker reports release version 3.0.1",
       "ok": true,
-      "detail": "3.0.0"
+      "detail": "3.0.1"
     },
     {
       "name": "the real content script collapses the promoted demo post locally",
@@ -28,7 +28,7 @@
     {
       "name": "options page opens as the real extension page",
       "ok": true,
-      "detail": "3.0.0 / safe controls preview"
+      "detail": "3.0.1 / safe controls preview"
     },
     {
       "name": "no localhost or bridge traffic",

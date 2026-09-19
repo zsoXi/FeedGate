@@ -3,7 +3,7 @@
 
   // Separate versions: the release, the semantic rubric, the local ad detector,
   // the DOM extraction and the policy engine can change independently.
-  const VERSION = '3.0.0';
+  const VERSION = '3.0.1';
   const RUBRIC_VERSION = 'feed-v2.1.0';
   const POLICY_VERSION = 'policy-2.1.1';
   const AD_DETECTOR_VERSION = 'ad-3.0.0';

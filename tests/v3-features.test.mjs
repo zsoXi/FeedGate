@@ -255,10 +255,15 @@ test('site status reports honest reasons, revisions and effective flags',async()
   const recovery=await createWorker({local:{settings:{...base(),sites:['x'],recoverySites:['x']}}});
   states=byId((await recovery.ok({type:'FG_STATUS'})).siteStates);
   assert.equal(states.x.reason,'recovery_pause');
-  const stale=await createWorker({local:{settings:{...base(),sites:['reddit']},cleanup:{sites:['reddit']}}});
+  const stale=await createWorker({tabs:{1:'https://x.com/home',2:'https://www.reddit.com/'},local:{settings:{...base(),sites:['reddit']},cleanup:{sites:['reddit']}}});
   states=byId((await stale.ok({type:'FG_STATUS'})).siteStates);
   assert.equal(states.reddit.reason,'refresh_required');
   assert.equal(states.reddit.effective,false);
+  // Closing the last tab of that site removes the phantom refresh requirement.
+  stale.tabs.delete(2);
+  states=byId((await stale.ok({type:'FG_STATUS'})).siteStates);
+  assert.equal(states.reddit.reason,'ready');
+  assert.deepEqual(stale.local.cleanup.sites,[]);
 });
 
 test('exports are v4 while imports re-quarantine unverified rules and reject v1',async()=>{

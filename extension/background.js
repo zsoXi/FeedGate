@@ -140,13 +140,10 @@ async function saveSettings(patch, domain='settings', expect) {
     }
     // Sites that just lost selection or access need a cleanup refresh in open tabs.
     const removed = settings.sites.filter(s=>!next.sites.includes(s));
-    if (removed.length) {
-      cleanupSites = [...new Set([...cleanupSites,...removed])].filter(s=>C.SITE_DEFS[s]).slice(0,8);
-    }
     cancelPending();
     await chrome.storage.local.set({settings:next});
     settings = next;
-    if (removed.length) await persistCleanup();
+    await trackCleanup(removed);
     await broadcast();
     await syncScripts();
     return C.clone(settings);
@@ -173,7 +170,30 @@ async function notifySite(site,message,timeoutMs=1500) {
   }
   return {acknowledged,count};
 }
+// Cleanup tracking exists only for documents that could still show old effects.
+// A site with no open supported tab has nothing to refresh, so it is never listed
+// and a stale entry is pruned as soon as its last tab closes.
+async function siteHasOpenTab(site) {
+  try {
+    const matches = await chrome.tabs.query({url:C.originsForSite(site)});
+    return matches.some((tab) => tab && typeof tab.url === 'string' && !C.isPrivateRoute(tab.url));
+  } catch (_) { return false; }
+}
+async function trackCleanup(sites) {
+  const wanted = [...new Set(sites)].filter((site) => C.SITE_DEFS[site] && !cleanupSites.includes(site));
+  let changed = false;
+  for (const site of wanted) {
+    if (await siteHasOpenTab(site)) { cleanupSites.push(site); changed = true; }
+  }
+  if (changed) { cleanupSites = cleanupSites.slice(0,8); await persistCleanup(); }
+}
+async function pruneCleanup() {
+  const keep = [];
+  for (const site of cleanupSites) if (await siteHasOpenTab(site)) keep.push(site);
+  if (keep.length !== cleanupSites.length) { cleanupSites = keep; await persistCleanup(); }
+}
 async function siteStatuses() {
+  await pruneCleanup();
   const list = [];
   for (const id of Object.keys(C.SITE_DEFS)) {
     const selected = settings.sites.includes(id);
@@ -701,10 +721,7 @@ chrome.permissions.onRemoved.addListener(()=>{
       else removed.push(site);
     }
     // A site whose access was revoked may still carry injected effects: mark it for refresh.
-    if (removed.length) {
-      cleanupSites=[...new Set([...cleanupSites,...removed])].filter(s=>C.SITE_DEFS[s]).slice(0,8);
-      await persistCleanup();
-    }
+    await trackCleanup(removed);
     cancelPending();settings={...settings,sites};
     await chrome.storage.local.set({settings});
     await broadcast();await syncScripts();

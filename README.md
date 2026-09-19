@@ -1,10 +1,10 @@
-# FeedGate 3.0.0
+# FeedGate 3.0.1
 
 A Chrome extension that uses TypeSafe Jev to reduce feed noise without hiding ordinary organic content. A post being promotional is not treated as a reason to filter it. Filtering is reversible, the rules are explicit, and the API key is entered inside the extension.
 
 **Personal-use preview. No terminal, bridge, pairing code or external server is required.**
 
-![FeedGate 3.0.0 setup interface, captured using a browser test fixture](evidence/options-overview.png)
+![FeedGate 3.0.1 setup interface, captured using a browser test fixture](evidence/options-overview.png)
 
 ## Install the ready-made extension
 

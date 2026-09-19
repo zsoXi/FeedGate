@@ -6,7 +6,7 @@ test('direct transport never opens a localhost bridge and verified local ads cos
  const w=await createWorker();await w.enable();const r=await w.classify({...post('Labelled placement'),adEvidence:adEvidenceVerified});
  assert.equal(r.decision.source,'local');assert.equal(r.decision.rule,'platform_labelled_ad');assert.equal(w.calls.length,0);
  const d=await w.ok({type:'FG_DIAGNOSTICS'});assert.equal(d.connection.transport,'direct TypeSafe HTTPS');assert.equal(d.version,5);assert.equal(d.rubric,'feed-v2.1.0');
- assert.equal(d.build.release,'3.0.0');assert.equal(d.build.rubric,'feed-v2.1.0');assert.equal(d.build.policy,'policy-2.1.1');assert.equal(d.build.detector,'ad-3.0.0');assert.equal(d.build.extraction,'extract-3.0.0');assert.equal(d.build.schema,5);
+ assert.equal(d.build.release,'3.0.1');assert.equal(d.build.rubric,'feed-v2.1.0');assert.equal(d.build.policy,'policy-2.1.1');assert.equal(d.build.detector,'ad-3.0.0');assert.equal(d.build.extraction,'extract-3.0.0');assert.equal(d.build.schema,5);
  const local=d.decisions.find(x=>x.rule==='platform_labelled_ad');
  assert.equal(local.adEvidence.status,'verified');assert.equal(local.adEvidence.markerKind,'x_is_promoted_attribute');assert.equal(local.adEvidence.scope,'outer_post');assert.equal(local.protectionEligible,false);
 });
