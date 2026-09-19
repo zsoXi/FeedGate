@@ -10,7 +10,7 @@ const read=p=>readFile(path.join(root,p));
 const manifest=JSON.parse(await read('extension/manifest.json'));
 const pkg=JSON.parse(await read('package.json'));const checks=[];
 function check(name,fn){fn();checks.push({name,passed:true});}
-check('Single 3.1.1 version',()=>{assert.equal(pkg.version,'3.1.1');assert.equal(manifest.version,pkg.version);assert.equal(globalThis.FeedGateCore.VERSION,pkg.version);});
+check('Single 3.3.0 version',()=>{assert.equal(pkg.version,'3.3.0');assert.equal(manifest.version,pkg.version);assert.equal(globalThis.FeedGateCore.VERSION,pkg.version);});
 check('Manifest V3 and module worker',()=>{assert.equal(manifest.manifest_version,3);assert.equal(manifest.background.type,'module');assert.equal(manifest.background.service_worker,'background.js');});
 check('Limited permissions and fixed provider host',()=>{assert.deepEqual(manifest.permissions,['storage','scripting','activeTab']);assert.deepEqual(manifest.host_permissions,['https://api.typesafe.ai/*']);assert.ok(!JSON.stringify(manifest).includes('<all_urls>'));assert.ok(manifest.optional_host_permissions.includes('https://wykop.pl/*')&&manifest.optional_host_permissions.includes('https://*.wykop.pl/*'));assert.equal(manifest.incognito,'not_allowed');assert.ok(!manifest.externally_connectable);});
 const required=['manifest.json',manifest.background.service_worker,manifest.action.default_popup,manifest.options_ui.page,...Object.values(manifest.icons)];
@@ -20,6 +20,14 @@ async function files(dir,prefix=''){let found=[];for(const ent of await readdir(
 for(const name of await files(path.join(root,'static')))assert.deepEqual(await read(`static/${name}`),await read(`extension/${name}`),`Static build mismatch: ${name}`);
 for(const name of (await readdir(path.join(root,'src'))).filter(x=>x.endsWith('.js')))assert.deepEqual(await read(`src/${name}`),await read(`extension/${name}`),`Source build mismatch: ${name}`);
 checks.push({name:'Ready-made assets match current source and static inputs',passed:true});
+const build=JSON.parse((await read('extension/build.json')).toString());
+const buildHash=createHash('sha256');
+const inputs=[...(await files(path.join(root,'static'))).map(n=>'static/'+n),...(await files(path.join(root,'src'))).map(n=>'src/'+n)].sort();
+for(const name of inputs)buildHash.update(name+'\0').update(await read(name)).update('\0');
+assert.ok((await stat(path.join(out,'build.json'))).isFile(),'Missing build.json');
+assert.equal(build.release,pkg.version,'build.json release must match package.json version');
+assert.equal(build.buildId,buildHash.digest('hex').slice(0,12),'build.json buildId must match current sources');
+checks.push({name:'Packaged build.json matches current version and sources',passed:true});
 const names=await files(out);
 check('No bridge, executable installer or key file in runtime',()=>{assert.ok(names.every(n=>!/(^|\/)(bridge|node_modules)(\/|$)|\.(?:cmd|bat|ps1|exe|pem|key)$|(^|\/)\.env/i.test(n)));});
 const js=(await Promise.all(names.filter(n=>n.endsWith('.js')).map(n=>read(`extension/${n}`)))).join('\n');

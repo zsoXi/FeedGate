@@ -10,7 +10,7 @@ function toast(message){$('toast').textContent=message;$('toast').classList.remo
 async function action(fn,statusId){try{return await fn();}catch(error){const msg=C.userError(error).message;if(statusId)notice(statusId,msg,true);else toast(msg);return null;}}
 function navigate(id){for(const n of document.querySelectorAll('.page'))n.classList.toggle('active',n.id===id);for(const b of document.querySelectorAll('[data-page]'))b.classList.toggle('active',b.dataset.page===id);history.replaceState(null,'','#'+id);}
 for(const btn of document.querySelectorAll('[data-page]'))btn.addEventListener('click',()=>navigate(btn.dataset.page));
-if(['overview','policy','connection','review','rules'].includes(location.hash.slice(1)))navigate(location.hash.slice(1));
+if(['overview','policy','connection','review','rules','updates'].includes(location.hash.slice(1)))navigate(location.hash.slice(1));
 const REASON_LABEL={engine_paused:'Engine paused',not_selected:'Not selected',permission_required:'Needs Chrome access',recovery_pause:'Filtering paused',refresh_required:'Refresh required',ready:'Ready'};
 function patchSettings(patch,domain='settings'){
   const expect=state?.settings?.revisions?.[domain];
@@ -105,6 +105,59 @@ function fillMuted(){
   const list=$('mute-list');list.replaceChildren();
   if(!state.settings.blockedAuthors.length){list.append(el('p','No muted authors yet. Use “Mute author…” in the status panel (click a post) or on a filtered post card.','fine'));return;}
   for(const author of state.settings.blockedAuthors){const row=el('div',undefined,'allow-item'),button=el('button','Unmute','small-btn');button.addEventListener('click',()=>action(async()=>{const fresh=await rpc('FG_STATUS');await rpc('FG_PATCH_SETTINGS',{patch:{blockedAuthors:fresh.settings.blockedAuthors.filter(a=>a!==author)},domain:'settings',expect:fresh.settings.revisions.settings});await load();toast('Author unmuted. Posts from this author can appear again after the next scan.');}));row.append(el('span',author),button);list.append(row);}
+}
+function fillUsage(state){
+  const node=$('usage-stats'),cost=$('usage-cost'),badge=$('usage-badge');
+  if(!node||!state?.metrics)return;
+  const m=state.metrics,d=state.daily||{requests:0},limit=state.settings.dailyLimit||0;
+  const used=d.requests||0,remaining=Math.max(0,limit-used);
+  badge.textContent=`${used} / ${limit} today`;
+  badge.className='badge '+(remaining>0?'live':'warn');
+  const unaccounted=Math.max(0,(m.requests||0)-(m.classified||0)-(m.cancellations||0)-(m.errors||0));
+  node.textContent=`${used} used · ${remaining} left today · ${(m.requests||0).toLocaleString()} provider attempts · ${(m.classified||0).toLocaleString()} classified · ${(m.cacheHits||0).toLocaleString()} cache hits · ${(m.errors||0).toLocaleString()} errors · ${(m.cancellations||0).toLocaleString()} cancelled · ${unaccounted.toLocaleString()} unaccounted · ${(m.inputTokens||0).toLocaleString()} in / ${(m.outputTokens||0).toLocaleString()} out tokens`;
+  const next=new Date();next.setUTCHours(24,0,0,0);
+  const reset=`Daily limit resets at ${next.toLocaleString()} (00:00 UTC).`;
+  const p=state.settings.pricing||{inputPerMTok:null,outputPerMTok:null,currency:''};
+  if(p.inputPerMTok===null&&p.outputPerMTok===null){cost.textContent=reset+' Provider cost is not calculated (no rates configured).';return;}
+  const estimate=((m.inputTokens||0)/1e6)*(p.inputPerMTok||0)+((m.outputTokens||0)/1e6)*(p.outputPerMTok||0);
+  cost.textContent=`${reset} ${p.currency?p.currency+' ':''}${estimate.toFixed(4)} — estimate from your own rates, not a provider bill.`;
+}
+function fillTopics(state){
+  if(!state?.settings)return;
+  const list=$('topic-list');if(!list)return;list.replaceChildren();
+  const topics=state.settings.topics||[];
+  if(!topics.length){list.append(el('p','No muted topics yet. Use “Mute topic…” in the status panel or on a post card.','fine'));return;}
+  for(const topic of topics){
+    const row=el('div',undefined,'allow-item'),info=el('div');
+    const expiry=topic.until===0?'No expiry':'Expires '+new Date(topic.until).toLocaleString();
+    info.append(el('strong',topic.label),el('small',`${topic.scope==='all'?'All supported sites':'This site'} · ${expiry}`));
+    const buttons=el('div',undefined,'rule-actions');
+    const edit=el('button','Edit','small-btn');
+    edit.addEventListener('click',()=>{
+      const label=el('input');label.value=topic.label;label.maxLength=80;label.spellcheck=false;
+      const scope=el('select');for(const [v,t] of [['site','This site'],['all','All supported sites']]){const o=el('option',t);o.value=v;scope.append(o);}scope.value=topic.scope;
+      const duration=el('select');for(const [v,t] of [['24','24 hours'],['168','7 days'],['0','No expiry']]){const o=el('option',t);o.value=v;duration.append(o);}
+      if(topic.until===0)duration.value='0';else duration.value=Math.round((topic.until-Date.now())/3600000)<=24?'24':'168';
+      const save=el('button','Save','small-btn'),cancel=el('button','Cancel','small-btn');
+      save.addEventListener('click',()=>action(async()=>{
+        const hours=Number(duration.value);
+        const fresh=await rpc('FG_STATUS');
+        await rpc('FG_TOPIC_UPDATE',{id:topic.id,patch:{label:label.value.trim(),scope:scope.value,site:topic.site,until:hours>0?Date.now()+hours*3600000:0},expect:fresh.settings.revisions.settings});
+        await load();notice('rules-status','Muted topic updated.');
+      }));
+      cancel.addEventListener('click',()=>fillTopics(state));
+      info.replaceChildren(el('strong',topic.label),label,scope,duration,save,cancel);
+    });
+    buttons.append(edit);
+    const del=el('button','Delete','small-btn danger');
+    del.addEventListener('click',()=>action(async()=>{
+      const fresh=await rpc('FG_STATUS');
+      await rpc('FG_TOPIC_DELETE',{id:topic.id,expect:fresh.settings.revisions.settings});
+      await load();toast('Muted topic removed. Posts hidden only by this topic can appear again after the next scan.');
+    }));
+    buttons.append(del);
+    row.append(info,buttons);list.append(row);
+  }
 }
 function updateCustomStatus(){
   const field=$('custom-instruction');if(!field)return;
@@ -204,12 +257,29 @@ function fillUpgradeBanner(){
     banner.classList.toggle('hidden',!result?.upgrade);
   }).catch(()=>{});
 }
+function fillUpdate(info){
+  const badge=$('update-badge'),box=$('update-info');
+  const running=info&&typeof info.running==='string'?info.running:'—';
+  const disk=info&&typeof info.onDisk==='string'?info.onDisk:null;
+  const available=info?.updateAvailable===true;
+  badge.textContent=available?'Update available':(disk?'Up to date':'Unknown');
+  badge.className='badge '+(available?'warn':(disk?'live':''));
+  const parts=[`Running build: ${running}`];
+  parts.push(disk?`Files on disk: ${disk}${info.buildId?` (build ${info.buildId})`:''}`:'Files on disk: no readable build.json for this page context.');
+  if(available)parts.push('Replace the files in this folder, then press Reload on chrome://extensions. Your vault and settings stay.');
+  box.textContent=parts.join(' · ');
+}
+async function loadUpdate(){const info=await rpc('FG_UPDATE_INFO');fillUpdate(info);return info;}
 async function load(full=true){
   state=await rpc('FG_STATUS');fillMetrics();
   if(!full)return;
-  const s=state.settings;fillFeeds();fillCategories();fillAllowlist();fillMuted();fillLog();fillRuleManager();fillRecovery();
+  const s=state.settings;fillFeeds();fillCategories();fillAllowlist();fillMuted();fillLog();fillRuleManager();fillRecovery();fillUsage(state);fillTopics(state);
   $('application-mode').value=s.mode;$('profile-mode').value=s.profileMode;$('protect-useful').checked=s.protectUseful;
   $('labelled-ads').checked=s.labelledAds;$('consent').checked=s.consent;$('hud-mode').value=s.hudMode||'compact';
+  $('grouping').checked=s.grouping===true;$('thrift').checked=s.thrift===true;$('thrift-delay').value=String(s.thriftDelayMs||800);
+  $('pricing-input').value=s.pricing&&s.pricing.inputPerMTok!==null?String(s.pricing.inputPerMTok):'';
+  $('pricing-output').value=s.pricing&&s.pricing.outputPerMTok!==null?String(s.pricing.outputPerMTok):'';
+  $('pricing-currency').value=(s.pricing&&s.pricing.currency)||'';
   $('feeds-details').open=s.feedsOpen===true;
   $('custom-instruction').value=s.customInstruction;updateCustomStatus();$('daily-limit').value=String(s.dailyLimit);$('concurrency').value=String(s.concurrency);$('cache-minutes').value=String(s.cacheMinutes);$('model-id').value=s.model;
 }
@@ -239,7 +309,7 @@ $('custom-instruction').addEventListener('input',updateCustomStatus);
 $('policy-form').addEventListener('submit',ev=>{ev.preventDefault();action(async()=>{
   const categories={};for(const n of document.querySelectorAll('[data-category-mode]')){const id=n.dataset.categoryMode;categories[id]={mode:n.value,threshold:Number(document.querySelector(`[data-category-threshold="${id}"]`).value)/100};}
   const lr=await rpc('FG_STATUS');
-  await rpc('FG_PATCH_SETTINGS',{patch:{preset:'custom',profileMode:$('profile-mode').value,protectUseful:$('protect-useful').checked,mode:$('application-mode').value,labelledAds:$('labelled-ads').checked,customInstruction:$('custom-instruction').value,dailyLimit:Number($('daily-limit').value),concurrency:Number($('concurrency').value),cacheMinutes:Number($('cache-minutes').value),categories},domain:'settings',expect:lr.settings.revisions.settings});
+  await rpc('FG_PATCH_SETTINGS',{patch:{preset:'custom',profileMode:$('profile-mode').value,protectUseful:$('protect-useful').checked,mode:$('application-mode').value,labelledAds:$('labelled-ads').checked,customInstruction:$('custom-instruction').value,dailyLimit:Number($('daily-limit').value),concurrency:Number($('concurrency').value),cacheMinutes:Number($('cache-minutes').value),grouping:$('grouping').checked,thrift:$('thrift').checked,thriftDelayMs:Number($('thrift-delay').value),categories},domain:'settings',expect:lr.settings.revisions.settings});
   await load();notice('policy-status','Policy saved. Open feeds have been re-evaluated.');
 },'policy-status');});
 $('hud-mode').addEventListener('change',()=>action(async()=>{
@@ -288,11 +358,27 @@ function saveDownload(filename,data){
 }
 $('export-diagnostics').addEventListener('click',()=>action(async()=>{
   const data=await rpc('FG_DIAGNOSTICS');
-  saveDownload('feedgate-3.1.1-diagnostics-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json',data);
+  saveDownload('feedgate-3.3.0-diagnostics-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json',data);
   toast('Diagnostic file prepared. It does not contain keys, post text, authors, full browsing URLs or raw cosmetic selectors.');
 }));
 $('clear-cache').addEventListener('click',()=>action(async()=>{await rpc('FG_CLEAR_CACHE');await load();toast('Cached scores cleared. Enabled feeds may make new API requests.');}));
 $('reset-feedback').addEventListener('click',()=>action(async()=>{await rpc('FG_RESET_FEEDBACK');await load();toast('Saved per-post choices cleared.');}));
+$('update-check').addEventListener('click',()=>action(async()=>{const info=await loadUpdate();notice('update-status',info.updateAvailable?'Update available on disk. Replace files in the same folder, then press Reload on chrome://extensions.':'Files on disk match the running build.',false);},'update-status'));
+$('open-extensions').addEventListener('click',()=>action(()=>chrome.tabs.create({url:'chrome://extensions/'})));
+$('export-vault').addEventListener('click',()=>action(async()=>{const data=await rpc('FG_EXPORT_VAULT');saveDownload('feedgate-key-backup.json',data);notice('vault-status','Key backup prepared. It is sealed with your vault passphrase; keep it private.');},'vault-status'));
+$('import-vault').addEventListener('click',()=>$('import-vault-file').click());
+$('import-vault-file').addEventListener('change',()=>action(async()=>{
+  const file=$('import-vault-file').files?.[0];if(!file)return;if(file.size>20000)throw new Error('INVALID_RECORD');
+  let data;try{data=JSON.parse(await file.text());}catch{throw new Error('INVALID_RECORD');}
+  if(data?.format!=='feedgate-key-backup'||data.version!==1)throw new Error('INVALID_RECORD');
+  await rpc('FG_IMPORT_VAULT',{vault:data.vault});$('import-vault-file').value='';await load();notice('vault-status','Key backup imported. Unlock it with its passphrase on the API & privacy page.');
+},'vault-status'));
+$('save-pricing').addEventListener('click',()=>action(async()=>{
+  const input=$('pricing-input').value.trim(),output=$('pricing-output').value.trim();
+  const fresh=await rpc('FG_STATUS');
+  await rpc('FG_PATCH_SETTINGS',{patch:{pricing:{inputPerMTok:input===''?null:Number(input),outputPerMTok:output===''?null:Number(output),currency:$('pricing-currency').value.trim()}},domain:'settings',expect:fresh.settings.revisions.settings});
+  await load();toast('Rates saved. Cost estimates use your own numbers and are not a provider bill.');
+}));
 for(const button of document.querySelectorAll('[data-preset]'))button.addEventListener('click',()=>action(async()=>{
   const name=button.dataset.preset;
   const patch=name==='custom'?{preset:'custom',mode:'filter',protectUseful:true}:C.presetPatch(name);
@@ -335,4 +421,5 @@ $('setup-form').addEventListener('submit',async event=>{
 });
 await action(()=>load());
 fillUpgradeBanner();
-setInterval(()=>{if(!document.hidden)action(()=>load(false));},4000);
+action(()=>loadUpdate());
+setInterval(()=>{if(!document.hidden)action(async()=>{await load(false);fillUsage(state);});},4000);

@@ -25,7 +25,7 @@ def tweet(id,text,extra='',author='fixture',attr=''):
 
 HARNESS=r'''() => {
 const C=FeedGateCore;
-const H=window.harness={settings:C.clone(C.DEFAULTS),requests:[],listeners:[],mode:'success',delay:0,keyReady:false,hasVault:false,verifiedAt:0,kept:[],pages:[],permissionDenied:false,appVersion:C.VERSION,cosmeticEvents:[],promoteQuarantined:false,metrics:{decisions:0,protected:0,usefulPromotions:0,requests:0,filterDecisions:0,lastLatencyMs:0,classified:0,inputTokens:0,outputTokens:0,cacheHits:0,errors:0,cancellations:0,logDropped:0,cosmeticApplied:0,cosmeticRestored:0,cosmeticRejected:0,breakerActivations:0},log:[],calls:[]};
+const H=window.harness={settings:C.clone(C.DEFAULTS),requests:[],listeners:[],mode:'success',delay:0,keyReady:false,hasVault:false,verifiedAt:0,kept:[],pages:[],permissionDenied:false,appVersion:C.VERSION,buildRelease:C.VERSION,cosmeticEvents:[],promoteQuarantined:false,metrics:{decisions:0,protected:0,usefulPromotions:0,requests:0,filterDecisions:0,lastLatencyMs:0,classified:0,inputTokens:0,outputTokens:0,cacheHits:0,errors:0,cancellations:0,logDropped:0,cosmeticApplied:0,cosmeticRestored:0,cosmeticRejected:0,breakerActivations:0},log:[],calls:[]};
 H.settings.sites=['x'];
 H.location={protocol:'https:',hostname:'x.com',pathname:'/home',href:'https://x.com/home'};
 H.command=type=>{let result;for(const fn of H.listeners)fn({type},{id:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'},r=>result=r);return result;};
@@ -40,16 +40,17 @@ window.chrome={runtime:{id:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',onMessage:{addList
  if(message.type==='FG_CLASSIFY'){
    const r=structuredClone(message.record),delay=H.delay,mode=H.mode;H.requests.push(r);
    if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
-   const scores={unwantedAd:r.text.includes('BUILDER_FIXTURE')?.9:.01,feedSpam:r.text.includes('SPAM_FIXTURE')?.99:.01,bait:r.text.includes('BAIT_FIXTURE')?.99:.01,lowSignal:.01,useful:r.text.includes('BUILDER_FIXTURE')?.95:.1,original:r.text.includes('BUILDER_FIXTURE')?.9:.1,risk:.01,sufficient:.99};
+   const scores={unwantedAd:r.text.includes('BUILDER_FIXTURE')?.9:.01,feedSpam:r.text.includes('SPAM_FIXTURE')?.99:.01,bait:r.text.includes('BAIT_FIXTURE')?.99:.01,lowSignal:.01,useful:r.text.includes('BUILDER_FIXTURE')?.95:.1,original:r.text.includes('BUILDER_FIXTURE')?.9:.1,risk:.01,topic:r.text.includes('TOPIC_FIXTURE')?.99:.01,sufficient:.99};
    const result=mode==='success'?{model:'synthetic-DOM-fixture',scores,usage:{input_tokens:0,output_tokens:0},latencyMs:delay}:null;
    return {ok:true,data:{result,decision:C.decide(r,result,H.settings,{revealed:H.kept.includes(r.id)}),...(mode==='success'?{}:{error:{code:'NETWORK',message:'Simulated offline'}})}};
  }
  if(message.type==='FG_KEEP_POST'){H.kept.push(message.record.id);H.refresh();return {ok:true,data:{saved:true}};}
  if(message.type==='FG_PAGE_STATS'){H.pages=[{...message.stats,site:'x',context:'feed'}];return {ok:true,data:{}};}
- if(message.type==='FG_DIAGNOSTICS')return {ok:true,data:{format:'feedgate-diagnostics',version:6,build:{release:'3.1.1',rubric:'feed-v2.1.0',policy:'policy-3.1.0',detector:'ad-3.0.0',extraction:'extract-3.0.0',schema:6},pages:H.pages,cosmeticEvents:H.cosmeticEvents}};
- if(message.type==='FG_ALLOW_AUTHOR'){const key=C.authorKey('x',message.author);H.settings.allowedAuthors=[...H.settings.allowedAuthors.filter(a=>a!==key),key];H.settings.blockedAuthors=H.settings.blockedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{}};}
- if(message.type==='FG_MUTE_AUTHOR'){const key=C.authorKey('x',message.author);H.settings.blockedAuthors=[...H.settings.blockedAuthors.filter(a=>a!==key),key];H.settings.allowedAuthors=H.settings.allowedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{}};}
- if(message.type==='FG_FORGET_AUTHOR'){const key=C.authorKey('x',message.author);H.settings.allowedAuthors=H.settings.allowedAuthors.filter(a=>a!==key);H.settings.blockedAuthors=H.settings.blockedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{}};}
+ if(message.type==='FG_DIAGNOSTICS')return {ok:true,data:{format:'feedgate-diagnostics',version:8,build:{release:'3.3.0',rubric:'feed-v2.2.0',policy:'policy-3.3.0',detector:'ad-3.0.0',extraction:'extract-3.3.0',schema:8},pages:H.pages,cosmeticEvents:H.cosmeticEvents,update:{running:C.VERSION,onDisk:H.buildRelease,buildId:'harness-build',updateAvailable:H.buildRelease!==C.VERSION,checkedAt:Date.now()}}};
+ if(message.type==='FG_ALLOW_AUTHOR'){const key=C.authorKey('x',message.author);const previous=H.settings.blockedAuthors.includes(key)?'blocked':(H.settings.allowedAuthors.includes(key)?'allowed':'none');H.settings.allowedAuthors=[...H.settings.allowedAuthors.filter(a=>a!==key),key];H.settings.blockedAuthors=H.settings.blockedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{saved:true,key,previous,applied:'allowed',revision:H.settings.revisions.settings}};}
+ if(message.type==='FG_MUTE_AUTHOR'){const key=C.authorKey('x',message.author);const previous=H.settings.blockedAuthors.includes(key)?'blocked':(H.settings.allowedAuthors.includes(key)?'allowed':'none');H.settings.blockedAuthors=[...H.settings.blockedAuthors.filter(a=>a!==key),key];H.settings.allowedAuthors=H.settings.allowedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{saved:true,key,previous,applied:'blocked',revision:H.settings.revisions.settings}};}
+ if(message.type==='FG_FORGET_AUTHOR'){const key=C.authorKey('x',message.author);const previous=H.settings.blockedAuthors.includes(key)?'blocked':(H.settings.allowedAuthors.includes(key)?'allowed':'none');H.settings.allowedAuthors=H.settings.allowedAuthors.filter(a=>a!==key);H.settings.blockedAuthors=H.settings.blockedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{saved:true,key,previous,applied:'none',revision:H.settings.revisions.settings}};}
+ if(message.type==='FG_AUTHOR_UNDO'){const key=C.authorKey('x',message.author);const previous=['none','blocked','allowed'].includes(message.previous)?message.previous:'none';H.settings.allowedAuthors=H.settings.allowedAuthors.filter(a=>a!==key);H.settings.blockedAuthors=H.settings.blockedAuthors.filter(a=>a!==key);if(previous==='allowed')H.settings.allowedAuthors=[...H.settings.allowedAuthors,key];if(previous==='blocked')H.settings.blockedAuthors=[...H.settings.blockedAuthors,key];H.refresh();return {ok:true,data:{saved:true,stale:false,key,state:message.applied}};}
  if(message.type==='FG_ADD_RULE'){
    const rule=C.sanitizeCosmeticRule({id:'r-'+Math.random().toString(36).slice(2,10),host:new URL(H.location.href).hostname,selector:message.selector,status:'active',source:'picker',reason:'user_created',createdAt:Date.now(),validatedAt:Date.now()});
    if(!rule)return {ok:false,error:{code:'UNSAFE_SELECTOR',message:'selector rejected'}};
@@ -71,8 +72,13 @@ window.chrome={runtime:{id:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',onMessage:{addList
  if(message.type==='FG_SET_KEY'){H.keyReady=true;H.hasVault=message.remember;return {ok:true,data:{saved:true}};}
  if(message.type==='FG_LOCK'){H.keyReady=false;return {ok:true,data:{}};}
  if(message.type==='FG_TEST_CONNECTION'){H.verifiedAt=Date.now();return {ok:true,data:{model:'jev-fixture-only',latencyMs:1,usage:{input_tokens:0,output_tokens:0},scores:{},decision:{action:'allow',reason:'Synthetic test fixture'}}};}
- if(message.type==='FG_EXPORT_SETTINGS')return {ok:true,data:{format:'feedgate-settings',version:5,settings:{...H.settings,sites:[],consent:false}}};
+ if(message.type==='FG_EXPORT_SETTINGS')return {ok:true,data:{format:'feedgate-settings',version:6,settings:{...H.settings,sites:[],consent:false}}};
  if(message.type==='FG_TAB_COMMAND')return {ok:true,data:{}};
+ if(message.type==='FG_UPDATE_INFO')return {ok:true,data:{running:C.VERSION,onDisk:H.buildRelease,buildId:'harness-build',updateAvailable:H.buildRelease!==C.VERSION,checkedAt:Date.now()}};
+ if(message.type==='FG_EXPORT_VAULT')return {ok:true,data:{format:'feedgate-key-backup',version:1,vault:{version:1,kdf:'PBKDF2-SHA256',iterations:600000,salt:'AAAAAAAAAAAAAAAAAAAAAA==',iv:'AAAAAAAAAAAAAAAA',ciphertext:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'}}};
+ if(message.type==='FG_TOPIC_ADD'){const t=message.topic||{};const topic={id:t.id||'t-'+Math.random().toString(36).slice(2,10),label:C.text(t.label,80),scope:t.scope==='all'?'all':'site',site:t.scope==='site'?'x':'',until:C.finite(t.until)&&t.until>0?Math.round(t.until):0,createdAt:Date.now()};if(!topic.label)return {ok:false,error:{code:'INVALID_RECORD',message:'label required'}};H.settings.topics=[...H.settings.topics,topic];H.bump('settings');H.refresh();return {ok:true,data:{saved:true,created:true,topic,revision:H.settings.revisions.settings}};}
+ if(message.type==='FG_TOPIC_DELETE'){const found=H.settings.topics.find(t=>t.id===message.id);if(!found)return {ok:false,error:{code:'TOPIC_NOT_FOUND',message:'missing'}};H.settings.topics=H.settings.topics.filter(t=>t.id!==message.id);H.bump('settings');H.refresh();return {ok:true,data:{saved:true,topic:found,revision:H.settings.revisions.settings}};}
+ if(message.type==='FG_TOPIC_UPDATE'){const found=H.settings.topics.find(t=>t.id===message.id);if(!found)return {ok:false,error:{code:'TOPIC_NOT_FOUND',message:'missing'}};const patch=message.patch||{};if(patch.label!==undefined)found.label=C.text(patch.label,80);if(patch.scope==='all'||patch.scope==='site')found.scope=patch.scope;if(patch.site!==undefined)found.site=C.text(patch.site,40);if(patch.until!==undefined)found.until=C.finite(patch.until)&&patch.until>0?Math.round(patch.until):0;H.bump('settings');H.refresh();return {ok:true,data:{saved:true,topic:found,revision:H.settings.revisions.settings}};}
  return {ok:true,data:{}};
 }},storage:{local:{get:async()=>({}),set:async()=>{},remove:async()=>{}},session:{get:async()=>({}),set:async()=>{}}},permissions:{request:async()=>!H.permissionDenied,remove:async()=>true,contains:async()=>!H.permissionDenied,getAll:async()=>({permissions:['storage','scripting','activeTab'],origins:H.permissionDenied?[]:['https://x.com/*','https://twitter.com/*']})},tabs:{getCurrent:async()=>({id:1,url:H.location.href}),create:async()=>({id:2}),sendMessage:async(_id,m)=>H.command(m.type),query:async()=>[{id:1,url:'https://x.com/home'}]}};
 }'''
@@ -277,7 +283,7 @@ async def main():
             await pg.evaluate("Object.assign(harness.location,{protocol:'chrome-extension:',hostname:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',pathname:'/demo.html',href:'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/demo.html'});harness.mode='offline'")
             await code(pg,source('adapters.js'),True);await code(pg,source('demo.js'));await code(pg,source('content.js'),True)
             await pg.wait_for_function("document.querySelectorAll('feedgate-card').length===1")
-            assert await pg.evaluate("FeedGateCore.VERSION")=='3.1.1'
+            assert await pg.evaluate("FeedGateCore.VERSION")=='3.3.0'
             assert await pg.locator('feedgate-status').count()==0,'demo mode keeps the HUD out of the fixture'
             await pg.screenshot(path=str(ROOT/'evidence/test-feed-local.png'),full_page=True)
             await pg.locator('#demo-restore').click();await pg.wait_for_function("document.querySelectorAll('feedgate-card').length===0")
@@ -401,8 +407,8 @@ async def main():
             await pg.locator('#export-diagnostics').click()
             await pg.wait_for_function('window.savedBlobs.length===1')
             data=await pg.evaluate('async()=>JSON.parse(await window.savedBlobs[0].text())')
-            assert data['format']=='feedgate-diagnostics' and data['version']==6
-            assert data['build']['detector']=='ad-3.0.0' and data['build']['release']=='3.1.1'
+            assert data['format']=='feedgate-diagnostics' and data['version']==8
+            assert data['build']['detector']=='ad-3.0.0' and data['build']['release']=='3.3.0'
             assert not errors,errors
             await pg.screenshot(path=str(ROOT/'evidence/diagnostics-fixture.png'),full_page=True)
             await pg.close()
@@ -787,6 +793,99 @@ async def main():
             assert await pg.evaluate("harness.settings.blockedAuthors.length")==0
             await pg.close()
         await run_case('PANEL01: the status panel mutes and allows an author by clicking a post, with preview and Undo',panel_author_picker)
+
+        async def update_panel():
+            pg=await browser.new_page()
+            await pg.set_content(shell('options.html'));await code(pg,source('core.js'));await pg.evaluate(HARNESS);await code(pg,source('options.js'))
+            await pg.locator('button[data-page="updates"]').click()
+            await pg.wait_for_function("document.querySelector('#update-badge')&&document.querySelector('#update-badge').textContent.trim()==='Up to date'")
+            info=await pg.locator('#update-info').inner_text()
+            assert 'Running build: 3.3.0' in info,info
+            assert 'Files on disk: 3.3.0' in info,info
+            await pg.evaluate("harness.buildRelease='3.2.1'")
+            await pg.locator('#update-check').click()
+            await pg.wait_for_function("document.querySelector('#update-badge').textContent.trim()==='Update available'")
+            info=await pg.locator('#update-info').inner_text()
+            assert 'Files on disk: 3.2.1' in info,info
+            await pg.screenshot(path=str(ROOT/'evidence/update-panel.png'),full_page=True)
+            await pg.evaluate("window.savedBlobs=[];URL.createObjectURL=blob=>{window.savedBlobs.push(blob);return 'blob:synthetic-export';};URL.revokeObjectURL=()=>{};HTMLAnchorElement.prototype.click=function(){}")
+            await pg.locator('#export-vault').click()
+            await pg.wait_for_function("async()=>harness.calls.includes('FG_EXPORT_VAULT')")
+            await pg.wait_for_function("document.querySelector('#vault-status').textContent.includes('Key backup prepared')")
+            await pg.wait_for_function('window.savedBlobs.length===1')
+            backup=await pg.evaluate('async()=>JSON.parse(await window.savedBlobs[0].text())')
+            assert backup['format']=='feedgate-key-backup' and backup['version']==1,backup
+            assert backup['vault']['kdf']=='PBKDF2-SHA256' and backup['vault']['iterations']==600000,backup
+            await pg.close()
+        await run_case('UPDATE01: the Updates panel compares running and on-disk builds and prepares a sealed key backup',update_panel)
+
+        async def topic_picker():
+            pg=await fixture(browser,tweet('t1','TOPIC_FIXTURE discussion about the local council budget'))
+            await pg.wait_for_function('harness.requests.length===1')
+            await pg.click('feedgate-status button')
+            await pg.wait_for_function("()=>document.querySelector('feedgate-status').shadowRoot.textContent.includes('Mute topic')")
+            await pg.locator('feedgate-status').get_by_role('button',name='Mute topic').click()
+            await pg.wait_for_function("document.documentElement.innerText.includes('hover a post')")
+            await pg.click('#t1')
+            await pg.wait_for_function("document.querySelector('feedgate-topic') && document.querySelector('feedgate-topic').shadowRoot.textContent.includes('Mute topic preview')")
+            await pg.locator('feedgate-topic input').fill('local politics')
+            await pg.locator('feedgate-topic').get_by_role('button',name='Mute topic',exact=True).click()
+            await pg.wait_for_function('harness.settings.topics.length===1')
+            topic=await pg.evaluate('harness.settings.topics[0]')
+            assert topic['label']=='local politics',topic
+            assert topic['scope']=='site' and topic['site']=='x',topic
+            assert topic['until']>0,topic
+            await pg.wait_for_function("document.querySelector('feedgate-card') && document.querySelector('feedgate-card').shadowRoot.textContent.includes('Your muted topic')")
+            await pg.screenshot(path=str(ROOT/'evidence/topic-mute.png'),full_page=True)
+            await pg.close()
+        await run_case('TOPIC01: the status panel mutes a topic with scope and duration, then hides matching posts',topic_picker)
+
+        async def grouping_bar():
+            pg=await fixture(browser,tweet('d1','Duplicate fixture text about regional train delays')+tweet('d2','Duplicate fixture text about regional train delays')+tweet('o1','A different post with unrelated information'))
+            await pg.wait_for_function('harness.requests.length===3')
+            await pg.evaluate("harness.settings.grouping=true;harness.command('FG_CONFIG_CHANGED');")
+            await pg.wait_for_function("document.querySelector('feedgate-group')")
+            text=await pg.evaluate("document.querySelector('feedgate-group').shadowRoot.textContent")
+            assert 'more similar post' in text,text
+            hidden=await pg.evaluate("getComputedStyle(document.querySelector('#d2')).display")
+            assert hidden=='none',hidden
+            await pg.locator('feedgate-group').get_by_role('button').click()
+            await pg.wait_for_function("getComputedStyle(document.querySelector('#d2')).display!=='none'")
+            await pg.screenshot(path=str(ROOT/'evidence/grouping.png'),full_page=True)
+            await pg.close()
+        await run_case('GROUP01: repeated posts fold behind a group bar and expand on demand',grouping_bar)
+
+        async def usage_panel():
+            pg=await browser.new_page()
+            await pg.set_content(shell('options.html'))
+            await code(pg,source('core.js'))
+            await pg.evaluate(HARNESS)
+            await code(pg,source('options.js'))
+            await pg.click('button[data-page="review"]')
+            await pg.wait_for_function("document.querySelector('#usage-badge').textContent.includes('today')")
+            badge=await pg.locator('#usage-badge').text_content()
+            assert '0 /' in badge,badge
+            stats=await pg.locator('#usage-stats').text_content()
+            assert 'provider attempts' in stats and 'cache hits' in stats,stats
+            cost=await pg.locator('#usage-cost').text_content()
+            assert 'not calculated' in cost,cost
+            await pg.evaluate("harness.settings.pricing={inputPerMTok:1,outputPerMTok:2,currency:'USD'};")
+            await pg.wait_for_function("document.querySelector('#usage-cost').textContent.includes('estimate from your own rates')",timeout=9000)
+            await pg.close()
+        await run_case('USAGE01: the API usage panel shows daily counters and cost only from configured rates',usage_panel)
+
+        async def thrift_defer():
+            pg=await fixture(browser,tweet('v1','A visible useful post about testing'),content=False)
+            await pg.evaluate("harness.settings.thrift=true;harness.settings.thriftDelayMs=400;")
+            await code(pg,source('content.js'),True)
+            await pg.wait_for_function('harness.requests.length===1')
+            await pg.evaluate("()=>{const a=document.createElement('article');a.id='late';a.setAttribute('data-testid','tweet');a.innerHTML='<header data-testid=\"User-Name\">@late</header><div data-testid=\"tweetText\">Late post content</div>';document.body.append(a);window.__burst=setInterval(()=>window.dispatchEvent(new Event('scroll')),100);setTimeout(()=>clearInterval(window.__burst),900);}")
+            await asyncio.sleep(0.5)
+            count=await pg.evaluate('harness.requests.length')
+            assert count==1,'thrift mode must not analyze while scrolling, saw %s'%count
+            await pg.wait_for_function('harness.requests.length===2',timeout=6000)
+            await pg.close()
+        await run_case('THRIFT01: thrift mode defers analysis while scrolling and runs after scrolling settles',thrift_defer)
 
         await browser.close()
     report={'scope':'Real Chromium DOM; mocked Chrome APIs, page location and Jev responses. No extension installed; no live API or signed-in feeds tested.','browser':version,'results':REPORT,'passed':sum(r['status']=='PASS' for r in REPORT)}

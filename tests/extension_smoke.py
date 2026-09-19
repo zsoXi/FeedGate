@@ -12,6 +12,8 @@ Exit code 0 when the smoke test passes or the environment cannot load an
 unpacked extension at all (marked INSUFFICIENT, reproducible by hand).
 """
 import asyncio
+import base64
+import hashlib
 import json
 import os
 import shutil
@@ -42,6 +44,7 @@ async def main():
         "state": "INSUFFICIENT",
         "reason": None,
         "extensionId": None,
+        "expectedExtensionId": None,
         "version": None,
         "cards": 0,
         "optionsVersionLabel": None,
@@ -103,6 +106,16 @@ async def main():
             return 0
 
         result["extensionId"] = worker.url.split("/")[2]
+        manifest = json.loads((EXT / "manifest.json").read_text(encoding="utf-8"))
+        key = manifest.get("key", "")
+        digest = hashlib.sha256(base64.b64decode(key)).hexdigest()[:32] if key else ""
+        expected_id = "".join(chr(ord("a") + int(c, 16)) for c in digest)
+        result["expectedExtensionId"] = expected_id
+        check(
+            "the loaded extension id matches the manifest key (stable identity)",
+            bool(expected_id) and result["extensionId"] == expected_id,
+            f"{result['extensionId']} vs {expected_id}",
+        )
         worker_errors = []
         worker.on("console", lambda m: worker_errors.append(m.text) if m.type == "error" else None)
 
@@ -123,7 +136,7 @@ async def main():
             version = None
             worker_errors.append(f"evaluate failed: {exc}")
         result["version"] = version
-        check("worker reports release version 3.1.1", version == "3.1.1", str(version))
+        check("worker reports release version 3.3.0", version == "3.3.0", str(version))
 
         await page.goto(f"chrome-extension://{result['extensionId']}/demo.html")
         await page.wait_for_timeout(2000)
@@ -146,7 +159,7 @@ async def main():
         await page.wait_for_timeout(600)
         label = await page.locator(".version, [data-version], #version").first.inner_text() if await page.locator(".version, [data-version], #version").count() else ""
         result["optionsVersionLabel"] = label
-        check("options page opens as the real extension page", "3.1.1" in label, label.strip()[:60])
+        check("options page opens as the real extension page", "3.3.0" in label, label.strip()[:60])
 
         check("no localhost or bridge traffic", not result["localhostHits"], ",".join(result["localhostHits"][:3]))
         check("no page errors during the demo run", not page_errors, "; ".join(page_errors[:2]))

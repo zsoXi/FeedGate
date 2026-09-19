@@ -1,6 +1,6 @@
-# FeedGate 3.0.0 requirements matrix
+# FeedGate requirements matrix (3.0 → 3.3.0)
 
-This matrix maps the 3.0.0 task requirements to implementation and evidence. It
+This matrix maps the 3.0.0 safe-controls task and its 3.1/3.2/3.3 follow-ups to implementation and evidence. It
 is a self-check produced by the same work it reviews, not independent acceptance.
 Statuses are `MET`, `NOT_MET` or `INSUFFICIENT`. Live-provider and live-site
 claims are `INSUFFICIENT` because no real key, signed-in feed or managed install
@@ -8,10 +8,10 @@ was used.
 
 Evidence files:
 
-* `evidence/unit-tests.tap` — 143 Node tests / 0 fail
-* `evidence/browser-dom-tests.json` — 61 Chromium DOM/UI scenarios / 0 fail
-* `evidence/extension-smoke.json` — 7 checks on the real `extension/` folder
-* `evidence/release-checks.json` — 8 release integrity checks
+* `evidence/unit-tests.tap` — 164 Node tests / 0 fail
+* `evidence/browser-dom-tests.json` — 66 Chromium DOM/UI scenarios / 0 fail
+* `evidence/extension-smoke.json` — 8 checks on the real `extension/` folder
+* `evidence/release-checks.json` — 9 release integrity checks
 * `evidence/baseline/` — 2.1.x baseline logs and the 2.1.1 patch
 * `tests/fixtures/incident/` — three real privacy-safe diagnostic exports
 
@@ -133,6 +133,30 @@ Evidence files:
 | MUTE05 | The status panel mutes or allows an author by clicking a post, with preview, Escape cancel and toast Undo | MET | `PANEL01` browser scenario; `FG_FORGET_AUTHOR` worker test |
 | EXC01 | Exception rule panel states hint semantics and token cost | MET | options panel copy + counter/status; TESTING.md manual pilot |
 
+## 7b. Identity and updates (3.2)
+
+| Requirement | Status | Evidence |
+| --- | --- | --- |
+| Stable extension identity across folder moves | MET | manifest `key`; smoke check 'the loaded extension id matches the manifest key' (`oombgdfajfomncpoiljbhpnagigjjbcc`) |
+| Update detection against packaged files | MET | `build.json` written by `npm run build`; worker update-info test; release check 'Packaged build.json matches current version and sources' |
+| In-place update guidance, never Remove | MET | `docs/UPDATES.md`; Updates panel copy; manual pilot step 13 |
+| Sealed key backup and restore | MET | worker backup round trip (ciphertext only, corrupted import rejected); UPDATE01 blob assertions; `feedgate-key-backup` v1 |
+| One-time identity transition documented | MET | `docs/UPDATES.md`, `docs/MIGRATION.md` (3.1.1→3.2.0) |
+| Diagnostics expose the update state | MET | schema 7 `update` section; diagnostics test |
+
+## 7c. Topics, grouping and thrift (3.3)
+
+| Requirement | Status | Evidence |
+| --- | --- | --- |
+| A1 Atomic author-list changes under concurrency | MET | v330 feature tests (concurrent mutes for two authors both persist; sequential changes keep the last write) |
+| A2 Undo restores the exact previous state; stale Undo refused | MET | v330 feature tests (none/blocked/allowed matrix; `{saved:false,stale:true}` changes nothing; another author never blocks) |
+| A3 Stable author identity; name-only records never match lists | MET | core + v330 tests (`authorId`, `authorNameOnly`); adapters canonical slug helper |
+| B5 Topic mute with scope, duration and semantic matching | MET | v330 tests (optional topic question, `topic_muted`, expiry, passing mention stays, keep-this-post wins, delete/update invalidates cache) |
+| B5 Topic manager in settings with edit/delete/expiry | MET | options Muted topics list; `TOPIC01` browser scenario |
+| B6 Repeat grouping with a representative and expand control | MET | `GROUP01` browser scenario; grouping helpers in core tests |
+| B7 Usage counters separated (daily vs session, unaccounted attempts) and cost only from user rates | MET | worker counter tests; `USAGE01` scenario; diagnostics provider section |
+| B7 Thrift mode defers analysis until visible and settled | MET | `THRIFT01` scenario; v330 worker deferral test (fast scroll starts no request) |
+
 ## 8. Wykop
 
 | ID | Requirement | Status | Evidence |
@@ -180,7 +204,7 @@ Evidence files:
 
 | Requirement | Status | Evidence |
 | --- | --- | --- |
-| Privacy-safe diagnostics schema 6 | MET | `docs/DIAGNOSTICS_SCHEMA.md`; privacy tests; `mutedAuthorCount` count-only |
+| Privacy-safe diagnostics schema 8 | MET | `docs/DIAGNOSTICS_SCHEMA.md`; privacy tests; `mutedAuthorCount`/`mutedTopicCount` count-only |
 | Cosmetic/semantic/UI metrics separated | MET | diagnostics worker tests |
 | Renderer heartbeat vs absence explained | MET | schema doc + renderer section test |
 | Retained vs dropped history explicit | MET | `logStats` test (150/10) |
@@ -195,6 +219,7 @@ Evidence files:
 | Item | Status | Note |
 | --- | --- | --- |
 | Real TypeSafe key classification accuracy | INSUFFICIENT | No key used; `evaluation/` runner available opt-in |
+| Live semantic accuracy of the optional topic question | INSUFFICIENT | Synthetic `TOPIC_FIXTURE` scores only; not live model output |
 | Signed-in X/Reddit/LinkedIn/Facebook/Instagram DOM | INSUFFICIENT | Adapter fixtures only |
 | Live Wykop markup beyond the 2026-09-18 captures | INSUFFICIENT | `docs/WYKOP_SUPPORT.md` provenance |
 | Managed/enterprise installation | INSUFFICIENT | Policy not bypassed; unpacked smoke only |
@@ -204,11 +229,11 @@ Evidence files:
 
 | Deliverable | Status | Path |
 | --- | --- | --- |
-| Complete project folder | MET | `D:\FeedGate\FeedGate-3.0.0` |
-| Ready-to-load `extension/` | MET | `D:\FeedGate\FeedGate-3.0.0\extension` |
-| ZIP + SHA256 sidecar | MET | `D:\FeedGate\PLIKI\FeedGate-3.1.1.zip` + `.sha256` |
+| Complete project folder | MET | `D:\FeedGate\FeedGate-3.3.0` |
+| Ready-to-load `extension/` | MET | `D:\FeedGate\FeedGate-3.3.0\extension` |
+| ZIP + SHA256 sidecar | MET | `D:\FeedGate\PLIKI\FeedGate-3.3.0.zip` + `.sha256` |
 | Shipped-asset manifest/hash list | MET | `evidence/shipped-assets.json` |
-| Reviewable diff vs 2.1.1 | MET | `evidence/feedgate-3.1.1.patch` |
+| Reviewable diff vs 3.2.0 | MET | `evidence/feedgate-3.3.0.patch` |
 | CHANGELOG / README / Polish guide / MIGRATION | MET | `CHANGELOG.md`, `README.md`, `START_TUTAJ_PL.md`, `docs/MIGRATION.md` |
 | RECOVERY / ROOT_CAUSE / WYKOP_SUPPORT / DIAGNOSTICS_SCHEMA / TESTING | MET | `docs/` |
 | Screenshots of the real built UI | MET | `evidence/*.png` |

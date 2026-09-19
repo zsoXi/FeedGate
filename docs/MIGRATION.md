@@ -1,6 +1,26 @@
-# Migration notes: FeedGate 2.0 to 3.1.1
+# Migration notes: FeedGate 2.0 to 3.3.0
 
-FeedGate 3.1 keeps the working 2.0 architecture. Settings, keys, allowlists, saved post choices and cosmetic rules are preserved where their meaning is unchanged. The filtering semantics are unchanged from 2.1.1; the 3.0 work is local control, safety and coverage (HUD modes, recovery, cosmetic management, Wykop), and 3.1 adds the local author mute list and a clearer exception-rule panel.
+FeedGate 3.1 keeps the working 2.0 architecture. Settings, keys, allowlists, saved post choices and cosmetic rules are preserved where their meaning is unchanged. The filtering semantics are unchanged from 2.1.1; the 3.0 work is local control, safety and coverage (HUD modes, recovery, cosmetic management, Wykop), and 3.1 adds the local author mute list and a clearer exception-rule panel. 3.2 adds the stable extension identity and in-place updates; 3.3 adds temporal topic mutes, repeat grouping, the API usage panel and thrift mode.
+
+## Upgrading from 3.2.0 to 3.3.0
+
+* **Settings schema 6.** Every existing preference, author list, cosmetic rule, saved post choice, budget and consent flag is kept. New fields arrive with safe defaults: `topics` (empty), `grouping` false, `thrift` false, `thriftDelayMs` 800 and `pricing` rates empty. The new features stay off until explicitly enabled.
+* **Runtime state 6.** Older session caches and logs are dropped on load; they only contained estimates produced under the previous schema.
+* **Policy `policy-3.3.0`, rubric `feed-v2.2.0`.** The eight base questions and every existing category, threshold and precedence keep their meaning. When at least one active topic exists, one optional topic question is added to the same request, and the decision cache key includes the active topic set, so edited, added, deleted or expired topics invalidate stale verdicts.
+* **Author identity.** Where a post exposes a stable profile reference (LinkedIn `/in/` or `/company/`, Facebook profile id or username, Instagram username), author exceptions now use it. Records that only carry a display name never match the lists, and old name-based entries on those three sites become inert rather than matching a stranger with the same name. Existing entries are kept untouched so nothing is deleted.
+* **Diagnostics schema 8.** The export adds `ui.grouping`, `ui.thrift`, `ui.thriftDelayMs`, `settings.mutedTopicCount`, and decisions may carry `rule: topic_muted` with `source: topic`. Counts only; topic names never leave the device.
+* **Settings exports v6.** `feedgate-settings` version 6 accepts v6/v5/v4/v3/v2 and still rejects v1. Imports never grant consent or select sites.
+* **Identity unchanged.** The manifest key is unchanged from 3.2.0, so the extension id stays `oombgdfajfomncpoiljbhpnagigjjbcc`: the vault, key and settings survive the update with no re-entry, and in-place updates keep working as described in `docs/UPDATES.md`.
+* **Reload open tabs.** A content script from an older release shows "Extension updated: reload this page". Press F5 on affected tabs.
+
+## Upgrading from 3.1.1 to 3.2.0
+
+* **The extension gets a stable identity.** The manifest now carries a bundled public key, so the extension id is fixed (`oombgdfajfomncpoiljbhpnagigjjbcc`) instead of being derived from the folder path. Once 3.2.0 is loaded, the vault, settings, allow/mute lists, cosmetic rules and saved post choices survive in-place updates and folder moves. Only the public key ships; the private key is never packaged.
+* **One-time transition.** The 3.1.1 identity was derived from the folder path, so the first 3.2.0 load starts the new fixed identity: a vault stored under the old id does not carry over automatically. Enter the API key once more, or import a sealed key backup taken from the same identity afterwards. Settings exports and imports are unchanged (`feedgate-settings` version 5, accepting v5/v4/v3/v2, rejecting v1).
+* **Updates panel.** Settings → **06 Updates** compares the loaded build with the packaged `build.json` on disk, offers the in-place steps (copy new files over the same folder, Reload from `chrome://extensions`, never Remove) and can export/import a sealed key backup (`feedgate-key-backup` version 1; ciphertext only, unlocked by the usual passphrase).
+* **Diagnostics schema 7.** Exports gain an `update` section (`running`, `onDisk`, `updateAvailable`, `buildId`, `checkedAt`). Settings schema 5, runtime state 5, rubric `feed-v2.1.0`, policy `policy-3.1.0`, detector `ad-3.0.0` and extraction `extract-3.0.0` are unchanged; old exports stay readable as files.
+* **No model change.** No threshold, rubric, detector or extraction change; nothing to retune.
+* **Reload open tabs.** A content script from a previous release shows "Extension updated: reload this page" instead of filtering with a stale schema. Press F5 on affected tabs.
 
 ## Upgrading from 3.1.0 to 3.1.1
 

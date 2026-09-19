@@ -1,29 +1,44 @@
 {
-  "release": "3.1.1",
-  "generatedAt": "2026-09-19T15:22:48.071Z",
+  "release": "3.3.0",
+  "generatedAt": "2026-09-19T16:54:41.465Z",
   "root": "extension/",
-  "count": 20,
-  "bytes": 277217,
+  "count": 21,
+  "bytes": 319793,
   "files": [
     {
+      "path": "LICENSE",
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "bytes": 2303,
+      "sha256": "35f57bc2a0eb124dfe65fcddbf184b65702076a4fe41db6b9e0bc1f3d22a0099"
+    },
+    {
       "path": "adapters.js",
-      "bytes": 15975,
-      "sha256": "89e89f6bd72e9dadc44705d7cb013e1b94c4715c4bf3a5f602df10139d16efbd"
+      "bytes": 18119,
+      "sha256": "5df5679623a73947562cbe00a84f18543f4f8b2a54cbc8520e4d99e2e4001047"
     },
     {
       "path": "background.js",
-      "bytes": 41867,
-      "sha256": "5afafd0be318bbff711d1ff46dd17d27331bd407eea65c7bf8d1ca134cb317e3"
+      "bytes": 47893,
+      "sha256": "aaf9bc60cb5820b3cd29aad0f769e94165fb00ac8e78d29e38e64be0b2f02400"
+    },
+    {
+      "path": "build.json",
+      "bytes": 95,
+      "sha256": "6d74eeccfef2153e486efa8b9890564cb947a652e1cb5262ee638bc08a810684"
     },
     {
       "path": "content.js",
-      "bytes": 46219,
-      "sha256": "4234a7e1b92de67496ae2ef8bc2a74c9493d75bc2622b7868fb3dfc75e116ce8"
+      "bytes": 59499,
+      "sha256": "aee693cdb58da38ee36598ac1a519b44ad29bb1195b76d58166e0508a922996e"
     },
     {
       "path": "core.js",
-      "bytes": 43868,
-      "sha256": "eefcbd70beeeb49be59dc17acc797d7576e391371536e11c81e2203b910abd51"
+      "bytes": 51356,
+      "sha256": "0987c0409a3b3ba7482c9a609c1314c05b4dc0ced3ec20fd9155e36747f15667"
     },
     {
       "path": "demo.html",
@@ -56,39 +71,29 @@
       "sha256": "6db14ded4690714655ede2c2e8166264bba85a9b944adcde2df8c874b5792196"
     },
     {
-      "path": "LICENSE",
-      "bytes": 35149,
-      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
-    },
-    {
       "path": "manifest.json",
-      "bytes": 1703,
-      "sha256": "8c3e046f62a0f9c6480902e72a526309f2e50f00a90fde167697f4a86fdb4f81"
+      "bytes": 2115,
+      "sha256": "ba274e1a0eb15c1db3338cdb0af0a81875fd6126b3608abd6bb52971dc5ef022"
     },
     {
       "path": "options.html",
-      "bytes": 19274,
-      "sha256": "97d82a2b689cb2c810b835b3d6fc176011c763be3aba1c36c8bb5ba0c084cc58"
+      "bytes": 23977,
+      "sha256": "ade5a9b1626669111ca435335a639d10f7fc37b38b0282ef73f7f801717f0600"
     },
     {
       "path": "options.js",
-      "bytes": 29431,
-      "sha256": "54f797881bd38c96fbef435e12a0bf8d01c61e48d0eddcde2de9b6e86db07b22"
+      "bytes": 36900,
+      "sha256": "cf7a60062f3daace9ee13c36adbd2a62613c036e36de78ec71cfcfd3002a4717"
     },
     {
       "path": "popup.html",
-      "bytes": 2737,
-      "sha256": "d187aa6c01000ff09666ec3acb5fa0da5ab09bb35979a96cc998b5338d1d0006"
+      "bytes": 2800,
+      "sha256": "676be125037df7d23548e1947a3458a8c6832747e7ba433920c40bc91e47329e"
     },
     {
       "path": "popup.js",
-      "bytes": 9391,
-      "sha256": "b8e2349cfbda872d8888be00dece8f3ff6094ccc29be21e3c8d750e2d5459d3f"
-    },
-    {
-      "path": "THIRD_PARTY_NOTICES.md",
-      "bytes": 2303,
-      "sha256": "d6c5390b2633e2e23fc0385d5d2cb5f86c79477667374985466c0d1a4f231bff"
+      "bytes": 9865,
+      "sha256": "636bc9c6c2e9ad140a6d57e8868500bb8fe7c6b03fa7a0f6133c6b92b556108e"
     },
     {
       "path": "typesafe.js",
@@ -102,8 +107,8 @@
     },
     {
       "path": "vault.js",
-      "bytes": 2562,
-      "sha256": "502afb18ab32621df36c54762e80c8347f20ca8cee661996d1acc218c6b534e4"
+      "bytes": 2984,
+      "sha256": "e15db145e618dc879a7d04ee9e431ed2fbd8f8b8ebb1b9bcf559db3e080518c8"
     }
   ]
 }

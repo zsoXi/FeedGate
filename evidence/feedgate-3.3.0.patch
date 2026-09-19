@@ -1,0 +1,2279 @@
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,4 +1,17 @@
+ # Changelog
++
++## 3.3.0
++
++Local controls for authors, topics, repeats and spend. The eight base questions and every existing category and threshold keep their meaning; one optional question and one precedence row are added.
++
++* **Atomic author lists.** Allow/Mute/Forget now read and write the lists inside the worker's serialized change queue, so simultaneous mutes of two different authors can no longer lose one. Undo restores the exact state before the action, refuses to overwrite a newer decision about the same author, and a change to another author never blocks a revert.
++* **Stable author identity.** LinkedIn, Facebook and Instagram posts now carry a canonical profile id (`authorId`) taken from the post's own profile link. A display name alone is reported as `authorNameOnly` and never matches the mute or allow lists, so two accounts with the same name cannot share an exception. X, Reddit and Wykop keep their canonical authors; old name-based entries on the other platforms stay stored but inert.
++* **Mute a topic for a time.** The status panel gains **Mute topic…**: click a post, edit the topic name, choose the scope (this site by default, or all supported platforms) and the duration (24 hours, 7 days or until removed). Saving happens only after confirmation, the toast offers Undo, and Settings → Muted topics lists every rule with its scope and expiry. Matching is semantic through the same Jev request (one bounded extra question), a passing mention or a quoted claim stays visible, **Keep this post** wins, and an expired rule stops hiding posts by itself. Topic edits or expiry change the cache key, so stale verdicts and in-flight results cannot re-hide a post.
++* **Group repeated posts (optional).** When enabled, the first copy of a message stays visible and later near-duplicates fold behind a "more similar posts" bar that expands in place. Grouping is local only (token signatures plus a similarity threshold, bounded per tab), never spends a provider request, never removes or clones platform posts, skips posts kept or already hidden by another rule, and restores everything when disabled.
++* **Usage panel and thrift mode.** The review page gains an **API usage** panel: used and remaining daily requests (reset at 00:00 UTC, shown in local time), provider attempts, successful analyses, cache hits, errors, cancellations, unaccounted attempts and input/output tokens. Monetary cost appears only when you configure your own rates and is labelled an estimate, not a provider bill. Optional **thrift mode** defers cloud analysis until a post is actually visible and scrolling has settled for a configurable pause (300–3000 ms, default 800). Fast scrolling starts no requests, hidden tabs stay idle, sent requests are never aborted by scrolling, and local author, verified-ad and cosmetic rules still act immediately.
++* **Policy `policy-3.3.0`, rubric `feed-v2.2.0`.** One new optional ninth question (`topic`) and one new precedence row (`topic_muted`) after the sufficiency guard. Settings schema 6 (topics, grouping, thrift, thriftDelayMs, pricing) migrates every existing preference, list and rule and leaves the new features off. Runtime state 6. Diagnostics schema 8 adds `ui.grouping` / `ui.thrift` / `ui.thriftDelayMs` and `settings.mutedTopicCount`; exports are version 6 and imports accept v6/v5/v4/v3/v2 and reject v1.
++
++Validation: 164 Node tests, 66 Chromium DOM/UI scenarios, an 8-check unpacked-extension smoke test and 9 release integrity checks passed locally. All fixtures are synthetic except the three real privacy-safe diagnostics exports used only for count replay. Live provider, signed-in-site and live Wykop validation remain manual gates and are reported as not performed.
+ 
+ ## 3.2.0
+ 
+--- a/README.md
++++ b/README.md
+@@ -1,10 +1,10 @@
+-# FeedGate 3.2.0
++# FeedGate 3.3.0
+ 
+ A Chrome extension that uses TypeSafe Jev to reduce feed noise without hiding ordinary organic content. A post being promotional is not treated as a reason to filter it. Filtering is reversible, the rules are explicit, and the API key is entered inside the extension.
+ 
+ **Personal-use preview. No terminal, bridge, pairing code or external server is required.**
+ 
+-![FeedGate 3.2.0 setup interface, captured using a browser test fixture](evidence/options-overview.png)
++![FeedGate 3.3.0 setup interface, captured using a browser test fixture](evidence/options-overview.png)
+ 
+ ## Install the ready-made extension
+ 
+@@ -15,6 +15,16 @@
+ The ready-made extension does not need Node, Python, npm, a local service, or an installer executable. Chrome 120 or later is declared in the manifest. Managed browsers may prohibit unpacked extensions; do not work around administrator policy.
+ 
+ For a short step-by-step walkthrough, open [START_HERE.html](START_HERE.html), [START_HERE.md](START_HERE.md) or the Polish [START_TUTAJ_PL.md](START_TUTAJ_PL.md). Upgrading from 2.x: read [docs/MIGRATION.md](docs/MIGRATION.md); the update workflow is explained in [docs/UPDATES.md](docs/UPDATES.md).
++
++## What changed in 3.3
++
++Version 3.3 adds time-limited topic mutes, conservative duplicate grouping and honest API-usage controls, and fixes three author-list edges. No existing category or threshold changes meaning:
++
++* **Mute topic…** from the status panel: pick a post, edit the topic name, choose the scope (this site or all supported platforms) and 24 hours / 7 days / until removed. Matching is semantic through the same Jev request — a passing mention stays visible, **Keep this post** wins, Undo is offered, and an expired rule stops hiding posts by itself. Manage everything in Settings → Muted topics.
++* **Grouping repeated posts (optional, off by default).** The first copy stays visible; later near-duplicates fold behind a "more similar posts" bar that expands in place. Similarity is computed locally with a bounded per-tab memory, no provider request is spent, and everything returns when you turn it off.
++* **API usage panel and thrift mode.** Review → API usage shows the daily used/remaining budget (reset at 00:00 UTC, shown in local time), attempts, analyses, cache hits, errors, cancellations and tokens; cost appears only from your own configured rates and is labelled an estimate, not a provider bill. Thrift mode waits until a post is visible and scrolling has settled before calling the model; local author, verified-ad and cosmetic rules still act immediately.
++* **Author-list fixes.** Concurrent mute/allow actions can no longer drop one another, Undo restores the exact earlier state and refuses to overwrite a newer decision, and LinkedIn/Facebook/Instagram matching now uses the canonical profile link instead of the display name (name-only posts never match a saved list).
++* **Policy `policy-3.3.0`, rubric `feed-v2.2.0`, settings schema 6, diagnostics schema 8.** New optional features stay off for existing users after migration.
+ 
+ ## What changed in 3.2
+ 
+@@ -108,9 +118,9 @@
+ 
+ ## Honest test status
+ 
+-The packaged evidence records **146 passing Node tests**, **62 passing Chromium DOM/UI scenarios**, an **8-check unpacked-extension smoke test** and **9 release integrity checks**. Unit tests execute the actual policy, HTTP client, vault and worker source; worker tests replace Chrome APIs and HTTP with controlled implementations. Browser tests execute the actual DOM and UI code with mocked Chrome messaging, page location and Jev responses. The smoke test loads the real `extension/` folder in a local Chromium profile.
++The packaged evidence records **164 passing Node tests**, **66 passing Chromium DOM/UI scenarios**, an **8-check unpacked-extension smoke test** and **9 release integrity checks**. Unit tests execute the actual policy, HTTP client, vault and worker source; worker tests replace Chrome APIs and HTTP with controlled implementations. Browser tests execute the actual DOM and UI code with mocked Chrome messaging, page location and Jev responses. The smoke test loads the real `extension/` folder in a local Chromium profile.
+ 
+-The suites include the 25 precision-first regression cases, the 2.1.1 ad-evidence contracts, the v3 control/safety cases (HUD modes, recovery without a responsive content script, permission and site states, transactional picker guards, rule management and revisions, loop containment, Wykop fixtures), the 3.1 author-mute and exception-panel cases, the 3.2 update and identity cases (stable id from the manifest key, `build.json` comparison, sealed vault-backup validation and round trip, the Updates panel), plus three real privacy-safe diagnostic exports used only to replay recorded counts.
++The suites include the 25 precision-first regression cases, the 2.1.1 ad-evidence contracts, the v3 control/safety cases (HUD modes, recovery without a responsive content script, permission and site states, transactional picker guards, rule management and revisions, loop containment, Wykop fixtures), the 3.1 author-mute and exception-panel cases, the 3.2 update and identity cases (stable id from the manifest key, `build.json` comparison, sealed vault-backup validation and round trip, the Updates panel), the 3.3 cases (atomic author-list updates, exact-state Undo including stale conflicts, stable author identity, topic mute with expiry and accidental-mention handling, duplicate grouping, thrift deferral and the usage counters), plus three real privacy-safe diagnostic exports used only to replay recorded counts.
+ 
+ **No real TypeSafe key was used for this release and no signed-in feed was accessed or measured.** The unpacked extension was loaded from `extension/` in a local Chromium profile by the smoke test, but managed installation remains blocked in the build environment, so live-provider classification accuracy stays unmeasured. No administrator policies were changed. These are implementation regression tests, not a measured improvement in live classification accuracy or an independent security audit.
+ 
+--- a/START_HERE.html
++++ b/START_HERE.html
+@@ -1,13 +1,13 @@
+ <!doctype html>
+-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FeedGate 3.2.0 | Start here</title><style>
++<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FeedGate 3.3.0 | Start here</title><style>
+ *{box-sizing:border-box}body{margin:0;background:#f1f2ea;color:#172018;font:17px/1.65 system-ui,sans-serif}main{max-width:980px;margin:0 auto;padding:54px 24px}header{border-bottom:1px solid #c4cab9;padding-bottom:26px}.tag{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#4f6138}h1{font-size:clamp(34px,6vw,64px);line-height:1.1;margin:15px 0}h2{font-size:24px;margin:0 0 12px}p{max-width:800px}article{background:#fff;border:1px solid #d6daca;padding:24px;margin:18px 0;border-radius:14px}.number{background:#d8fb81;border-radius:7px;padding:4px 12px;margin-right:8px}code{background:#edf0e7;border-radius:4px;padding:3px 7px;overflow-wrap:anywhere}a{color:#3e591e;text-underline-offset:3px}.notice{background:#e3ead8}.small{font-size:14px;color:#53604a}.key{color:#923c20}footer{margin-top:26px;border-top:1px solid #c4cab9;padding-top:20px}kbd{border:1px solid #a6b29d;border-radius:4px;padding:2px 6px}img{max-width:100%;border:1px solid #d6daca;border-radius:14px}
+-</style></head><body><main><header><div class="tag">FeedGate 3.2.0 / personal-use preview</div><h1>No terminal.<br>No pairing.</h1><p>A ready-made Chrome extension. The TypeSafe connection happens directly from the browser. Do not run the old START-FEEDGATE.cmd. You do not need Node, Python or a local server.</p></header>
+-<article><h2><span class="number">1</span>Extract the whole package</h2><p>Choose a permanent folder, for example <code>D:\FeedGate-3.2.0</code>. Do not run the extension directly from the ZIP. The folder must stay on disk after installation.</p></article>
++</style></head><body><main><header><div class="tag">FeedGate 3.3.0 / personal-use preview</div><h1>No terminal.<br>No pairing.</h1><p>A ready-made Chrome extension. The TypeSafe connection happens directly from the browser. Do not run the old START-FEEDGATE.cmd. You do not need Node, Python or a local server.</p></header>
++<article><h2><span class="number">1</span>Extract the whole package</h2><p>Choose a permanent folder, for example <code>D:\FeedGate-3.3.0</code>. Do not run the extension directly from the ZIP. The folder must stay on disk after installation.</p></article>
+ <article><h2><span class="number">2</span>Load the extension folder</h2><p>In the Chrome address bar, type <code>chrome://extensions</code>. Enable <b>Developer mode</b>, click <b>Load unpacked</b> and select the <code>extension</code> subfolder. This is where <code>manifest.json</code> lives.</p><p class="small">Chrome 120 or later is required. If an administrator blocks extension installation, do not work around that block.</p></article>
+ <article><h2><span class="number">3</span>Key, consent, Connect &amp; start</h2><p>Open the FeedGate settings. In the <b>Connect once and start browsing</b> form, paste your direct <b>TypeSafe API key</b>. Tick the consent to send extracted post text to TypeSafe, leave <b>All six supported feeds</b> selected and click <b>Connect &amp; start</b>. Accept the single Chrome prompt for the origins you keep selected; declining it leaves those sites off.</p><p>The extension makes one real request on a fictional post and then starts filtering. That test may be billed according to the provider's pricing.</p><p class="key"><b>Do not paste the key into a chat.</b> A Vercel Gateway key and the old pairing code do not replace a TypeSafe key.</p></article>
+ <article><h2><span class="number">4</span>Refresh the tab and scroll</h2><p>After removing an older add-on, refresh the open tab. Start with <b>Balanced</b> mode. A small status pill shows detected items, pending analysis and filtering; click it to expand, and use minimize or close to hide it. <b>Hiding the panel never pauses filtering</b> and the popup can always reopen it.</p><p><b>Show</b> restores a post temporarily. <b>Keep this post</b> stores an exception for that entry. <b>Allow author</b> adds the author to the local exception list; <b>Mute author</b> hides that author's posts on this platform deterministically (revertible in Settings → Muted authors). <b>Mute author…</b> in the expanded panel works the same way on any post you click, with a preview and Undo. <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd> reveals posts in the tab. The popup also offers <b>Restore this site</b>, <b>Disable cosmetic filters</b> and <b>Reload this tab with filtering paused</b> for a stuck page.</p></article>
+ <article class="notice"><h2>What about after a Chrome restart?</h2><p>By default the key is available only in the browser session. To avoid retyping the key, tick <b>Save an encrypted copy on this device</b> and set your own passphrase, at least 12 characters. After a Chrome restart you unlock it with that passphrase in <b>API &amp; privacy</b>.</p><p>There is no terminal and no new pairing code. The vault passphrase is not stored or recovered. Losing the passphrase means entering the key again.</p></article>
+ <article><h2>When something does not work</h2><p>Open <b>Diagnostics → Export diagnostics</b>. This produces a JSON file with counters, per-site states, cosmetic activity and safe error codes. It contains no key, post text, author names or raw cosmetic selectors. Review the file before sharing it, especially publicly.</p><p><b>Observe only</b> mode records intended decisions without hiding. Jev errors do not create a hide decision; independent local rules can still act.</p></article>
+-<article><h2>Scope of this release</h2><p>X and Reddit are the primary adapters. LinkedIn, Facebook, Instagram and Wykop (beta) are secondary and stay off until you grant access. Text and available media descriptions are analysed, not images or videos. Wykop promotion notes are treated as ambiguous: nothing is auto-hidden by an old or unverified placement. This is a feed appearance filter, not a full network blocker.</p><p>146 Node tests, 62 Chromium DOM/UI scenarios, an 8-check unpacked-extension smoke test and 9 release integrity checks passed. API responses and browser interfaces were controlled in tests; the smoke test loaded the real extension folder in a local Chromium profile. No test used a real key, a signed-in feed or a live Wykop page.</p></article>
+-<footer><a href="START_HERE.md">Full instructions</a> · <a href="START_TUTAJ_PL.md">Polska instrukcja</a> · <a href="README.md">Code and architecture</a> · <a href="docs/TESTING.md">Test report</a></footer><p class="small">FeedGate 3.2.0 / GPL-3.0-or-later / full sources included. No EXE installer is needed.</p>
++<article><h2>Scope of this release</h2><p>X and Reddit are the primary adapters. LinkedIn, Facebook, Instagram and Wykop (beta) are secondary and stay off until you grant access. Text and available media descriptions are analysed, not images or videos. Wykop promotion notes are treated as ambiguous: nothing is auto-hidden by an old or unverified placement. This is a feed appearance filter, not a full network blocker.</p><p>164 Node tests, 66 Chromium DOM/UI scenarios, an 8-check unpacked-extension smoke test and 9 release integrity checks passed. API responses and browser interfaces were controlled in tests; the smoke test loaded the real extension folder in a local Chromium profile. No test used a real key, a signed-in feed or a live Wykop page.</p></article>
++<footer><a href="START_HERE.md">Full instructions</a> · <a href="START_TUTAJ_PL.md">Polska instrukcja</a> · <a href="README.md">Code and architecture</a> · <a href="docs/TESTING.md">Test report</a></footer><p class="small">FeedGate 3.3.0 / GPL-3.0-or-later / full sources included. No EXE installer is needed.</p>
+ </main></body></html>
+--- a/START_HERE.md
++++ b/START_HERE.md
+@@ -1,4 +1,4 @@
+-# FeedGate 3.2.0: start here
++# FeedGate 3.3.0: start here
+ 
+ **This release has no terminal, no local bridge and no pairing code.** Do not run any file from version 0.1. You need Chrome and your own direct TypeSafe key.
+ 
+@@ -52,7 +52,7 @@
+ 
+ There is a small FeedGate pill with status and counters at the bottom left of the page. Clicking it expands the panel (with minimize and close), and the popup can reopen it when it is hidden.
+ 
+-Go to **Diagnostics → Export diagnostics**. This produces a `feedgate-3.2.0-diagnostics-....json` file that you can pass on for review. It contains no API key, vault, post text, author names, full page URLs, raw cosmetic selectors or the text of your own rule.
++Go to **Diagnostics → Export diagnostics**. This produces a `feedgate-3.3.0-diagnostics-....json` file that you can pass on for review. It contains no API key, vault, post text, author names, full page URLs, raw cosmetic selectors or the text of your own rule.
+ 
+ | Status | Meaning |
+ | --- | --- |
+@@ -67,7 +67,7 @@
+ 
+ ## What is verified
+ 
+-146 Node tests, 62 Chromium DOM/UI scenarios, an 8-check unpacked-extension smoke test and 9 release integrity checks passed. Jev responses and browser interfaces were replaced by controlled test implementations; the smoke test loaded the real extension folder in a local Chromium profile. Your key was not used, no test was run on the current, signed-in X and no live Wykop page was accessed by the suites. Managed installation remains blocked in the build environment; its limits were not bypassed.
++164 Node tests, 66 Chromium DOM/UI scenarios, an 8-check unpacked-extension smoke test and 9 release integrity checks passed. Jev responses and browser interfaces were replaced by controlled test implementations; the smoke test loaded the real extension folder in a local Chromium profile. Your key was not used, no test was run on the current, signed-in X and no live Wykop page was accessed by the suites. Managed installation remains blocked in the build environment; its limits were not bypassed.
+ 
+ This is a package ready for you to test, not a certificate of flawlessness. The model can still misjudge a specific post. **Open live test feed** contains fictional examples, but once key and consent are enabled it uses the real API, not fake percentages.
+ 
+--- a/START_TUTAJ_PL.md
++++ b/START_TUTAJ_PL.md
+@@ -1,6 +1,6 @@
+-# FeedGate 3.2.0 — start tutaj (PL)
++# FeedGate 3.3.0 — start tutaj (PL)
+ 
+-Ten plik to krótki przewodnik po wersji 3.2.0. Pełniejsze, starsze instrukcje po
++Ten plik to krótki przewodnik po wersji 3.3.0. Pełniejsze, starsze instrukcje po
+ polsku są w [INSTRUKCJA_PL.md](INSTRUKCJA_PL.md); dokumentacja techniczna jest
+ po angielsku w katalogu `docs/`.
+ 
+@@ -13,17 +13,16 @@
+   aktualizacja to podmiana plików w tym samym katalogu i **Reload** w
+   `chrome://extensions` — nigdy **Remove**.
+ 
+-## 2. Aktualizacja do 3.2.0
++## 2. Aktualizacja do 3.3.0 (w miejscu)
+ 
+ 1. Zrób kopię zapasową katalogu i (jeśli to możliwe) wyeksportuj ustawienia.
+ 2. Skopiuj nowe pliki wydania (zawartość katalogu `extension/`) na te w tym samym
+    katalogu, z którego działa obecna wersja.
+ 3. `chrome://extensions` → **Reload** (odświeżenie). **Nie klikaj Remove** —
+    usunięcie kasuje też lokalne dane rozszerzenia.
+-4. Pierwsze uruchomienie 3.2.0 to jednorazowa zmiana tożsamości: wcześniejszy sejf
+-   nie przechodzi automatycznie. Wpisz klucz API jeszcze raz albo zaimportuj
+-   zaszyfrowaną kopię klucza (patrz punkt 6). Od tej chwili aktualizacje zachowują
+-   wszystko.
++4. Od 3.2.0 tożsamość rozszerzenia jest stała, więc sejf, klucz, listy i ustawienia
++   przechodzą aktualizację automatycznie — nie wpisujesz klucza ponownie. (Jednorazowa
++   zmiana tożsamości dotyczyła tylko przejścia ze starszej wersji na 3.2.0.)
+ 5. Karty otwarte przed aktualizacją pokażą „Extension updated: reload this page”.
+    Odśwież je (F5). FeedGate nie filtruje stron starą wersją skryptu.
+ 6. Stare reguły CSS z wersji 2.x trafiają do kwarantanny (`legacy_unvalidated`).
+@@ -50,7 +49,19 @@
+ * Te same akcje masz w rozwiniętym panelu statusu: **Mute author…** /
+   **Allow author…**. Kliknij dowolny post na stronie — zobaczysz podgląd z
+   nazwą autora i informacją, że to lokalna decyzja bez zapytania do modelu.
+-  Zapis pokaże toast z **Undo**; Escape anuluje bez zapisywania.
++   Zapis pokaże toast z **Undo**; Escape anuluje bez zapisywania.
++* **Mute topic…** (rozwinięty panel) — kliknij post, sprawdź lub zmień nazwę tematu,
++  wybierz zasięg (ten serwis / wszystkie obsługiwane) i czas (24 h / 7 dni /
++  bezterminowo). Dopasowanie jest semantyczne i używa tego samego zapytania co
++  filtrowanie (jedno dodatkowe pytanie), więc może zwiększyć zużycie API. Przypadkowa
++  wzmianka pozostaje widoczna, a „Keep this post” wygrywa z wyciszeniem tematu.
++  Lista tematów, edycja, usuwanie i Undo: Ustawienia → **Muted topics**.
++* **Grupowanie powtórek** (Ustawienia → Filter policy) — pierwsza kopia zostaje,
++  kolejne bliskie powtórki zwijają się pod paskiem „more similar posts”. Post z nową
++  informacją lub kontrargumentem nie jest grupowany; wyłączenie opcji przywraca wszystko.
++* **Tryb oszczędny (thrift)** — analiza chmurowa startuje dopiero, gdy post jest
++  widoczny, a przewijanie na chwilę się zatrzyma (domyślnie 800 ms, zakres 300–3000 ms).
++  Szybkie przewijanie nie tworzy zapytań; lokalne reguły działają od razu.
+ 
+ ## 3a. Mój wyjątek (My exception rule)
+ 
+@@ -89,12 +100,16 @@
+ ## 6. Diagnostyka i kopie
+ 
+ * **Export diagnostics** tworzy plik
+-  `feedgate-3.2.0-diagnostics-….json` bez kluczy, tekstów postów, autorów,
++  `feedgate-3.3.0-diagnostics-….json` bez kluczy, tekstów postów, autorów,
+   pełnych adresów URL i surowych selektorów. Zawiera m.in. sekcje `ui`, `sites`,
+   `cosmetic`, `renderer` i `provider` oraz odcisk wersji (`build`).
+-* **Export settings** zapisuje ustawienia w formacie wersji 5 (z regułami
+-  kosmetycznymi — to Twoja lokalna kopia). Import akceptuje też formaty 2.x i 3.x;
++* **Export settings** zapisuje ustawienia w formacie wersji 6 (z regułami
++  kosmetycznymi — to Twoja lokalna kopia). Import akceptuje też formaty 2.x–5.x;
+   niezweryfikowane reguły stają się kwarantanną.
++* **API usage** (Ustawienia → Review) — dzienny licznik żądań (reset 00:00 UTC,
++  pokazany w czasie lokalnym), trafienia cache, tokeny, błędy i anulowane żądania.
++  Koszt pieniężny pojawia się wyłącznie po wpisaniu własnych stawek i zawsze jako
++  *szacunek*, nigdy jako rachunek dostawcy.
+ * **06 Updates** porównuje działającą wersję z plikami na dysku (pakietowy
+   `build.json`), otwiera `chrome://extensions` i pozwala pobrać **Export key
+   backup** — kopię wyłącznie zaszyfrowanego sejfu (nigdy klucza jawnie).
+@@ -108,15 +123,18 @@
+ 2. Otwórz zwykły post techniczny — ma pozostać widoczny.
+ 3. Sprawdź w pasku statusu, że tryb to „Running”, a w popupie, że sześć
+    serwisów ma stan „ready”.
+-4. W eksporcie diagnostyki sprawdź `build.release` = `3.2.0` oraz
++4. W eksporcie diagnostyki sprawdź `build.release` = `3.3.0` oraz
+    `build.detector` = `ad-3.0.0`.
+ 5. W Ustawieniach → **06 Updates** kliknij **Check files on disk** — panel
+    powinien pokazać „Up to date”.
+ 
+-## 8. Czego 3.2.0 świadomie nie robi
++## 8. Czego 3.3.0 świadomie nie robi
+ 
+-* Nie zmienia progów kategorii ani modelu — to wydanie o kontroli, nie o
+-  skuteczności modelu.
++* Nie zmienia progów istniejących kategorii ani modelu — to wydanie o kontroli,
++  nie o skuteczności modelu.
++* Nie wysyła osobnego zapytania dla każdej pary post–temat: wyciszenie tematu to
++  jedno dodatkowe pytanie w tym samym żądaniu, a grupowanie powtórek jest w pełni
++  lokalne i nie kosztuje żadnego zapytania.
+ * Nie blokuje reklam sieciowych, nie skanuje obrazów, nie otwiera stron
+   docelowych i nie zbiera historii przeglądania.
+ * Wykop pozostaje w wersji beta: oznaczenia reklamowe Wykopu nie mają dziś
+--- a/THIRD_PARTY_NOTICES.md
++++ b/THIRD_PARTY_NOTICES.md
+@@ -1,6 +1,6 @@
+ # Third-party notices and provenance
+ 
+-FeedGate 3.2.0 is an original implementation released under GPL-3.0-or-later.
++FeedGate 3.3.0 is an original implementation released under GPL-3.0-or-later.
+ The complete GPL version 3 license is included in LICENSE.
+ 
+ ## uBlock Origin
+--- a/docs/DECISION_POLICY.md
++++ b/docs/DECISION_POLICY.md
+@@ -1,4 +1,4 @@
+-# Decision policy reference (FeedGate 3.2.0)
++# Decision policy reference (FeedGate 3.3.0)
+ 
+ Policy version: `policy-3.1.0`. Semantic rubric: `feed-v2.1.0` (unchanged). Ad detector: `ad-3.0.0`. Extraction: `extract-3.0.0`. This file documents what the code actually
+ does, in evaluation order. When wording and code disagree, the code wins.
+--- a/docs/DIAGNOSTICS_SCHEMA.md
++++ b/docs/DIAGNOSTICS_SCHEMA.md
+@@ -1,7 +1,7 @@
+ # Diagnostics schema
+ 
+ The export format is `feedgate-diagnostics`. Schema history: version 3 (2.1.0),
+-version 4 (2.1.1), version 5 (3.0.0), version 6 (3.1.0), **version 7 (3.2.0)**.
++version 4 (2.1.1), version 5 (3.0.0), version 6 (3.1.0), version 7 (3.2.0), **version 8 (3.3.0)**.
+ 
+ The export is generated by the background worker and never contains keys, vault data,
+ passwords, post text, quoted text, author names, full browsing URLs, raw HTML, cosmetic
+@@ -13,18 +13,19 @@
+ | Field | Meaning |
+ | --- | --- |
+ | `format` | Always `feedgate-diagnostics`. |
+-| `version` | `7`. |
+-| `extensionVersion` | Release version (`3.2.0`). |
+-| `rubric` / `policy` | `feed-v2.1.0` / `policy-3.1.0` (rubric unchanged; 3.1.0 adds the local `author_muted` branch). |
+-| `build` | Fingerprint: `{release, rubric, policy, detector, extraction, schema}` — e.g. `ad-3.0.0`, `extract-3.0.0`. A mismatch between source and shipped files fails the release check. |
++| `version` | `8`. |
++| `extensionVersion` | Release version (`3.3.0`). |
++| `rubric` / `policy` | `feed-v2.2.0` / `policy-3.3.0` (one optional topic question when a topic is active; 3.1.0's `author_muted` branch and 3.3.0's `topic_muted` branch). |
++| `build` | Fingerprint: `{release, rubric, policy, detector, extraction, schema}` — e.g. `ad-3.0.0`, `extract-3.3.0`. A mismatch between source and shipped files fails the release check. |
+ | `generatedAt` | ISO timestamp. |
+ | `environment` | `chrome-extension`. |
+ | `privacy` | Plain-language statement of the exclusions, including that raw cosmetic selectors are never exported. |
+ 
+ ## Section: `ui`
+ 
+-`{hudMode, feedsOpen, engineEnabled, preset, mode}` — the persisted presentation
+-preference and engine switches. `hudMode` is `compact` | `expanded` | `hidden`.
++`{hudMode, feedsOpen, engineEnabled, preset, mode, grouping, thrift, thriftDelayMs}` — the persisted presentation
++preference and engine switches. `hudMode` is `compact` | `expanded` | `hidden`. `grouping` and `thrift` are the
++optional 3.3 toggles; `thriftDelayMs` is the visible-and-settled pause in milliseconds.
+ 
+ ## Section: `sites`
+ 
+@@ -84,7 +85,7 @@
+ protectionEligible, sufficient, scores, model, ruleRef?, adEvidence, latencyMs, cached,
+ error}`.
+ 
+-- `source`: `policy`, `protection`, `allowlist`, `override`, `author`, `local`, `unclassified`, `cosmetic`.
++- `source`: `policy`, `protection`, `allowlist`, `override`, `author`, `topic`, `local`, `unclassified`, `cosmetic`.
+ - `adEvidence` summary: `{status, markerKind, selectorId, ownerMatched, renderedLabel,
+   evidenceKind, scope}` or `null`; `status` is `verified` | `ambiguous` | `none`.
+ - Counters (`metrics`) vs history: `metrics.decisions` is cumulative; `decisions.length`
+@@ -103,6 +104,7 @@
+ 
+ - Schema 6 (3.1.0) adds `settings.mutedAuthorCount` (a count only — muted author names never leave local storage) and the `author_muted` rule with the `author` source in decision entries. Nothing else in the envelope changed.
+ - Schema 7 (3.2.0) adds the `update` section (running build versus the packaged `build.json`); no new personal data is exported.
++- Schema 8 (3.3.0) adds `ui.grouping`, `ui.thrift`, `ui.thriftDelayMs` and `settings.mutedTopicCount` (a count only — topic names never leave local storage), and decision entries may carry the `topic_muted` rule with the `topic` source. Nothing else in the envelope changed.
+ - Old schema-3 to schema-6 exports remain readable; they are plain JSON and the test
+   suite replays them.
+ - Decision entries written by 2.1.0/2.1.1 do not carry the 3.0.0 `rule`/`adEvidence`
+--- a/docs/MIGRATION.md
++++ b/docs/MIGRATION.md
+@@ -1,6 +1,17 @@
+-# Migration notes: FeedGate 2.0 to 3.2.0
++# Migration notes: FeedGate 2.0 to 3.3.0
+ 
+-FeedGate 3.1 keeps the working 2.0 architecture. Settings, keys, allowlists, saved post choices and cosmetic rules are preserved where their meaning is unchanged. The filtering semantics are unchanged from 2.1.1; the 3.0 work is local control, safety and coverage (HUD modes, recovery, cosmetic management, Wykop), and 3.1 adds the local author mute list and a clearer exception-rule panel.
++FeedGate 3.1 keeps the working 2.0 architecture. Settings, keys, allowlists, saved post choices and cosmetic rules are preserved where their meaning is unchanged. The filtering semantics are unchanged from 2.1.1; the 3.0 work is local control, safety and coverage (HUD modes, recovery, cosmetic management, Wykop), and 3.1 adds the local author mute list and a clearer exception-rule panel. 3.2 adds the stable extension identity and in-place updates; 3.3 adds temporal topic mutes, repeat grouping, the API usage panel and thrift mode.
++
++## Upgrading from 3.2.0 to 3.3.0
++
++* **Settings schema 6.** Every existing preference, author list, cosmetic rule, saved post choice, budget and consent flag is kept. New fields arrive with safe defaults: `topics` (empty), `grouping` false, `thrift` false, `thriftDelayMs` 800 and `pricing` rates empty. The new features stay off until explicitly enabled.
++* **Runtime state 6.** Older session caches and logs are dropped on load; they only contained estimates produced under the previous schema.
++* **Policy `policy-3.3.0`, rubric `feed-v2.2.0`.** The eight base questions and every existing category, threshold and precedence keep their meaning. When at least one active topic exists, one optional topic question is added to the same request, and the decision cache key includes the active topic set, so edited, added, deleted or expired topics invalidate stale verdicts.
++* **Author identity.** Where a post exposes a stable profile reference (LinkedIn `/in/` or `/company/`, Facebook profile id or username, Instagram username), author exceptions now use it. Records that only carry a display name never match the lists, and old name-based entries on those three sites become inert rather than matching a stranger with the same name. Existing entries are kept untouched so nothing is deleted.
++* **Diagnostics schema 8.** The export adds `ui.grouping`, `ui.thrift`, `ui.thriftDelayMs`, `settings.mutedTopicCount`, and decisions may carry `rule: topic_muted` with `source: topic`. Counts only; topic names never leave the device.
++* **Settings exports v6.** `feedgate-settings` version 6 accepts v6/v5/v4/v3/v2 and still rejects v1. Imports never grant consent or select sites.
++* **Identity unchanged.** The manifest key is unchanged from 3.2.0, so the extension id stays `oombgdfajfomncpoiljbhpnagigjjbcc`: the vault, key and settings survive the update with no re-entry, and in-place updates keep working as described in `docs/UPDATES.md`.
++* **Reload open tabs.** A content script from an older release shows "Extension updated: reload this page". Press F5 on affected tabs.
+ 
+ ## Upgrading from 3.1.1 to 3.2.0
+ 
+--- a/docs/POLICY.md
++++ b/docs/POLICY.md
+@@ -1,6 +1,6 @@
+ # FeedGate 3.0.0 policy
+ 
+-FeedGate 3.2.0 keeps the 2.1.1 semantic policy unchanged. What changed in 3.0.0
++FeedGate 3.3.0 keeps the 2.1.1 semantic policy unchanged. What changed in 3.0.0
+ is local control, safety and coverage: the status panel modes, transactional
+ picker, managed cosmetic filters with revisioned writes, per-site recovery, loop
+ containment and the Wykop beta adapter. No category threshold was lowered, Dim
+--- a/docs/REQUIREMENTS_MATRIX.md
++++ b/docs/REQUIREMENTS_MATRIX.md
+@@ -1,6 +1,6 @@
+-# FeedGate requirements matrix (3.0 → 3.2.0)
+-
+-This matrix maps the 3.0.0 safe-controls task and its 3.1/3.2 follow-ups to implementation and evidence. It
++# FeedGate requirements matrix (3.0 → 3.3.0)
++
++This matrix maps the 3.0.0 safe-controls task and its 3.1/3.2/3.3 follow-ups to implementation and evidence. It
+ is a self-check produced by the same work it reviews, not independent acceptance.
+ Statuses are `MET`, `NOT_MET` or `INSUFFICIENT`. Live-provider and live-site
+ claims are `INSUFFICIENT` because no real key, signed-in feed or managed install
+@@ -8,8 +8,8 @@
+ 
+ Evidence files:
+ 
+-* `evidence/unit-tests.tap` — 146 Node tests / 0 fail
+-* `evidence/browser-dom-tests.json` — 62 Chromium DOM/UI scenarios / 0 fail
++* `evidence/unit-tests.tap` — 164 Node tests / 0 fail
++* `evidence/browser-dom-tests.json` — 66 Chromium DOM/UI scenarios / 0 fail
+ * `evidence/extension-smoke.json` — 8 checks on the real `extension/` folder
+ * `evidence/release-checks.json` — 9 release integrity checks
+ * `evidence/baseline/` — 2.1.x baseline logs and the 2.1.1 patch
+@@ -144,6 +144,19 @@
+ | One-time identity transition documented | MET | `docs/UPDATES.md`, `docs/MIGRATION.md` (3.1.1→3.2.0) |
+ | Diagnostics expose the update state | MET | schema 7 `update` section; diagnostics test |
+ 
++## 7c. Topics, grouping and thrift (3.3)
++
++| Requirement | Status | Evidence |
++| --- | --- | --- |
++| A1 Atomic author-list changes under concurrency | MET | v330 feature tests (concurrent mutes for two authors both persist; sequential changes keep the last write) |
++| A2 Undo restores the exact previous state; stale Undo refused | MET | v330 feature tests (none/blocked/allowed matrix; `{saved:false,stale:true}` changes nothing; another author never blocks) |
++| A3 Stable author identity; name-only records never match lists | MET | core + v330 tests (`authorId`, `authorNameOnly`); adapters canonical slug helper |
++| B5 Topic mute with scope, duration and semantic matching | MET | v330 tests (optional topic question, `topic_muted`, expiry, passing mention stays, keep-this-post wins, delete/update invalidates cache) |
++| B5 Topic manager in settings with edit/delete/expiry | MET | options Muted topics list; `TOPIC01` browser scenario |
++| B6 Repeat grouping with a representative and expand control | MET | `GROUP01` browser scenario; grouping helpers in core tests |
++| B7 Usage counters separated (daily vs session, unaccounted attempts) and cost only from user rates | MET | worker counter tests; `USAGE01` scenario; diagnostics provider section |
++| B7 Thrift mode defers analysis until visible and settled | MET | `THRIFT01` scenario; v330 worker deferral test (fast scroll starts no request) |
++
+ ## 8. Wykop
+ 
+ | ID | Requirement | Status | Evidence |
+@@ -191,7 +204,7 @@
+ 
+ | Requirement | Status | Evidence |
+ | --- | --- | --- |
+-| Privacy-safe diagnostics schema 6 | MET | `docs/DIAGNOSTICS_SCHEMA.md`; privacy tests; `mutedAuthorCount` count-only |
++| Privacy-safe diagnostics schema 8 | MET | `docs/DIAGNOSTICS_SCHEMA.md`; privacy tests; `mutedAuthorCount`/`mutedTopicCount` count-only |
+ | Cosmetic/semantic/UI metrics separated | MET | diagnostics worker tests |
+ | Renderer heartbeat vs absence explained | MET | schema doc + renderer section test |
+ | Retained vs dropped history explicit | MET | `logStats` test (150/10) |
+@@ -206,6 +219,7 @@
+ | Item | Status | Note |
+ | --- | --- | --- |
+ | Real TypeSafe key classification accuracy | INSUFFICIENT | No key used; `evaluation/` runner available opt-in |
++| Live semantic accuracy of the optional topic question | INSUFFICIENT | Synthetic `TOPIC_FIXTURE` scores only; not live model output |
+ | Signed-in X/Reddit/LinkedIn/Facebook/Instagram DOM | INSUFFICIENT | Adapter fixtures only |
+ | Live Wykop markup beyond the 2026-09-18 captures | INSUFFICIENT | `docs/WYKOP_SUPPORT.md` provenance |
+ | Managed/enterprise installation | INSUFFICIENT | Policy not bypassed; unpacked smoke only |
+@@ -215,11 +229,11 @@
+ 
+ | Deliverable | Status | Path |
+ | --- | --- | --- |
+-| Complete project folder | MET | `D:\FeedGate\FeedGate-3.0.0` |
+-| Ready-to-load `extension/` | MET | `D:\FeedGate\FeedGate-3.0.0\extension` |
+-| ZIP + SHA256 sidecar | MET | `D:\FeedGate\PLIKI\FeedGate-3.2.0.zip` + `.sha256` |
++| Complete project folder | MET | `D:\FeedGate\FeedGate-3.3.0` |
++| Ready-to-load `extension/` | MET | `D:\FeedGate\FeedGate-3.3.0\extension` |
++| ZIP + SHA256 sidecar | MET | `D:\FeedGate\PLIKI\FeedGate-3.3.0.zip` + `.sha256` |
+ | Shipped-asset manifest/hash list | MET | `evidence/shipped-assets.json` |
+-| Reviewable diff vs 3.1.0 | MET | `evidence/feedgate-3.2.0.patch` |
++| Reviewable diff vs 3.2.0 | MET | `evidence/feedgate-3.3.0.patch` |
+ | CHANGELOG / README / Polish guide / MIGRATION | MET | `CHANGELOG.md`, `README.md`, `START_TUTAJ_PL.md`, `docs/MIGRATION.md` |
+ | RECOVERY / ROOT_CAUSE / WYKOP_SUPPORT / DIAGNOSTICS_SCHEMA / TESTING | MET | `docs/` |
+ | Screenshots of the real built UI | MET | `evidence/*.png` |
+--- a/docs/TESTING.md
++++ b/docs/TESTING.md
+@@ -1,23 +1,23 @@
+-# Test report: FeedGate 3.2.0
++# Test report: FeedGate 3.3.0
+ 
+ ## Baseline and results
+ 
+-The preserved 3.1.1 release was measured before any change; its results are the baseline column. (Older 2.1.x and 3.x baselines remain in `evidence/baseline/`.)
+-The 3.2.0 build was measured after the change (evidence in `evidence/`).
++The preserved 3.2.0 release was measured before any change; its results are the baseline column. (Older 2.1.x and 3.x baselines remain in `evidence/baseline/`.)
++The 3.3.0 build was measured after the change (evidence in `evidence/`).
+ 
+-| Layer | 3.1.1 baseline | 3.2.0 result | Scope |
++| Layer | 3.2.0 baseline | 3.3.0 result | Scope |
+ | --- | --- | --- | --- |
+ | JavaScript syntax | Passed | Passed | Node syntax checks on source, scripts and JavaScript tests |
+-| Node tests | 143 passed, 0 failed | 146 passed, 0 failed | Actual policy, ad-evidence, cosmetic model, recovery, vault, HTTP and worker code with mocked Chrome storage/messaging and controlled HTTP |
+-| Chromium DOM/UI | 61 passed, 0 failed | 62 passed, 0 failed | Actual adapters, content script (status panel, pickers, cosmetics, mute/allow author), options and popup on representative HTML; mocked Chrome APIs, page locations and model responses |
+-| Unpacked extension smoke | 7 checks passed | 8 checks passed | The real `extension/` loaded into a local Chromium profile; demo page collapsed its promoted sample through the real content script; the loaded id now matches the manifest key |
+-| Release integrity | 8 checks passed | 9 checks passed | Version agreement, manifest bounds, source/output byte equality, packaged `build.json` agreement, no bridge or dynamic code |
++| Node tests | 146 passed, 0 failed | 164 passed, 0 failed | Actual policy, ad-evidence, author lists and Undo, topic rules, grouping helpers, thrift helpers, cosmetic model, recovery, vault, HTTP and worker code with mocked Chrome storage/messaging and controlled HTTP |
++| Chromium DOM/UI | 62 passed, 0 failed | 66 passed, 0 failed | Actual adapters, content script (status panel, pickers, cosmetics, author and topic mutes, grouping bar, thrift deferral), options and popup on representative HTML; mocked Chrome APIs, page locations and model responses |
++| Unpacked extension smoke | 8 checks passed | 8 checks passed | The real `extension/` loaded into a local Chromium profile; demo page collapsed its promoted sample through the real content script; loaded id matches the manifest key |
++| Release integrity | 9 checks passed | 9 checks passed | Version agreement, manifest bounds, source/output byte equality, packaged `build.json` agreement, no bridge or dynamic code |
+ | Real TypeSafe API | Not run | Not run | No user key was used |
+ | Signed-in X / Reddit / Wykop feed | Not run | Not run | No user accounts were accessed |
+ | Managed-profile installation | Not run | Not run | Enterprise policy was not altered |
+ 
+ Test browser: Chromium 151.0.7922.34, recorded in `evidence/browser-dom-tests.json`. Node 24.14.0.
+-Per-suite Node counts (TAP, `evidence/unit-tests.tap`): core 34, policy 34, worker 33, diagnostics 9, HTTP 12, incident replay 4, v3 features 20.
++Per-suite Node counts (TAP, `evidence/unit-tests.tap`): core 34, policy 34, worker 33, diagnostics 9, HTTP 12, incident replay 4, v3 features 20, v330 features 18.
+ 
+ ## Reproduce
+ 
+@@ -32,25 +32,27 @@
+ 
+ ## What the suites cover
+ 
+-`tests/core.test.mjs` covers the separated version constants, the structured ad-evidence contract (verified only with ownership, outer-post scope, a known marker and a rendered or metadata basis), legacy boolean flags downgraded to ambiguous, threshold boundaries, truthful rule names, the deterministic author-mute branch (precedence, observe-mode wrapping, keep-this-post winning, mutual exclusion and list bounds), the v4→v5 settings migration, the shuffled-answer API contract with preserved zeros and rejection of malformed values, cache identity including the detector, extraction and item-kind versions, redaction, the selector-safety subset and the vault — including the new backup validator, which accepts only complete sealed exports and rejects altered version, KDF or iteration metadata.
++`tests/core.test.mjs` covers the separated version constants, the structured ad-evidence contract (verified only with ownership, outer-post scope, a known marker and a rendered or metadata basis), legacy boolean flags downgraded to ambiguous, threshold boundaries, truthful rule names, the deterministic author-mute branch (precedence, observe-mode wrapping, keep-this-post winning, mutual exclusion and list bounds), stable author identity (`authorId` versus display-name-only records), the topic-rule model (sanitization, scope, expiry, active selection, the optional topic question and the topic-aware cache key), token grouping helpers (`tokenSignature`, `tokenSimilarity`), the v4→v5→v6 settings migration, the shuffled-answer API contract with preserved zeros and rejection of malformed values, cache identity including the detector, extraction and item-kind versions, redaction, the selector-safety subset and the vault — including the backup validator, which accepts only complete sealed exports and rejects altered version, KDF or iteration metadata.
+ 
+ `tests/policy-v21.test.mjs` maps one case to each of the 25 precision-first requirements and replays the six anonymous score vectors from the incident appendix (R1-R6), including the corrected `below_noise_thresholds` reason for R1/R2 and the lowered protection eligibility boundary. The 2.1.1 ad-evidence contracts (verified-only local collapse, legacy flags never hiding) remain in place.
+ 
+-`tests/worker.test.mjs` covers optional permissions, foreign senders, private routes, key lock/unlock, race cancellation, budgets, rate limits, malformed responses, restart behaviour, the bounded 150-entry history window with explicit dropped counts, verified local ads costing zero provider requests, legacy ad flags never hiding content, the muted-author round trip (mute hides with zero provider requests, unmute/allow clears the mute, `FG_FORGET_AUTHOR` clears both lists and the post needs the model again, and the lists stay mutually exclusive), the sealed key-backup round trip (export contains only the vault blob and never the key material, corrupted imports are rejected with `VAULT_ERROR`, a valid import restores the vault on a fresh install) and the update comparison (running version versus packaged `build.json`, no provider request, honest `null` state when the file is unreadable).
++`tests/worker.test.mjs` covers optional permissions, foreign senders, private routes, key lock/unlock, race cancellation, budgets, rate limits, malformed responses, restart behaviour, the bounded 150-entry history window with explicit dropped counts, verified local ads costing zero provider requests, legacy ad flags never hiding content, the muted-author round trip, the sealed key-backup round trip (export contains only the vault blob and never the key material, corrupted imports are rejected with `VAULT_ERROR`, a valid import restores the vault on a fresh install) and the update comparison (running version versus packaged `build.json`, no provider request, honest `null` state when the file is unreadable).
+ 
+-`tests/diagnostics-v21.test.mjs` checks privacy, the schema-7 envelope with the build fingerprint, the muted-author count and the `update` section, and that raw cosmetic selectors and muted author names never appear in a diagnostic export.
++`tests/diagnostics-v21.test.mjs` checks privacy, the schema-8 envelope with the build fingerprint, the muted-author and muted-topic counts and the `update` section, and that raw cosmetic selectors and muted author names never appear in a diagnostic export.
+ 
+ `tests/http.test.mjs` checks the fixed endpoint, header hygiene and every error mapping. `tests/incident.test.mjs` replays three real diagnostic exports (2.1.0 and 2.1.1 snapshots) as a frozen regression fixture; it skips with `INSUFFICIENT` when the fixtures are absent.
+ 
+-`tests/v3-features.test.mjs` covers the v3 control surface: selector-safety rejects (`body`, `#root`, `div:has(main)`, comma unions, overlength), cosmetic rule sanitization and host matching, legacy-CSS quarantine migration, HUD-mode migration, record kinds and kind-aware cache keys, the new error codes, the Wykop registry and conservative ad evidence, rule lifecycle (add/edit/disable/delete/undo/revalidate), bulk disable/delete, revision conflicts (`STALE_SETTINGS`), per-domain revision independence, recovery persist-first with bounded acknowledgement (including an unresponsive-tab worker), `FG_RELOAD_PAUSED` route guards, cosmetic event accounting, the site-status reason matrix, v4 export/import with quarantine of unverified imports, log-window accounting (`logDropped`) and cleanup tracking.
++`tests/v3-features.test.mjs` covers the v3 control surface: selector-safety rejects, cosmetic rule sanitization and host matching, legacy-CSS quarantine migration, HUD-mode migration, record kinds and kind-aware cache keys, the new error codes, the Wykop registry and conservative ad evidence, rule lifecycle, bulk disable/delete, revision conflicts (`STALE_SETTINGS`), per-domain revision independence, recovery persist-first with bounded acknowledgement, `FG_RELOAD_PAUSED` route guards, cosmetic event accounting, the site-status reason matrix, v4 export/import with quarantine of unverified imports, log-window accounting and cleanup tracking.
+ 
+-DOM scenarios cover the previous 61 cases plus the Updates panel flow (`UPDATE01`: the panel reports the running build, detects a newer on-disk `build.json`, offers the extensions page, and **Export key backup** downloads a `feedgate-key-backup` v1 blob with PBKDF2 metadata). The earlier cases include the status-panel author pickers (`PANEL01`), mute-from-card, the status panel modes (compact pill, expanded panel, genuinely hidden), hidden status never returning on its own while filtering continues, explicit reopen via settings, structural picker rejections (main column, FeedGate's own UI, aggregate sets), tall-card geometry warning instead of rejection, runtime quarantine of a previously safe selector that now matches a container, cosmetic/semantic ownership separation, the bounded breaker, re-injection keeping one controller and one status host, and the Wykop link/entry fixtures (Polish text, reply exclusion, `Poleca` note never a verified ad, auth routes private). Screenshots of the real built UI are stored in `evidence/` (`hud-compact.png`, `hud-expanded.png`, `hud-hidden.png`, `picker-preview.png`, `picker-rejected-root.png`, `wykop-fixture.png`, `update-panel.png`, options pages, popup, setup completion, diagnostics, test feed).
++`tests/v330-features.test.mjs` covers the 3.3 additions end to end at the worker level: concurrent `FG_MUTE_AUTHOR` calls for two authors both persist and sequential decisions keep the last write (A1); Undo restores the exact previous state — neutral, muted or allowed — an outdated Undo with a mismatched applied state returns `{saved:false,stale:true}` and changes nothing, and undoing one author never blocks another (A2); display-name-only records never match the author lists while `authorId` records do, and two accounts with the same display name keep distinct keys (A3); adding a topic through the content-callable message collapses a matching post with rule `topic_muted` and source `topic`, a passing mention stays visible, an expired topic stays visible, **Keep this post** wins, deleting or updating a topic restores content and invalidates the cache (B5); the token helpers treat reordered duplicates as one signature and score near-duplicates above unrelated text (B6); and the counters stay honest — a cached repeat costs one provider request, the daily budget survives a worker restart, and topic operations spend no provider requests (B7).
++
++DOM scenarios cover the previous 62 cases plus `TOPIC01` (the status panel's **Mute topic…** picker with editable name, scope and duration, the saved topic visible in settings state and the "Your muted topic" card), `GROUP01` (two identical posts fold behind a group bar reading "more similar post", the duplicate restores on demand), `USAGE01` (the API usage panel shows the daily badge and counters, and cost appears only after rates are configured, labelled an estimate) and `THRIFT01` (fast scrolling starts no provider request; the deferred post is analyzed once scrolling settles). The earlier cases include `UPDATE01`, the status-panel author pickers (`PANEL01`), mute-from-card, the status panel modes, hidden status never returning on its own while filtering continues, structural picker rejections, tall-card geometry warning instead of rejection, runtime quarantine, cosmetic/semantic ownership separation, the bounded breaker, re-injection keeping one controller, and the Wykop fixtures. Screenshots of the real built UI are stored in `evidence/` (`hud-compact.png`, `hud-expanded.png`, `hud-hidden.png`, `picker-preview.png`, `picker-rejected-root.png`, `wykop-fixture.png`, `update-panel.png`, `topic-mute.png`, `grouping.png`, options pages, popup, setup completion, diagnostics, test feed).
+ 
+ The extension smoke test loads the real `extension/` folder into a local Chromium profile, waits for the service worker, reads the release version, verifies that the loaded extension id matches the id derived from the manifest key, opens the demo feed and verifies that a card names the verified platform label, plus no localhost traffic, no page errors and no worker errors.
+ 
+ ## Fixture provenance
+ 
+-All adapter, policy, cosmetic and Wykop fixtures are synthetic HTML and assigned scores. Provider responses are controlled implementations, not captured traffic. Wykop selectors were reviewed against unauthenticated public pages captured on 2026-09-18 (provenance recorded in `docs/WYKOP_SUPPORT.md`); no live Wykop account or promotion state was observed. `tests/fixtures/incident/` contains three real diagnostic exports supplied by the owner (two 2.1.0 schema-3, one 2.1.1 schema-4); by schema design they contain no post text, authors, keys or full URLs, and they are used only for count replay, never as accuracy labels. Screenshots with `fixture` in the name show synthetic harness state, not live provider results.
++All adapter, policy, cosmetic, topic, grouping and Wykop fixtures are synthetic HTML and assigned scores. Provider responses are controlled implementations, not captured traffic. The `TOPIC_FIXTURE` marker is a synthetic way to drive one question to a high value; it is not a claim about model behaviour. Wykop selectors were reviewed against unauthenticated public pages captured on 2026-09-18 (provenance recorded in `docs/WYKOP_SUPPORT.md`); no live Wykop account or promotion state was observed. `tests/fixtures/incident/` contains three real diagnostic exports supplied by the owner (two 2.1.0 schema-3, one 2.1.1 schema-4); by schema design they contain no post text, authors, keys or full URLs, and they are used only for count replay, never as accuracy labels. Screenshots with `fixture` in the name show synthetic harness state, not live provider results.
+ 
+ ## Required manual pilot
+ 
+@@ -64,12 +66,16 @@
+ 6. Use **Pick element** on a sidebar-sized element and confirm the preview states scope and match count before anything is saved; cancel with Escape and confirm nothing was saved.
+ 7. Use **Restore this site** from the popup and confirm the pause survives a reload of the tab; resume when ready.
+ 8. Leave a tab open, reload the extension, and confirm the tab shows the reload prompt instead of silently mixing schemas.
+-9. Export diagnostics and verify `build.release` is `3.2.0`, `build.detector` is `ad-3.0.0` and the export contains no raw cosmetic selectors.
++9. Export diagnostics and verify `build.release` is `3.3.0`, `build.detector` is `ad-3.0.0`, `build.schema` is `8` and the export contains no raw cosmetic selectors.
+ 10. On Wykop, confirm link cards and Mikroblog entries are classified separately, that comments are never extracted, and that an old "Wykop Poleca" note never produces a platform-ad collapse.
+ 11. Mute an author from a filter card, confirm the other posts from that author hide without new provider requests in Diagnostics, then unmute in Settings → Muted authors and confirm they return.
+-12. Expand the status panel, use **Mute author…**, click a visible post: confirm the preview names the author, saving hides their posts with no new provider request, and **Undo** in the toast brings them back.
+-13. Open **06 Updates**, press **Check files on disk**, and confirm the panel reports the running build against the packaged `build.json`. Export a key backup, replace the `extension/` files with a newer release, press **Reload** on `chrome://extensions` (never Remove), and confirm the settings and vault still unlock afterwards and the panel turns back to up to date.
++12. Expand the status panel, use **Mute author…**, click a visible post: confirm the preview names the author, saving hides their posts with no new provider request, and **Undo** in the toast brings them back; then confirm **Undo** after **Allow author** restores the previous state as well.
++13. Expand the status panel, use **Mute topic…**, pick a post with a clear subject, edit the name, choose duration 24 hours, and confirm saving hides the matching post with a "Your muted topic" card while a post that only mentions the words stays visible; open Settings → Muted topics and confirm the scope and expiry, then delete the topic and confirm the post returns.
++14. Enable **Group repeated posts** in the policy form, open a feed page that contains duplicates, and confirm the first copy stays while the later copies fold behind the "more similar post" control and can be read on demand; disable the option and confirm everything is visible again.
++15. Enable **Thrift mode** with the default pause, scroll quickly through the feed, and confirm no new provider requests are started while scrolling in Diagnostics; stop scrolling briefly on a visible post and confirm it is analyzed after the pause.
++16. Open the Review page and confirm the API usage panel shows the used/remaining daily requests with the 00:00 UTC reset in local time, attempts, analyses, cache hits, errors, cancellations, unaccounted attempts and token totals; leave the rates empty and confirm the cost line says it is not calculated, then enter your own rates and confirm the estimate appears with the "estimate" wording.
++17. Open **06 Updates**, press **Check files on disk**, and confirm the panel reports the running build against the packaged `build.json`; the stable identity means no key re-entry is needed across releases.
+ 
+ ## Live validation status
+ 
+-**INSUFFICIENT.** No real TypeSafe key was used, no signed-in feed was evaluated and no labelled live corpus exists for this build. The ad detector is verified against synthetic fixtures that follow documented platform markup, not against current live X, Reddit or Wykop DOM. The Wykop support is a beta surface reviewed against public HTML captures, not against a live account. The unpacked-extension smoke test loaded the real build in a local Chromium profile, but managed installation and in-place upgrade of a long-lived profile remain untested here. Do not claim a measured false-positive or false-negative rate from these results.
++**INSUFFICIENT.** No real TypeSafe key was used, no signed-in feed was evaluated and no labelled live corpus exists for this build. The ad detector and the new topic, grouping and thrift features are verified against synthetic fixtures and assigned scores, not against live model output; a high topic score in the tests is a controlled implementation, not evidence of semantic accuracy. The Wykop support is a beta surface reviewed against public HTML captures, not against a live account. The unpacked-extension smoke test loaded the real build in a local Chromium profile, but managed installation and in-place upgrade of a long-lived profile remain untested here. Do not claim a measured false-positive or false-negative rate from these results.
+--- a/docs/UPDATES.md
++++ b/docs/UPDATES.md
+@@ -56,6 +56,15 @@
+ * A backup only helps on the identity it came from. Moving between different
+   extension ids needs the API key entered once (see the transition note below).
+ 
++## 3.3.0 quick note
++
++The update flow is unchanged: same folder, Reload, never Remove. Because 3.3.0
++keeps the stable identity introduced in 3.2.0, the vault, settings, author lists
++and topic mutes carry over automatically — no key re-entry. Settings migrate to
++schema 6, and the new optional features (topic mutes, repeat grouping, thrift
++mode) start switched off until you enable them. After the reload, the 06 Updates
++panel reads 3.3.0.
++
+ ## One-time transition (any pre-3.2.0 build → 3.2.0)
+ 
+ Builds before 3.2.0 derived the id from the folder path, so the first 3.2.0 load
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "feedgate",
+-  "version": "3.2.0",
++  "version": "3.3.0",
+   "private": true,
+   "description": "A zero-dependency Chrome feed filter with safe cosmetic controls, per-site recovery, a hideable status panel and Wykop support on a precision-first TypeSafe Jev policy.",
+   "type": "module",
+--- a/scripts/release-check.mjs
++++ b/scripts/release-check.mjs
+@@ -10,7 +10,7 @@
+ const manifest=JSON.parse(await read('extension/manifest.json'));
+ const pkg=JSON.parse(await read('package.json'));const checks=[];
+ function check(name,fn){fn();checks.push({name,passed:true});}
+-check('Single 3.2.0 version',()=>{assert.equal(pkg.version,'3.2.0');assert.equal(manifest.version,pkg.version);assert.equal(globalThis.FeedGateCore.VERSION,pkg.version);});
++check('Single 3.3.0 version',()=>{assert.equal(pkg.version,'3.3.0');assert.equal(manifest.version,pkg.version);assert.equal(globalThis.FeedGateCore.VERSION,pkg.version);});
+ check('Manifest V3 and module worker',()=>{assert.equal(manifest.manifest_version,3);assert.equal(manifest.background.type,'module');assert.equal(manifest.background.service_worker,'background.js');});
+ check('Limited permissions and fixed provider host',()=>{assert.deepEqual(manifest.permissions,['storage','scripting','activeTab']);assert.deepEqual(manifest.host_permissions,['https://api.typesafe.ai/*']);assert.ok(!JSON.stringify(manifest).includes('<all_urls>'));assert.ok(manifest.optional_host_permissions.includes('https://wykop.pl/*')&&manifest.optional_host_permissions.includes('https://*.wykop.pl/*'));assert.equal(manifest.incognito,'not_allowed');assert.ok(!manifest.externally_connectable);});
+ const required=['manifest.json',manifest.background.service_worker,manifest.action.default_popup,manifest.options_ui.page,...Object.values(manifest.icons)];
+--- a/src/adapters.js
++++ b/src/adapters.js
+@@ -26,6 +26,46 @@
+   }
+   function privateElement(el) {
+     return !!el.closest('[contenteditable],[role="dialog"],[data-testid="DMDrawer"],[data-testid="DmActivityViewport"],.msg-overlay-conversation-bubble,[aria-label="Chat"],[aria-label="Messenger"]');
++  }
++  // Stable, canonical account identity taken from profile links already present in the post.
++  // Sites that only expose a display name return '' and are reported as name-only records;
++  // they never match author lists, so two accounts sharing a name are not conflated.
++  const PROFILE_SEGMENTS=new Set(['p','reel','reels','explore','stories','accounts','posts','photo','photos','watch','groups','permalink.php','profile.php','feed','update','video','videos','stories']);
++  function canonicalSlug(pathname) {
++    const seg=(pathname||'').split('/').filter(Boolean);
++    if (!seg.length) return '';
++    const last=seg[seg.length-1]||''; const value=seg.length>1?last:seg[0];
++    if (!value || PROFILE_SEGMENTS.has(value.toLowerCase())) return '';
++    if (!/^[a-zA-Z0-9._-]{2,80}$/.test(value)) return '';
++    return value;
++  }
++  function stableAuthorId(el, site) {
++    try {
++      if (site==='linkedin') {
++        const a=el.querySelector('a[href*="/in/"], a[href*="/company/"]');
++        if (!a) return '';
++        const p=new URL(a.getAttribute('href'),location.href).pathname;
++        const kind=/\/company\//.test(p)?'company':'in';
++        const slug=canonicalSlug(p.replace(/\/(in|company)\//,'/'));
++        return slug?kind+':'+slug:'';
++      }
++      if (site==='facebook') {
++        const byId=el.querySelector('a[href*="profile.php?id="]');
++        if (byId) {
++          const id=new URL(byId.getAttribute('href'),location.href).searchParams.get('id');
++          if (id && /^[0-9]{5,30}$/.test(id)) return 'profile:'+id;
++        }
++        const a=el.querySelector('h2 a[href], h3 a[href], h4 a[href], header a[href]');
++        const slug=a?canonicalSlug(new URL(a.getAttribute('href'),location.href).pathname):'';
++        return slug?'user:'+slug:'';
++      }
++      if (site==='instagram') {
++        const a=el.querySelector('header a[href]');
++        const slug=a?canonicalSlug(new URL(a.getAttribute('href'),location.href).pathname):'';
++        return slug?'user:'+slug:'';
++      }
++    } catch {}
++    return '';
+   }
+   function collect(root,site) {
+     const spec=SPECS[site];
+@@ -230,6 +270,7 @@
+     if (site==='reddit' && authorElement) {
+       try {const p=new URL(authorElement.getAttribute('href'),location.href).pathname.match(/\/user\/([^/]+)/);if(p)author='u/'+p[1];} catch {}
+     }
++    const authorId=['linkedin','facebook','instagram'].includes(site)?stableAuthorId(el,site):'';
+     const mediaAlt=[...el.querySelectorAll('img[alt]')].filter(n=>!n.closest('[data-testid="Tweet-User-Avatar"], header, [role="dialog"]')).slice(0,8).map(n=>C.text(n.alt,250)).filter(t=>t&&!/^(image|avatar|profile photo|profile picture)$/i.test(t)).join('; ');
+     const linkDomains=[];
+     for (const a of [...el.querySelectorAll('a[href]')].slice(0,30)) {
+@@ -239,8 +280,8 @@
+     text=C.text(text,6000);
+     const adEvidence=detectAdEvidence(el,site);
+     // A text-derived local ID handles roots with no stable permalink. It is not sent to TypeSafe.
+-    if (!id) id=`text:${C.text(author,80)}:${text.slice(0,160)}:${mediaAlt.slice(0,40)}`;
+-    return C.sanitizeRecord({id,author,text,mediaAlt,quotedText,truncated,context:C.pageContext(location.href),adEvidence,linkDomains},site);
++    if (!id) id=`text:${C.text(authorId||author,80)}:${text.slice(0,160)}:${mediaAlt.slice(0,40)}`;
++    return C.sanitizeRecord({id,author,authorId,text,mediaAlt,quotedText,truncated,context:C.pageContext(location.href),adEvidence,linkDomains},site);
+   }
+   globalThis.FeedGateAdapters=Object.freeze({SPECS,collect,extract,safeText,privateElement,detectAdEvidence});
+ })();
+--- a/src/background.js
++++ b/src/background.js
+@@ -133,8 +133,11 @@
+     if (current !== null && current !== (settings.revisions[target]||0)) throw new Error('STALE_SETTINGS');
+     const revisions = {...settings.revisions};
+     revisions[target] = (revisions[target]||0)+1;
+-    const base = {...settings,...patch,revisions};
+-    if (C.object(patch.categories)) base.categories = {...settings.categories,...patch.categories};
++    // A patch may be a function so list changes read-modify-write atomically
++    // inside this queue instead of from a pre-queue snapshot.
++    const materialized = typeof patch === 'function' ? patch(C.clone(settings)) : patch;
++    const base = {...settings,...materialized,revisions};
++    if (C.object(materialized.categories)) base.categories = {...settings.categories,...materialized.categories};
+     const next = C.sanitizeSettings(base);
+     for (const site of next.sites) {
+       if (!await chrome.permissions.contains({origins:C.originsForSite(site)})) throw new Error('FORBIDDEN');
+@@ -154,6 +157,7 @@
+   const value = C.clone(settings);
+   value.allowedAuthors = value.allowedAuthors.filter(a=>a.startsWith(site+':'));
+   value.blockedAuthors = value.blockedAuthors.filter(a=>a.startsWith(site+':'));
++  value.topics = value.topics.filter(t=>t.scope==='all'||t.site===site);
+   // appVersion lets a content script detect a reloaded worker with new schemas.
+   return {settings:value,keyReady:!!apiKey && !authRejected,revision,appVersion:C.VERSION,
+     recoveryPaused:settings.recoverySites.includes(site),cleanupRequired:cleanupSites.includes(site)};
+@@ -398,7 +402,8 @@
+     privacy:'No keys, vault ciphertext, post text, author names, post hashes, full URLs, custom rule text, raw cosmetic selectors or browser history included. Cosmetic rules appear as random local rule references only.',
+     connection:{transport:'direct TypeSafe HTTPS',model:settings.model,keyReady:s.keyReady,authRejected,verifiedAt,
+       hasEncryptedVault:s.hasVault,cooldownUntil},
+-    ui:{hudMode:settings.hudMode,feedsOpen:settings.feedsOpen,engineEnabled:settings.enabled,preset:settings.preset,mode:settings.mode},
++    ui:{hudMode:settings.hudMode,feedsOpen:settings.feedsOpen,engineEnabled:settings.enabled,preset:settings.preset,mode:settings.mode,
++      grouping:settings.grouping,thrift:settings.thrift,thriftDelayMs:settings.thriftDelayMs},
+     sites:s.siteStates,
+     cosmetic:{enabled:settings.cosmeticEnabled,...cosmeticCounts(),applications:metrics.cosmeticApplied,
+       restorations:metrics.cosmeticRestored,rejections:metrics.cosmeticRejected,breakerActivations:metrics.breakerActivations},
+@@ -418,7 +423,7 @@
+       categories:settings.categories,concurrency:settings.concurrency,dailyLimit:settings.dailyLimit,cacheMinutes:settings.cacheMinutes,
+       hasCustomRule:!!settings.customInstruction,cosmeticEnabled:settings.cosmeticEnabled,recoverySites:[...settings.recoverySites],
+       allowedAuthorCount:settings.allowedAuthors.length,savedPostChoices:keptPosts.size,
+-      mutedAuthorCount:settings.blockedAuthors.length},
++      mutedAuthorCount:settings.blockedAuthors.length,mutedTopicCount:settings.topics.length},
+     metrics:C.clone(metrics),daily:s.daily,queue:queue.length,active,cached:cache.size,
+     permissions:{permissions:permissions.permissions||[],origins:permissions.origins||[]},
+     pages:reports.filter(p=>now-(Number(p.updatedAt)||0)<86400000),
+@@ -470,35 +475,49 @@
+     await chrome.runtime.openOptionsPage();return {opened:true};
+   }
+   if (message.type==='FG_CLASSIFY') return classify(message.record,sender,trusted);
+-  if (message.type==='FG_ALLOW_AUTHOR') {
++  if (message.type==='FG_ALLOW_AUTHOR'||message.type==='FG_MUTE_AUTHOR'||message.type==='FG_FORGET_AUTHOR') {
+     const site = trusted ? message.site : await validateContentSender(sender);
+     const key = C.authorKey(site,message.author);
+     if (!key) throw new Error('INVALID_RECORD');
+-    await saveSettings({
+-      allowedAuthors:[...settings.allowedAuthors.filter(a=>a!==key),key],
+-      blockedAuthors:settings.blockedAuthors.filter(a=>a!==key),
++    let previous = 'none';
++    const saved = await saveSettings((current)=>{
++      const hadBlocked = current.blockedAuthors.includes(key);
++      const hadAllowed = current.allowedAuthors.includes(key);
++      previous = hadBlocked ? 'blocked' : (hadAllowed ? 'allowed' : 'none');
++      if (message.type==='FG_ALLOW_AUTHOR') return {
++        allowedAuthors:[...current.allowedAuthors.filter(a=>a!==key),key],
++        blockedAuthors:current.blockedAuthors.filter(a=>a!==key),
++      };
++      if (message.type==='FG_MUTE_AUTHOR') return {
++        blockedAuthors:[...current.blockedAuthors.filter(a=>a!==key),key],
++        allowedAuthors:current.allowedAuthors.filter(a=>a!==key),
++      };
++      return {
++        allowedAuthors:current.allowedAuthors.filter(a=>a!==key),
++        blockedAuthors:current.blockedAuthors.filter(a=>a!==key),
++      };
+     });
+-    return {saved:true};
+-  }
+-  if (message.type==='FG_MUTE_AUTHOR') {
++    const applied = message.type==='FG_ALLOW_AUTHOR' ? 'allowed' : (message.type==='FG_MUTE_AUTHOR' ? 'blocked' : 'none');
++    return {saved:true,key,previous,applied,revision:saved.revisions.settings};
++  }
++  if (message.type==='FG_AUTHOR_UNDO') {
+     const site = trusted ? message.site : await validateContentSender(sender);
+     const key = C.authorKey(site,message.author);
+     if (!key) throw new Error('INVALID_RECORD');
+-    await saveSettings({
+-      blockedAuthors:[...settings.blockedAuthors.filter(a=>a!==key),key],
+-      allowedAuthors:settings.allowedAuthors.filter(a=>a!==key),
++    const previous = ['none','blocked','allowed'].includes(message.previous) ? message.previous : 'none';
++    const applied = message.applied==='allowed' ? 'allowed' : 'blocked';
++    let stale = false;
++    await saveSettings((current)=>{
++      const stateOf = current.blockedAuthors.includes(key) ? 'blocked' : (current.allowedAuthors.includes(key) ? 'allowed' : 'none');
++      // An old undo must never overwrite a newer decision for the same author.
++      if (stateOf !== applied) { stale = true; return {}; }
++      const allowedAuthors = current.allowedAuthors.filter(a=>a!==key);
++      const blockedAuthors = current.blockedAuthors.filter(a=>a!==key);
++      if (previous==='allowed') allowedAuthors.push(key);
++      if (previous==='blocked') blockedAuthors.push(key);
++      return {allowedAuthors,blockedAuthors};
+     });
+-    return {saved:true};
+-  }
+-  if (message.type==='FG_FORGET_AUTHOR') {
+-    const site = trusted ? message.site : await validateContentSender(sender);
+-    const key = C.authorKey(site,message.author);
+-    if (!key) throw new Error('INVALID_RECORD');
+-    await saveSettings({
+-      allowedAuthors:settings.allowedAuthors.filter(a=>a!==key),
+-      blockedAuthors:settings.blockedAuthors.filter(a=>a!==key),
+-    });
+-    return {saved:true};
++    return {saved:!stale,stale,key,state:applied};
+   }
+   if (message.type==='FG_ADD_RULE') {
+     const site = await validateContentSender(sender);
+@@ -606,11 +625,69 @@
+     await saveSettings({cosmeticFilters:{...settings.cosmeticFilters,rules}},'cosmetic',message.expect);
+     return {status:'active',reason:'revalidated_with_target'};
+   }
++  if (message.type==='FG_TOPIC_ADD') {
++    const site = trusted ? C.text(message.topic && message.topic.site,40) : await validateContentSender(sender);
++    const raw = message.topic && C.object(message.topic) ? message.topic : {};
++    const candidate = {
++      id: typeof raw.id==='string' ? raw.id : 't-'+(globalThis.crypto && globalThis.crypto.randomUUID ? globalThis.crypto.randomUUID() : Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10)),
++      label: raw.label,
++      scope: raw.scope==='all' ? 'all' : 'site',
++      site,
++      until: raw.until,
++      createdAt: C.finite(raw.createdAt) || Date.now(),
++    };
++    const clean = C.sanitizeTopics([candidate])[0];
++    if (!clean) throw new Error('INVALID_RECORD');
++    let created = false;
++    let savedTopic = clean;
++    const saved = await saveSettings((current)=>{
++      const existing = current.topics.find(t=>t.id===clean.id);
++      if (existing) { savedTopic = existing; return {topics:current.topics}; }
++      if (current.topics.length >= C.TOPICS_MAX) throw new Error('TOPIC_LIMIT');
++      created = true;
++      return {topics:[...current.topics,clean]};
++    });
++    return {saved:true,created,topic:savedTopic,revision:saved.revisions.settings};
++  }
++  if (message.type==='FG_TOPIC_DELETE') {
++    let removed = null;
++    const saved = await saveSettings((current)=>{
++      const found = current.topics.find(t=>t.id===message.id);
++      if (!found) throw new Error('TOPIC_NOT_FOUND');
++      removed = found;
++      return {topics:current.topics.filter(t=>t.id!==message.id)};
++    });
++    return {saved:true,topic:removed,revision:saved.revisions.settings};
++  }
+   if (!trusted) throw new Error('FORBIDDEN');
+   switch(message.type) {
+     case 'FG_STATUS': return status();
+     case 'FG_DIAGNOSTICS': return diagnostics();
+     case 'FG_PATCH_SETTINGS': return {settings:await saveSettings(C.object(message.patch)?message.patch:{},typeof message.domain==='string'?message.domain:'settings',message.expect)};
++    case 'FG_TOPIC_UPDATE': {
++      const patch = message.patch && C.object(message.patch) ? message.patch : {};
++      let updated = null;
++      const saved = await saveSettings((current)=>{
++        const index = current.topics.findIndex(t=>t.id===message.id);
++        if (index < 0) throw new Error('TOPIC_NOT_FOUND');
++        const existing = current.topics[index];
++        const merged = {
++          id: existing.id,
++          label: patch.label!==undefined ? C.text(patch.label,C.TOPIC_LABEL_MAX) : existing.label,
++          scope: patch.scope!==undefined ? (patch.scope==='all'?'all':'site') : existing.scope,
++          site: patch.site!==undefined ? C.text(patch.site,40) : existing.site,
++          until: patch.until!==undefined ? (C.finite(patch.until)>0?Math.round(patch.until):0) : existing.until,
++          createdAt: existing.createdAt,
++        };
++        const clean = C.sanitizeTopics([merged])[0];
++        if (!clean) throw new Error('INVALID_RECORD');
++        const topics = current.topics.slice();
++        topics[index] = clean;
++        updated = clean;
++        return {topics};
++      });
++      return {saved:true,topic:updated,revision:saved.revisions.settings};
++    }
+     case 'FG_SET_KEY': {
+       const stamp = ++credentialEpoch;
+       const key = typeof message.key==='string'?message.key.trim():'';
+@@ -735,7 +812,7 @@
+     }
+     case 'FG_IMPORT_SETTINGS': {
+       const version = message.data&&C.finite(message.data.version);
+-      if (!C.object(message.data)||message.data.format!=='feedgate-settings'||![5,4,3,2].includes(version===null?NaN:version)) throw new Error('INVALID_RECORD');
++      if (!C.object(message.data)||message.data.format!=='feedgate-settings'||![6,5,4,3,2].includes(version===null?NaN:version)) throw new Error('INVALID_RECORD');
+       // Older exports are migrated safely: thresholds never map promotion onto unwanted advertising,
+       // and legacy selector lines arrive quarantined for review.
+       const imported=C.migrateSettings(message.data.settings);
+--- a/src/content.js
++++ b/src/content.js
+@@ -25,8 +25,10 @@
+   const cosmetic={applied:0,restored:0,rejected:0};
+   const states=new Map(),roots=new Set();
+   let lastError=null;
++let lastScrollAt=Date.now(),thriftTimer=null;
++const groupsExpanded=new Set();
+   const INTERNAL_MARKER='feedgate-internal-element';
+-  const own=n=>n instanceof Element && (n.matches('feedgate-card,feedgate-status,feedgate-toast,[data-fg-ui]')||!!n.closest('feedgate-card,feedgate-status,feedgate-toast,[data-fg-ui]'));
++  const own=n=>n instanceof Element && (n.matches('feedgate-card,feedgate-status,feedgate-toast,feedgate-group,[data-fg-ui]')||!!n.closest('feedgate-card,feedgate-status,feedgate-toast,feedgate-group,[data-fg-ui]'));
+   async function send(type,data={}) {
+     const response=await chrome.runtime.sendMessage({type,...data});
+     if (!response?.ok) throw new Error(response?.error?.code||'INTERNAL_ERROR');
+@@ -75,6 +77,7 @@
+       else if(decision.action==='dim')action='dim';
+     }
+     if(state.cosmetic?.size&&Date.now()>=cosmeticPause)action='collapse';
++    if(action==='allow'&&state.groupHidden&&settings.grouping)action='collapse';
+     return action;
+   }
+   function applyAction(state,action) {
+@@ -141,7 +144,7 @@
+       state:pageState(),hudMode:settings.hudMode,hudPresent:!!hud,controllerCount:1,
+       cosmeticApplied:cosmetic.applied,cosmeticRestored:cosmetic.restored,cosmeticRejected:cosmetic.rejected,
+       breakerActivations:breakerTrips,scansCoalesced,ignoredSelfMutations,noopApplications,
+-      cosmeticHidden,recoveryPaused,heartbeatAt:Date.now()};
++      cosmeticHidden,grouped:[...states.values()].filter(s=>s.groupHidden).length,deferred:[...states.values()].filter(s=>s.deferred).length,recoveryPaused,heartbeatAt:Date.now()};
+   }
+   function hudLabel(s) {
+     const labels={ready:settings.mode==='observe'?'Observe only':'Running',paused:'Paused',locked:'Key locked: open settings',
+@@ -170,14 +173,14 @@
+     if(settings.hudMode==='compact'&&s.state!=='recovery') {
+       hudRoot.textContent='';
+       const pill=make('button',`● FeedGate · ${label} · ${s.collapsed+s.dimmed+(s.cosmeticHidden||0)} filtered`,'pill');
+-      pill.title='FeedGate 3.2.0 status. Open the panel.';
++      pill.title='FeedGate 3.3.0 status. Open the panel.';
+       pill.addEventListener('click',ev=>{if(ev.isTrusted)persistHudMode('expanded');});
+       hudRoot.append(pill);
+       return;
+     }
+     hudRoot.textContent='';
+     const panel=make('div',undefined,'panel'),header=make('header');
+-    const title=make('strong','FeedGate 3.2.0');
++    const title=make('strong','FeedGate 3.3.0');
+     const minimize=make('button','–');minimize.title='Minimize to a small status pill';
+     const close=make('button','×');close.title='Hide status. Filtering continues.';
+     minimize.addEventListener('click',ev=>{if(ev.isTrusted)persistHudMode('compact');});
+@@ -204,13 +207,15 @@
+       });
+       const pick=make('button','Pick element');
+       pick.addEventListener('click',ev=>{if(ev.isTrusted)startPicker();});
++      const topicPick=make('button','Mute topic…');topicPick.title='Click a post on the page to mute its topic for a chosen time.';
++      topicPick.addEventListener('click',ev=>{if(ev.isTrusted)startTopicPicker();});
+       const mutePick=make('button','Mute author…');mutePick.title='Click a post on the page to hide everything from its author.';
+       mutePick.addEventListener('click',ev=>{if(ev.isTrusted)startAuthorPicker('mute');});
+       const allowPick=make('button','Allow author…');allowPick.title='Click a post on the page to keep everything from its author visible.';
+       allowPick.addEventListener('click',ev=>{if(ev.isTrusted)startAuthorPicker('allow');});
+       const open=make('button','Settings');
+       open.addEventListener('click',ev=>{if(ev.isTrusted)send('FG_OPEN_SETTINGS_FROM_PAGE').catch(()=>{});});
+-      actions.append(showAll,pause,pick,mutePick,allowPick,open);
++      actions.append(showAll,pause,pick,topicPick,mutePick,allowPick,open);
+     }
+     panel.append(actions);
+     panel.append(make('div','Hiding this panel does not pause filtering.','hint'));
+@@ -227,12 +232,14 @@
+   function removeCard(state) {
+     state.placeholder?.remove();state.placeholder=null;state.cardSignature=null;
+   }
+-  function cardNote(decision,cosmeticOwned) {
++  function cardNote(decision,cosmeticOwned,groupHidden) {
+     if(cosmeticOwned)return 'User cosmetic rule: Hidden by your cosmetic filter';
++    if(groupHidden)return 'Similar content: grouped with an earlier post';
+     if(settings.mode==='observe'&&decision.wouldAction)return `Observe Only: Would ${decision.wouldAction==='collapse'?'hide':'dim'}; content left unchanged`;
+     if(decision.source==='cosmetic')return 'User cosmetic rule: Hidden by your cosmetic filter';
+     if(decision.source==='local')return 'Verified platform placement: Platform-labelled ad';
+     if(decision.source==='author')return 'Your mute list: Hidden by your request';
++    if(decision.source==='topic')return 'Your muted topic: '+decision.reason;
+     const label=C.CATEGORIES?.[decision.category]?.label||(decision.rule==='manipulative_bait'?'Manipulative engagement bait':'Filtered by policy');
+     return 'Semantic filter: '+label;
+   }
+@@ -242,7 +249,7 @@
+     const cosmeticOwned=action!=='allow'&&(state.cosmetic?.size||0)>0;
+     const show=action!=='allow'||observeNote;
+     if(!show||!state.el.isConnected){removeCard(state);return;}
+-    const signature=`${action}|${decision.source}|${decision.rule}|${decision.category}|${observeNote?'o':''}|${state.cosmetic?.size||0}|${state.revealed?'r':''}|${cosmeticOwned?'c':''}`;
++    const signature=`${action}|${decision.source}|${decision.rule}|${decision.category}|${observeNote?'o':''}|${state.cosmetic?.size||0}|${state.revealed?'r':''}|${cosmeticOwned?'c':''}${state.groupHidden?'g':''}`;
+     if(state.cardSignature===signature&&state.placeholder?.isConnected)return;
+     removeCard(state);
+     const el=state.el;
+@@ -252,7 +259,7 @@
+     const style=make('style');
+     style.textContent=`:host{all:initial;display:block;color-scheme:light dark}*{box-sizing:border-box}.card{margin:7px 0;padding:11px 14px;border:1px solid #b8c5b7;border-left:3px solid #6f8e60;border-radius:7px;background:#f1f3ed;color:#20291f;font:12px/1.5 system-ui,sans-serif}.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.mark{font-weight:800;letter-spacing:.04em}.note{flex:1;min-width:120px;color:#50604c}button{font:inherit;font-weight:650;color:#223020;background:#fff;border:1px solid #c6cec1;border-radius:5px;padding:4px 9px;cursor:pointer}button:hover{background:#e2ebd9}button:focus-visible{outline:2px solid #40712b;outline-offset:2px}.details{margin-top:9px;border-top:1px solid #d2dbcb;padding-top:8px}.details[hidden]{display:none}.score{display:flex;gap:8px;justify-content:space-between}.small{font-size:11px;color:#596b52;margin-top:6px}@media(prefers-color-scheme:dark){.card{background:#18211b;color:#e5eddc;border-color:#425040}.note,.small{color:#abbda2}button{background:#263327;color:#e4efd9;border-color:#455a43}button:hover{background:#354833}}`;
+     const card=make('div',undefined,'card'),row=make('div',undefined,'row');
+-    row.append(make('span','FeedGate','mark'),make('span',cardNote(decision,cosmeticOwned),'note'));
++    row.append(make('span','FeedGate','mark'),make('span',cardNote(decision,cosmeticOwned,state.groupHidden),'note'));
+     const showBtn=make('button','Show'),why=make('button','Why?');
+     const details=make('div',undefined,'details');details.hidden=true;
+     details.append(make('div',decision.reason||'Filtered.'));
+@@ -279,17 +286,24 @@
+     showBtn.addEventListener('click',ev=>{if(!ev.isTrusted)return;state.revealed=true;applyAction(state,'allow');removeCard(state);report();});
+     why.addEventListener('click',ev=>{if(!ev.isTrusted)return;details.hidden=!details.hidden;});
+     row.append(showBtn,why);
+-    if(state.record?.author&&!demo&&!cosmeticOwned&&decision.source!=='cosmetic'){
++    if(state.record?.author&&!demo&&!cosmeticOwned&&decision.source!=='cosmetic'&&!state.record.authorNameOnly){
++      const identity=state.record.authorId||state.record.author;
+       const allow=make('button','Allow author');
+       allow.addEventListener('click',async ev=>{
+         if(!ev.isTrusted)return;allow.disabled=true;
+-        try{await send('FG_ALLOW_AUTHOR',{author:state.record.author});showToast('Author allowed on this site. Their posts stay visible here.');}
++        try{
++          const result=await send('FG_ALLOW_AUTHOR',{author:identity});
++          showToast('Author allowed on this site. Their posts stay visible here.',{authorUndo:{author:identity,previous:result?.previous,applied:result?.applied}});
++        }
+         catch(error){details.hidden=false;details.append(make('div',C.userError(error).message));allow.disabled=false;}
+       });row.append(allow);
+       const mute=make('button','Mute author');
+       mute.addEventListener('click',async ev=>{
+         if(!ev.isTrusted)return;mute.disabled=true;
+-        try{await send('FG_MUTE_AUTHOR',{author:state.record.author});showToast('Author muted on this site. This is a local list; manage it in FeedGate settings.');}
++        try{
++          const result=await send('FG_MUTE_AUTHOR',{author:identity});
++          showToast('Author muted on this site. This is a local list; manage it in FeedGate settings.',{authorUndo:{author:identity,previous:result?.previous,applied:result?.applied}});
++        }
+         catch(error){details.hidden=false;details.append(make('div',C.userError(error).message));mute.disabled=false;}
+       });row.append(mute);
+     }
+@@ -317,6 +331,8 @@
+     render(state,early);
+     if(early.source==='allowlist'||early.source==='author'){state.completed=true;report();return;}
+     if(!r.text&&!r.mediaAlt&&!r.sponsored){state.completed=true;return;}
++    if(settings.thrift&&!thriftEligible(state)){state.deferred=true;armThrift();report();return;}
++    state.deferred=false;
+     state.pending=true;report();
+     const token=++state.token,stamp=epoch,snapshot=state.snapshot;
+     send('FG_CLASSIFY',{record:r}).then(response=>{
+@@ -352,14 +368,14 @@
+     const snapshot=JSON.stringify(record);
+     if(state&&state.snapshot!==snapshot){
+       applyAction(state,'allow');removeCard(state);
+-      state.token++;state.record=record;state.snapshot=snapshot;state.pending=false;state.completed=false;state.revealed=false;state.result=null;state.error=null;state.appliedAction=null;
++      state.token++;state.record=record;state.snapshot=snapshot;state.pending=false;state.completed=false;state.revealed=false;state.result=null;state.error=null;state.appliedAction=null;state.deferred=false;state.groupHidden=false;state.seenAt=Date.now();
+     }
+     if(!state){
+       if(states.size>=1500){
+         const old=[...states.values()].find(s=>!s.el.isConnected||!nearViewport(s.el));
+         if(old){applyAction(old,'allow');removeCard(old);intersection?.unobserve(old.el);states.delete(old.el);}else return;
+       }
+-      state={el,record,snapshot,token:0,pending:false,completed:false,revealed:false,result:null,visible:nearViewport(el),cosmetic:new Map(),appliedAction:null,decision:null,placeholder:null,original:null,writes:null};
++      state={el,record,snapshot,token:0,pending:false,completed:false,revealed:false,result:null,visible:nearViewport(el),cosmetic:new Map(),appliedAction:null,decision:null,placeholder:null,original:null,writes:null,deferred:false,groupHidden:false,groupBar:null,seenAt:Date.now()};
+       states.set(el,state);detectedTotal++;intersection?.observe(el);
+     }
+     if(cosmeticRules?.length){
+@@ -463,6 +479,7 @@
+     for(const root of pending)for(const el of A.collect(root,site))ensure(el);
+     applyCosmeticRules();
+     validateQuarantinedRules();
++    recomputeGroups();
+   }
+   function schedule(root) {
+     if(root?.nodeType===Node.TEXT_NODE)root=root.parentElement;
+@@ -475,11 +492,11 @@
+     observer?.disconnect();intersection?.disconnect();observer=null;intersection=null;
+     if(scanTimer)clearTimeout(scanTimer);scanTimer=null;roots.clear();
+     pickerCleanup?.();
+-    for(const s of states.values()){s.token++;s.revealed=true;applyAction(s,'allow');removeCard(s);}states.clear();
++    for(const s of states.values()){s.token++;s.revealed=true;applyAction(s,'allow');removeCard(s);}for(const s of states.values()){if(s.groupBar){s.groupBar.remove();s.groupBar=null;}}groupBars.clear();if(thriftTimer){clearTimeout(thriftTimer);thriftTimer=null;}removeEventListener('scroll',onScroll);removeEventListener('visibilitychange',onVisibility);states.clear();
+     report();
+   }
+   function configSignature(s) {
+-    return JSON.stringify({enabled:s.enabled,sites:s.sites,mode:s.mode,preset:s.preset,categories:s.categories,cosmeticEnabled:s.cosmeticEnabled,filters:s.cosmeticFilters,recovery:s.recoverySites,consent:s.consent,labelledAds:s.labelledAds,protectUseful:s.protectUseful,profileMode:s.profileMode,customInstruction:s.customInstruction,allowedAuthors:s.allowedAuthors,blockedAuthors:s.blockedAuthors});
++    return JSON.stringify({enabled:s.enabled,sites:s.sites,mode:s.mode,preset:s.preset,categories:s.categories,cosmeticEnabled:s.cosmeticEnabled,filters:s.cosmeticFilters,recovery:s.recoverySites,consent:s.consent,labelledAds:s.labelledAds,protectUseful:s.protectUseful,profileMode:s.profileMode,customInstruction:s.customInstruction,allowedAuthors:s.allowedAuthors,blockedAuthors:s.blockedAuthors,topics:s.topics,grouping:s.grouping,thrift:s.thrift,thriftDelayMs:s.thriftDelayMs});
+   }
+   let lastSignature='';
+   async function refresh(force=false) {
+@@ -502,7 +519,7 @@
+     report();updateHUD(stats());
+     if(!enabled)return;
+     intersection=new IntersectionObserver(entries=>{
+-      for(const entry of entries){const s=states.get(entry.target);if(s){s.visible=entry.isIntersecting;if(s.visible){if(s.cosmetic?.size)reapply(s);else process(s);}}}
++      for(const entry of entries){const s=states.get(entry.target);if(s){const was=s.visible;s.visible=entry.isIntersecting;if(s.visible){if(!was)s.seenAt=Date.now();if(s.cosmetic?.size)reapply(s);else process(s);}}}
+     },{rootMargin:'1000px 0px'});
+     observer=new MutationObserver(mutations=>{
+       if(!demo&&C.isPrivateRoute(location.href)){enabled=false;stop();return;}
+@@ -515,6 +532,9 @@
+       }
+     });
+     observer.observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true});
++    addEventListener('scroll',onScroll,{passive:true});
++    addEventListener('visibilitychange',onVisibility);
++    if(deferredAny())armThrift();
+     schedule(document);
+   }
+   function selectorFor(el) {
+@@ -545,7 +565,15 @@
+       undo.addEventListener('click',async ev=>{
+         if(!ev.isTrusted)return;undo.disabled=true;
+         try{
+-          if(undoAction.author){
++          if(undoAction.authorUndo){
++            const result=await send('FG_AUTHOR_UNDO',{author:undoAction.authorUndo.author,previous:undoAction.authorUndo.previous,applied:undoAction.authorUndo.applied});
++            showToast(result?.stale?'Undo skipped: a newer decision already changed this author.':'Author list restored to the previous state.');
++            refresh(true);
++          } else if(undoAction.topicId){
++            await send('FG_TOPIC_DELETE',{id:undoAction.topicId});
++            showToast('Muted topic removed.');
++            refresh(true);
++          } else if(undoAction.author){
+             await send('FG_FORGET_AUTHOR',{author:undoAction.author});
+             showToast('Author removed from your local lists.');
+             refresh(true);
+@@ -562,6 +590,173 @@
+     shadow.append(style,box);document.documentElement.append(toast);
+     if(toastTimer)clearTimeout(toastTimer);
+     toastTimer=setTimeout(()=>{toast?.remove();toast=null;toastTimer=null;},15000);
++  }
++  function thriftEligible(state){
++    if(document.hidden||!state||!state.el||!state.el.isConnected)return false;
++    const rect=state.el.getBoundingClientRect();
++    if(!(rect.width>0&&rect.bottom>0&&rect.top<innerHeight))return false;
++    const delay=Math.max(C.THRIFT_DELAY_MIN,settings.thriftDelayMs||800);
++    if(Date.now()-(state.seenAt||0)<delay)return false;
++    return Date.now()-lastScrollAt>=delay;
++  }
++  function deferredAny(){for(const s of states.values())if(s.deferred)return true;return false;}
++  function armThrift(){
++    if(thriftTimer||!settings.thrift)return;
++    thriftTimer=setTimeout(()=>{thriftTimer=null;wakeDeferred();},Math.max(120,settings.thriftDelayMs||800));
++  }
++  function wakeDeferred(){
++    if(!enabled)return;
++    let pending=false;
++    for(const s of states.values()){
++      if(!s.deferred)continue;
++      if(thriftEligible(s)){s.deferred=false;process(s);}
++      else pending=true;
++    }
++    if(pending&&!document.hidden)armThrift();
++    report();
++  }
++  function onScroll(){lastScrollAt=Date.now();if(settings.thrift)armThrift();}
++  function onVisibility(){if(!document.hidden){lastScrollAt=Date.now();if(settings.thrift)armThrift();}}
++  function topicExpirySweep(){
++    if(!settings.topics||!settings.topics.length)return;
++    for(const s of states.values()){
++      const d=s.decision;
++      if(!d||d.rule!=='topic_muted'||!s.record)continue;
++      const next=C.decide(s.record,s.result||null,settings);
++      if(next.rule!==d.rule||next.action!==d.action)render(s,next);
++    }
++  }
++  const groupBars=new Set();
++  function clearGroupBars(){
++    for(const bar of groupBars)bar.remove();
++    groupBars.clear();
++    for(const s of states.values())s.groupBar=null;
++  }
++  function groupKeyOf(s){return s.record.site+':'+s.record.id;}
++  function recomputeGroups(){
++    if(!settings.grouping||!enabled||demo){clearGroupBars();for(const s of states.values()){if(s.groupHidden){s.groupHidden=false;reapply(s);}}return;}
++    const cand=[];
++    for(const s of states.values()){
++      if(!s.record||!s.record.text||s.revealed)continue;
++      if(s.decision&&(s.decision.source==='cosmetic'||s.decision.action==='collapse'))continue;
++      const norm=C.normalizeText(s.record.text);
++      const tokens=norm.split(' ').filter(t=>t.length>=3);
++      if(tokens.length<3)continue;
++      cand.push({s,sig:C.tokenSignature(s.record.text),norm,tokens});
++    }
++    const assigned=new Set();
++    const groups=[];
++    for(let i=0;i<cand.length;i++){
++      if(assigned.has(i))continue;
++      assigned.add(i);
++      const base=cand[i];
++      const members=[base.s];
++      for(let j=i+1;j<cand.length;j++){
++        if(assigned.has(j))continue;
++        const other=cand[j];
++        let dup=!!(base.sig&&base.sig===other.sig);
++        if(!dup&&base.tokens.length>=6&&other.tokens.length>=6&&base.norm.length>=40&&other.norm.length>=40&&C.tokenSimilarity(base.norm,other.norm)>=0.85)dup=true;
++        if(dup){assigned.add(j);members.push(other.s);}
++      }
++      if(members.length>1)groups.push({rep:base.s,members:members.slice(1)});
++    }
++    clearGroupBars();
++    const hiddenNow=new Set();
++    for(const g of groups){
++      const key=groupKeyOf(g.rep);
++      const collapsed=!groupsExpanded.has(key);
++      if(collapsed)for(const s of g.members)hiddenNow.add(s);
++      const host=document.createElement('feedgate-group');
++      host.setAttribute('data-fg-ui','');
++      const shadow=host.attachShadow({mode:'open'});
++      const style=document.createElement('style');
++      style.textContent=':host{display:block;margin:6px 0 2px}.box{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px dashed #c8cbc2;border-radius:8px;background:#f7f8f4;color:#39413a;font:12px/1.4 system-ui,sans-serif}.box button{border:1px solid #c8cbc2;background:#fff;border-radius:6px;padding:2px 8px;font:12px system-ui,sans-serif;cursor:pointer}';
++      const box=document.createElement('div');box.className='box';
++      const label=document.createElement('span');
++      label.textContent=g.members.length+(g.members.length===1?' more similar post':' more similar posts');
++      const btn=document.createElement('button');btn.type='button';btn.textContent=collapsed?'Show similar':'Hide similar';
++      btn.addEventListener('click',()=>{if(groupsExpanded.has(key))groupsExpanded.delete(key);else groupsExpanded.add(key);recomputeGroups();});
++      box.append(label,btn);shadow.append(style,box);
++      if(g.rep.el.isConnected){g.rep.groupBar=host;groupBars.add(host);g.rep.el.after(host);}
++    }
++    for(const s of states.values()){
++      const hidden=hiddenNow.has(s);
++      if(s.groupHidden!==hidden){s.groupHidden=hidden;reapply(s);}
++      else if(hidden)reapply(s);
++    }
++  }
++  function startTopicPicker(){
++    if(!enabled||demo||recoveryPaused)return {started:false};
++    if(pickerCleanup)pickerCleanup();
++    const postRoot=(node)=>node&&node.closest?node.closest(A.SPECS[site].posts):null;
++    const bar=document.createElement('div');
++    bar.setAttribute('data-fg-ui','');
++    bar.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:2147483646;background:#1f2933;color:#f5f7fa;font:13px/1.4 system-ui,sans-serif;padding:8px 14px;border-radius:8px;pointer-events:none';
++    bar.textContent='FeedGate: hover a post, click it to mute its topic. Escape cancels.';
++    let hovered=null,outlineEl=null,outlinePrev='',preview=null,cleaned=false,timeout=null;
++    const setOutline=(el)=>{if(outlineEl===el)return;if(outlineEl){outlineEl.style.outline=outlinePrev;outlineEl=null;}if(el){outlinePrev=el.style.outline;el.style.outline='2px solid #df832d';outlineEl=el;}};
++    const cleanup=()=>{if(cleaned)return;cleaned=true;if(outlineEl){outlineEl.style.outline=outlinePrev;outlineEl=null;}if(timeout)clearTimeout(timeout);bar.remove();document.removeEventListener('mousemove',onMove,true);document.removeEventListener('click',onClick,true);document.removeEventListener('keydown',onKey,true);if(preview){preview.remove();preview=null;}pickerCleanup=null;};
++    const onMove=(ev)=>{if(preview)return;const root=postRoot(ev.target);hovered=root;setOutline(root);};
++    const onKey=(ev)=>{if(ev.key==='Escape'){ev.preventDefault();cleanup();}};
++    const showPreview=(root,rec)=>{
++      if(preview)preview.remove();
++      const host=document.createElement('feedgate-topic');
++      host.setAttribute('data-fg-ui','');
++      const shadow=host.attachShadow({mode:'open'});
++      const style=document.createElement('style');
++      style.textContent='.card{position:fixed;right:16px;bottom:18px;width:320px;background:#fff;color:#1f2933;border:1px solid #d3d7cf;border-radius:10px;padding:12px;font:13px/1.45 system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.18)}.card h4{margin:0 0 8px;font-size:13px}.card label{display:block;margin:8px 0 2px;font-weight:600}.card input,.card select{width:100%;padding:5px;border:1px solid #c8cbc2;border-radius:6px;font:13px system-ui,sans-serif;box-sizing:border-box}.card .note{margin-top:8px;color:#5b6259;font-size:12px}.card .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}.card button{padding:5px 12px;border-radius:6px;border:1px solid #c8cbc2;background:#fff;cursor:pointer}.card button.primary{background:#1f6f3f;border-color:#1f6f3f;color:#fff}';
++      const card=document.createElement('div');card.className='card';
++      const h=document.createElement('h4');h.textContent='Mute topic preview: '+location.hostname;
++      const l1=document.createElement('label');l1.textContent='Topic name';
++      const input=document.createElement('input');input.type='text';input.maxLength=80;input.value=(rec.text||'').slice(0,60).trim();
++      const l2=document.createElement('label');l2.textContent='Scope';
++      const scope=document.createElement('select');
++      const o1=document.createElement('option');o1.value='site';o1.textContent='This site only';
++      const o2=document.createElement('option');o2.value='all';o2.textContent='All supported sites';
++      scope.append(o1,o2);
++      const l3=document.createElement('label');l3.textContent='Duration';
++      const dur=document.createElement('select');
++      [['24','24 hours'],['168','7 days'],['0','Until I remove it']].forEach((pair)=>{const o=document.createElement('option');o.value=pair[0];o.textContent=pair[1];dur.append(o);});
++      const note=document.createElement('div');note.className='note';note.textContent='Semantic matching uses the same Jev request as filtering and can increase API usage. A passing mention stays visible.';
++      const row=document.createElement('div');row.className='row';
++      const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';
++      const save=document.createElement('button');save.type='button';save.className='primary';save.textContent='Mute topic';
++      cancel.addEventListener('click',()=>cleanup());
++      save.addEventListener('click',async(ev)=>{
++        if(!ev.isTrusted)return;
++        const label=input.value.trim();
++        if(!label){input.focus();return;}
++        if(!root.isConnected){cleanup();refresh(true);return;}
++        const hours=Number(dur.value);
++        const until=hours>0?Date.now()+hours*3600000:0;
++        const result=await send('FG_TOPIC_ADD',{topic:{label,scope:scope.value,until}});
++        if(result&&result.saved){
++          const tid=result.topic&&result.topic.id;
++          showToast('Topic muted'+(scope.value==='all'?' on all supported sites.':' on this site.')+(hours>0?' It expires later.':' Until you remove it.'),{topicId:tid});
++        }
++        cleanup();refresh(true);
++      });
++      card.append(h,l1,input,l2,scope,l3,dur,note,row);row.append(cancel,save);
++      shadow.append(style,card);document.documentElement.append(host);
++      preview=host;
++    };
++    const onClick=(ev)=>{
++      if(own(ev.target)||(ev.target&&ev.target.closest&&ev.target.closest('[data-fg-ui]')))return;
++      if(!ev.isTrusted)return;
++      const root=postRoot(ev.target)||hovered;
++      ev.preventDefault();ev.stopImmediatePropagation();
++      if(!root){showToast('Click a post itself to mute its topic. Nothing was saved.');return;}
++      const rec=A.extract(root,site);
++      if(!rec||(!rec.text&&!rec.mediaAlt)){showToast('This post has no readable text. Nothing was saved.');return;}
++      showPreview(root,rec);
++    };
++    document.addEventListener('mousemove',onMove,true);
++    document.addEventListener('click',onClick,true);
++    document.addEventListener('keydown',onKey,true);
++    document.documentElement.append(bar);
++    timeout=setTimeout(cleanup,60000);
++    pickerCleanup=cleanup;
++    return {started:true};
+   }
+   function startPicker() {
+     if(!enabled||demo||recoveryPaused)return {started:false};
+@@ -689,8 +884,8 @@
+         if(!ev.isTrusted)return;confirm.disabled=true;
+         if(!root.isConnected){reject('That post was replaced before saving. Nothing was saved.');return;}
+         try{
+-          await send(allow?'FG_ALLOW_AUTHOR':'FG_MUTE_AUTHOR',{author});
+-          showToast(allow?'Author allowed on this site. Their posts stay visible here.':'Author muted on this site. Their posts are hidden from now on. Their posts are never sent to the model again.',{author});
++          const result=await send(allow?'FG_ALLOW_AUTHOR':'FG_MUTE_AUTHOR',{author});
++          showToast(allow?'Author allowed on this site. Their posts stay visible here.':'Author muted on this site. Their posts are hidden from now on. Their posts are never sent to the model again.',{authorUndo:{author,previous:result?.previous,applied:result?.applied}});
+           cleanup();refresh(true);
+         }catch(error){confirm.disabled=false;showToast(C.userError(error).message);}
+       });
+@@ -708,7 +903,8 @@
+       if(!root){reject('Click a post itself to choose its author. Nothing was saved.');return;}
+       const rec=A.extract(root,site);
+       if(!rec||!rec.author){reject('This post has no readable author. Nothing was saved.');return;}
+-      showPreview(root,rec.author);
++      if(rec.authorNameOnly){reject('This post has no stable profile link, so author actions are unavailable. Nothing was saved.');return;}
++      showPreview(root,rec.authorId||rec.author);
+       timeout=setTimeout(cleanup,60000);
+     }
+     document.addEventListener('mousemove',move,true);document.addEventListener('click',click,true);document.addEventListener('keydown',key,true);pickerCleanup=cleanup;
+@@ -726,7 +922,7 @@
+   // MutationObserver cannot see history.pushState itself. The route guard also runs before each API call.
+   const checkNavigation=()=>{
+     if(location.href!==lastURL){lastURL=location.href;refresh();}
+-    else if(enabled&&!document.hidden&&++sweepTicks%5===0){schedule(document);report();}
++    else if(enabled&&!document.hidden&&++sweepTicks%5===0){topicExpirySweep();schedule(document);report();}
+   };
+   let navigationTimer=setInterval(checkNavigation,600);
+   addEventListener('pagehide',()=>{enabled=false;stop();hud?.remove();hud=null;hudRoot=null;toast?.remove();toast=null;clearInterval(navigationTimer);});
+--- a/src/core.js
++++ b/src/core.js
+@@ -3,14 +3,18 @@
+ 
+   // Separate versions: the release, the semantic rubric, the local ad detector,
+   // the DOM extraction and the policy engine can change independently.
+-  const VERSION = '3.2.0';
+-  const RUBRIC_VERSION = 'feed-v2.1.0';
+-  const POLICY_VERSION = 'policy-3.1.0';
++  const VERSION = '3.3.0';
++  // The eight base questions keep their exact wording and order. The rubric
++  // version changes because a new optional question (muted topics) can join
++  // the request; the cache key below separates topic sets, and the version
++  // bump keeps pre-3.3 estimates from being reused under the new contract.
++  const RUBRIC_VERSION = 'feed-v2.2.0';
++  const POLICY_VERSION = 'policy-3.3.0';
+   const AD_DETECTOR_VERSION = 'ad-3.0.0';
+-  const EXTRACTION_VERSION = 'extract-3.0.0';
+-  const SETTINGS_VERSION = 5;
+-  const RUNTIME_VERSION = 5;
+-  const DIAGNOSTICS_VERSION = 7;
++  const EXTRACTION_VERSION = 'extract-3.3.0';
++  const SETTINGS_VERSION = 6;
++  const RUNTIME_VERSION = 6;
++  const DIAGNOSTICS_VERSION = 8;
+   // The settings schema is split into scoped revisions so an old form cannot
+   // overwrite a newer cosmetic, UI, recovery or site decision.
+   const SETTINGS_DOMAINS = ['settings', 'ui', 'cosmetic', 'recovery'];
+@@ -64,6 +68,7 @@
+     risk: 'Risk or scam-like content',
+     sufficient: 'Enough visible evidence',
+     custom: 'Your exclusion rule',
++    topic: 'Muted topic match',
+   };
+ 
+   const CATEGORIES = {
+@@ -103,6 +108,12 @@
+       mode: 'off',
+       threshold: 0.92,
+     },
++    topic: {
++      label: 'Muted topic',
++      description: 'Topics you muted for 24 hours, 7 days or indefinitely. Matched semantically; a passing mention stays visible and the kept-post choice still wins.',
++      mode: 'collapse',
++      threshold: 0.85,
++    },
+   };
+ 
+   const DEFAULTS = {
+@@ -125,6 +136,17 @@
+     // site. Kept separate from allowedAuthors; sanitizeSettings enforces that
+     // a key can never sit on both lists (an explicit allow wins).
+     blockedAuthors: [],
++    // Semantic topic mutes. The list starts empty, so no extra question leaves
++    // the device until the user creates one.
++    topics: [],
++    // Local duplicate grouping and the scroll-rest-aware thrift mode are
++    // optional and stay off for existing profiles until switched on.
++    grouping: false,
++    thrift: false,
++    thriftDelayMs: 800,
++    // Cost is only ever estimated from rates the user typed in. Both null
++    // means no money estimate is shown at all.
++    pricing: { inputPerMTok: null, outputPerMTok: null, currency: '' },
+     categories: cloneCategories(),
+     // v3 control surfaces. hudMode replaces the old showStatus boolean.
+     hudMode: 'compact',
+@@ -138,6 +160,15 @@
+   const HUD_MODES = ['compact', 'expanded', 'hidden'];
+   const COSMETIC_RULE_STATUSES = ['active', 'quarantined', 'disabled', 'deleted'];
+   const COSMETIC_SOURCES = ['picker', 'legacy', 'import', 'edit'];
++  const TOPICS_MAX = 20;
++  const TOPIC_LABEL_MAX = 80;
++  const TOPIC_SCOPES = ['site', 'all'];
++  const THRIFT_DELAY_MIN = 300;
++  const THRIFT_DELAY_MAX = 3000;
++  // LinkedIn, Facebook and Instagram often expose nothing but a display name
++  // in a post. A display name is not an account identity: two people can share
++  // it, so an exception saved against it would silently cover all of them.
++  const AUTHOR_NAME_ONLY_SITES = ['linkedin', 'facebook', 'instagram'];
+ 
+   // ---- Cosmetic selector safety ------------------------------------------
+   // Documented supported subset: compound selectors built from a type,
+@@ -482,6 +513,74 @@
+     return String(site) + ':' + clean;
+   }
+ 
++  // Muted topics: an explicit, time-boxed local decision that travels to the
++  // model as one optional extra question. Labels stay local; diagnostics only
++  // ever see counts and rule names.
++  function sanitizeTopics(value) {
++    if (!Array.isArray(value)) return [];
++    const out = [];
++    const seen = new Set();
++    for (const entry of value.slice(0, TOPICS_MAX)) {
++      const raw = object(entry);
++      if (!raw) continue;
++      const id = typeof raw.id === 'string' && /^[a-z0-9][a-z0-9-]{7,47}$/.test(raw.id) ? raw.id : '';
++      const label = text(raw.label, TOPIC_LABEL_MAX);
++      if (!id || !label || seen.has(id)) continue;
++      const scope = TOPIC_SCOPES.includes(raw.scope) ? raw.scope : 'site';
++      if (scope === 'site' && !SITE_DEFS[raw.site]) continue;
++      const until = finite(raw.until);
++      seen.add(id);
++      out.push({
++        id,
++        label,
++        scope,
++        site: scope === 'site' ? raw.site : '',
++        until: until !== null && until > 0 ? Math.round(until) : 0,
++        createdAt: Math.round(finite(raw.createdAt) || 0),
++      });
++    }
++    return out;
++  }
++
++  function activeTopics(settingsValue, site, now) {
++    const s = object(settingsValue) || {};
++    const at = finite(now) !== null ? now : Date.now();
++    if (!Array.isArray(s.topics)) return [];
++    return s.topics.filter((topic) => {
++      if (!topic || !topic.label) return false;
++      if (topic.until !== 0 && !(topic.until > at)) return false;
++      return topic.scope === 'all' || topic.site === site;
++    });
++  }
++
++  // Conservative local text comparisons used by duplicate grouping. They never
++  // leave the page and never replace the model.
++  function normalizeText(value) {
++    const base = text(value, 6000).normalize('NFKC');
++    return base
++      .toLowerCase()
++      .replace(/https?:\/\/\S+/g, ' ')
++      .replace(/[^\p{L}\p{N}]+/gu, ' ')
++      .trim();
++  }
++
++  function tokenSignature(value) {
++    const tokens = normalizeText(value).split(' ').filter((t) => t.length >= 3);
++    const unique = new Set(tokens.slice(0, 200));
++    return Array.from(unique).sort().join(' ');
++  }
++
++  function tokenSimilarity(a, b) {
++    const setA = new Set(String(a || '').split(' ').filter((t) => t.length >= 3));
++    const setB = new Set(String(b || '').split(' ').filter((t) => t.length >= 3));
++    if (!setA.size || !setB.size) return 0;
++    let shared = 0;
++    for (const token of setA) {
++      if (setB.has(token)) shared += 1;
++    }
++    return shared / (setA.size + setB.size - shared);
++  }
++
+   function clampNumber(value, min, max, fallback) {
+     const n = finite(value);
+     if (n === null) return fallback;
+@@ -491,6 +590,14 @@
+   function migrateSettings(legacy) {
+     if (!object(legacy)) return Object.assign(clone(DEFAULTS), { categories: cloneCategories() });
+     if (legacy.version === SETTINGS_VERSION) return sanitizeSettings(legacy);
++    // Schema 5 (3.1/3.2) already stores every current list and control. The
++    // new optional features (topics, grouping, thrift, pricing) start off and
++    // every existing preference is carried verbatim.
++    if (legacy.version === 5) {
++      const carried = clone(legacy);
++      carried.version = SETTINGS_VERSION;
++      return sanitizeSettings(carried);
++    }
+     // Schema 4 (3.0.x) already stores cosmeticFilters as structured rules.
+     // It only needs the new blocked-authors list, which defaults to empty.
+     if (legacy.version === 4) {
+@@ -566,6 +673,20 @@
+     out.dailyLimit = Math.round(clampNumber(raw.dailyLimit, 10, 100000, DEFAULTS.dailyLimit));
+     out.cacheMinutes = Math.round(clampNumber(raw.cacheMinutes, 0, 1440, DEFAULTS.cacheMinutes));
+     out.customInstruction = text(raw.customInstruction, 700);
++    out.topics = sanitizeTopics(raw.topics);
++    out.grouping = raw.grouping === true;
++    out.thrift = raw.thrift === true;
++    out.thriftDelayMs = Math.round(clampNumber(raw.thriftDelayMs, THRIFT_DELAY_MIN, THRIFT_DELAY_MAX, DEFAULTS.thriftDelayMs));
++    const pricing = object(raw.pricing) || {};
++    const cleanRate = (value) => {
++      const n = finite(value);
++      return n !== null && n >= 0 && n <= 1000 ? n : null;
++    };
++    out.pricing = {
++      inputPerMTok: cleanRate(pricing.inputPerMTok),
++      outputPerMTok: cleanRate(pricing.outputPerMTok),
++      currency: text(pricing.currency, 8).toUpperCase(),
++    };
+     out.hudMode = HUD_MODES.includes(raw.hudMode) ? raw.hudMode : DEFAULTS.hudMode;
+     out.feedsOpen = raw.feedsOpen === true;
+     out.cosmeticEnabled = raw.cosmeticEnabled !== false;
+@@ -660,6 +781,11 @@
+     const mediaAlt = text(raw.mediaAlt, 1200);
+     const id = text(raw.id, 250);
+     const author = text(raw.author, 120);
++    // Display label and stable identity are separate. Adapters fill authorId
++    // only from a canonical profile link inside the post; otherwise the label
++    // stays display-only and never becomes a saved exception on the sites
++    // where two accounts can share the same name.
++    const authorId = text(raw.authorId, 120);
+     // Verified evidence is established by the adapter only. A legacy boolean
+     // sponsored flag is not evidence; it is downgraded to ambiguous so that
+     // old cached or crafted payloads cannot trigger a local collapse.
+@@ -673,6 +799,8 @@
+       site,
+       id: id || String(site) + ':anonymous',
+       author,
++      authorId,
++      authorNameOnly: !authorId && !!author && AUTHOR_NAME_ONLY_SITES.includes(site),
+       text: textValue,
+       mediaAlt,
+       quotedText: quoted,
+@@ -723,6 +851,13 @@
+       questions.custom = {
+         type: 'noul',
+         instructions: SHARED_INSTRUCTION + 'Does this post meet the user\'s following exclusion criterion? ' + s.customInstruction,
++      };
++    }
++    const topics = activeTopics(s, record && record.site);
++    if (topics.length > 0) {
++      questions.topic = {
++        type: 'noul',
++        instructions: SHARED_INSTRUCTION + 'Chance this post is substantially about any of the user\'s muted topics: ' + topics.map((topic) => topic.label).join(' | ') + '. A passing mention, a quoted claim or criticism of the topic does not count.',
+       };
+     }
+     return {
+@@ -811,7 +946,13 @@
+       return decision;
+     }
+ 
+-    if (record && record.author && s.allowedAuthors.includes(authorKey(record.site, record.author))) {
++    // Author lists are keyed by a stable identity. A display name that is not
++    // tied to a canonical profile link (authorNameOnly) never matches a saved
++    // exception, so two accounts sharing a name cannot inherit one another.
++    const identityName = record ? (record.authorId || record.author) : '';
++    const identityKey = record && identityName && !record.authorNameOnly ? authorKey(record.site, identityName) : '';
++
++    if (identityKey && s.allowedAuthors.includes(identityKey)) {
+       decision.reason = 'Author is on your allowlist';
+       decision.rule = 'author_allowlisted';
+       decision.source = 'allowlist';
+@@ -829,7 +970,7 @@
+     // sponsored marker. It is deterministic, costs no provider request and
+     // stays fully reversible from settings. An allowlisted author is checked
+     // first, and "Keep this post" still overrides a mute for one post.
+-    if (record && record.author && s.blockedAuthors.includes(authorKey(record.site, record.author))) {
++    if (identityKey && s.blockedAuthors.includes(identityKey)) {
+       decision.action = 'collapse';
+       decision.reason = 'You muted this author';
+       decision.rule = 'author_muted';
+@@ -861,6 +1002,20 @@
+       decision.rule = 'insufficient_evidence';
+       decision.source = 'unclassified';
+       return decision;
++    }
++
++    // An explicit, time-boxed topic mute outranks every semantic category. It
++    // is decided before protection so the user's own instruction wins, but a
++    // kept post (checked above) still overrides it. Sub-threshold or uncertain
++    // matches stay visible: the model answers "substantially about", and a
++    // passing mention does not count.
++    if (activeTopics(s, record && record.site).length > 0 && hits(scores, s, 'topic')) {
++      decision.action = s.categories.topic.mode === 'dim' ? 'dim' : 'collapse';
++      decision.reason = 'Matches one of your muted topics';
++      decision.rule = 'topic_muted';
++      decision.source = 'topic';
++      decision.category = 'topic';
++      return observe(decision, s);
+     }
+ 
+     const useful = finite(scores.useful) || 0;
+@@ -1018,6 +1173,7 @@
+       namespace: 'feedgate:decision-cache',
+       model: s.model,
+       custom: s.customInstruction,
++      topics: activeTopics(s, record && record.site).map((topic) => topic.id + ':' + topic.label + ':' + topic.until).join('|'),
+       item: record && typeof record.kind === 'string' ? record.kind : 'post',
+       state: inferenceState(record),
+     });
+@@ -1086,6 +1242,8 @@
+     RULE_LIMIT: 'The cosmetic filter limit was reached.',
+     RULE_NOT_FOUND: 'That cosmetic filter no longer exists.',
+     RECOVERY_ACTIVE: 'Filtering is paused for this site.',
++    TOPIC_LIMIT: 'The muted-topic limit was reached.',
++    TOPIC_NOT_FOUND: 'That muted topic no longer exists.',
+     INTERNAL_ERROR: 'An internal error occurred.',
+   };
+ 
+@@ -1120,6 +1278,12 @@
+     COSMETIC_SOURCES,
+     SELECTOR_SUBSET_VERSION,
+     COSMETIC_RULES_MAX,
++    TOPICS_MAX,
++    TOPIC_LABEL_MAX,
++    TOPIC_SCOPES,
++    THRIFT_DELAY_MIN,
++    THRIFT_DELAY_MAX,
++    AUTHOR_NAME_ONLY_SITES,
+     SITE_DEFS,
+     SIGNALS,
+     CATEGORIES,
+@@ -1142,6 +1306,11 @@
+     originsForSite,
+     isPrivateRoute,
+     authorKey,
++    sanitizeTopics,
++    activeTopics,
++    normalizeText,
++    tokenSignature,
++    tokenSimilarity,
+     sanitizeSettings,
+     redact,
+     sanitizeRecord,
+--- a/src/options.js
++++ b/src/options.js
+@@ -105,6 +105,59 @@
+   const list=$('mute-list');list.replaceChildren();
+   if(!state.settings.blockedAuthors.length){list.append(el('p','No muted authors yet. Use “Mute author…” in the status panel (click a post) or on a filtered post card.','fine'));return;}
+   for(const author of state.settings.blockedAuthors){const row=el('div',undefined,'allow-item'),button=el('button','Unmute','small-btn');button.addEventListener('click',()=>action(async()=>{const fresh=await rpc('FG_STATUS');await rpc('FG_PATCH_SETTINGS',{patch:{blockedAuthors:fresh.settings.blockedAuthors.filter(a=>a!==author)},domain:'settings',expect:fresh.settings.revisions.settings});await load();toast('Author unmuted. Posts from this author can appear again after the next scan.');}));row.append(el('span',author),button);list.append(row);}
++}
++function fillUsage(state){
++  const node=$('usage-stats'),cost=$('usage-cost'),badge=$('usage-badge');
++  if(!node||!state?.metrics)return;
++  const m=state.metrics,d=state.daily||{requests:0},limit=state.settings.dailyLimit||0;
++  const used=d.requests||0,remaining=Math.max(0,limit-used);
++  badge.textContent=`${used} / ${limit} today`;
++  badge.className='badge '+(remaining>0?'live':'warn');
++  const unaccounted=Math.max(0,(m.requests||0)-(m.classified||0)-(m.cancellations||0)-(m.errors||0));
++  node.textContent=`${used} used · ${remaining} left today · ${(m.requests||0).toLocaleString()} provider attempts · ${(m.classified||0).toLocaleString()} classified · ${(m.cacheHits||0).toLocaleString()} cache hits · ${(m.errors||0).toLocaleString()} errors · ${(m.cancellations||0).toLocaleString()} cancelled · ${unaccounted.toLocaleString()} unaccounted · ${(m.inputTokens||0).toLocaleString()} in / ${(m.outputTokens||0).toLocaleString()} out tokens`;
++  const next=new Date();next.setUTCHours(24,0,0,0);
++  const reset=`Daily limit resets at ${next.toLocaleString()} (00:00 UTC).`;
++  const p=state.settings.pricing||{inputPerMTok:null,outputPerMTok:null,currency:''};
++  if(p.inputPerMTok===null&&p.outputPerMTok===null){cost.textContent=reset+' Provider cost is not calculated (no rates configured).';return;}
++  const estimate=((m.inputTokens||0)/1e6)*(p.inputPerMTok||0)+((m.outputTokens||0)/1e6)*(p.outputPerMTok||0);
++  cost.textContent=`${reset} ${p.currency?p.currency+' ':''}${estimate.toFixed(4)} — estimate from your own rates, not a provider bill.`;
++}
++function fillTopics(state){
++  if(!state?.settings)return;
++  const list=$('topic-list');if(!list)return;list.replaceChildren();
++  const topics=state.settings.topics||[];
++  if(!topics.length){list.append(el('p','No muted topics yet. Use “Mute topic…” in the status panel or on a post card.','fine'));return;}
++  for(const topic of topics){
++    const row=el('div',undefined,'allow-item'),info=el('div');
++    const expiry=topic.until===0?'No expiry':'Expires '+new Date(topic.until).toLocaleString();
++    info.append(el('strong',topic.label),el('small',`${topic.scope==='all'?'All supported sites':'This site'} · ${expiry}`));
++    const buttons=el('div',undefined,'rule-actions');
++    const edit=el('button','Edit','small-btn');
++    edit.addEventListener('click',()=>{
++      const label=el('input');label.value=topic.label;label.maxLength=80;label.spellcheck=false;
++      const scope=el('select');for(const [v,t] of [['site','This site'],['all','All supported sites']]){const o=el('option',t);o.value=v;scope.append(o);}scope.value=topic.scope;
++      const duration=el('select');for(const [v,t] of [['24','24 hours'],['168','7 days'],['0','No expiry']]){const o=el('option',t);o.value=v;duration.append(o);}
++      if(topic.until===0)duration.value='0';else duration.value=Math.round((topic.until-Date.now())/3600000)<=24?'24':'168';
++      const save=el('button','Save','small-btn'),cancel=el('button','Cancel','small-btn');
++      save.addEventListener('click',()=>action(async()=>{
++        const hours=Number(duration.value);
++        const fresh=await rpc('FG_STATUS');
++        await rpc('FG_TOPIC_UPDATE',{id:topic.id,patch:{label:label.value.trim(),scope:scope.value,site:topic.site,until:hours>0?Date.now()+hours*3600000:0},expect:fresh.settings.revisions.settings});
++        await load();notice('rules-status','Muted topic updated.');
++      }));
++      cancel.addEventListener('click',()=>fillTopics(state));
++      info.replaceChildren(el('strong',topic.label),label,scope,duration,save,cancel);
++    });
++    buttons.append(edit);
++    const del=el('button','Delete','small-btn danger');
++    del.addEventListener('click',()=>action(async()=>{
++      const fresh=await rpc('FG_STATUS');
++      await rpc('FG_TOPIC_DELETE',{id:topic.id,expect:fresh.settings.revisions.settings});
++      await load();toast('Muted topic removed. Posts hidden only by this topic can appear again after the next scan.');
++    }));
++    buttons.append(del);
++    row.append(info,buttons);list.append(row);
++  }
+ }
+ function updateCustomStatus(){
+   const field=$('custom-instruction');if(!field)return;
+@@ -220,9 +273,13 @@
+ async function load(full=true){
+   state=await rpc('FG_STATUS');fillMetrics();
+   if(!full)return;
+-  const s=state.settings;fillFeeds();fillCategories();fillAllowlist();fillMuted();fillLog();fillRuleManager();fillRecovery();
++  const s=state.settings;fillFeeds();fillCategories();fillAllowlist();fillMuted();fillLog();fillRuleManager();fillRecovery();fillUsage(state);fillTopics(state);
+   $('application-mode').value=s.mode;$('profile-mode').value=s.profileMode;$('protect-useful').checked=s.protectUseful;
+   $('labelled-ads').checked=s.labelledAds;$('consent').checked=s.consent;$('hud-mode').value=s.hudMode||'compact';
++  $('grouping').checked=s.grouping===true;$('thrift').checked=s.thrift===true;$('thrift-delay').value=String(s.thriftDelayMs||800);
++  $('pricing-input').value=s.pricing&&s.pricing.inputPerMTok!==null?String(s.pricing.inputPerMTok):'';
++  $('pricing-output').value=s.pricing&&s.pricing.outputPerMTok!==null?String(s.pricing.outputPerMTok):'';
++  $('pricing-currency').value=(s.pricing&&s.pricing.currency)||'';
+   $('feeds-details').open=s.feedsOpen===true;
+   $('custom-instruction').value=s.customInstruction;updateCustomStatus();$('daily-limit').value=String(s.dailyLimit);$('concurrency').value=String(s.concurrency);$('cache-minutes').value=String(s.cacheMinutes);$('model-id').value=s.model;
+ }
+@@ -252,7 +309,7 @@
+ $('policy-form').addEventListener('submit',ev=>{ev.preventDefault();action(async()=>{
+   const categories={};for(const n of document.querySelectorAll('[data-category-mode]')){const id=n.dataset.categoryMode;categories[id]={mode:n.value,threshold:Number(document.querySelector(`[data-category-threshold="${id}"]`).value)/100};}
+   const lr=await rpc('FG_STATUS');
+-  await rpc('FG_PATCH_SETTINGS',{patch:{preset:'custom',profileMode:$('profile-mode').value,protectUseful:$('protect-useful').checked,mode:$('application-mode').value,labelledAds:$('labelled-ads').checked,customInstruction:$('custom-instruction').value,dailyLimit:Number($('daily-limit').value),concurrency:Number($('concurrency').value),cacheMinutes:Number($('cache-minutes').value),categories},domain:'settings',expect:lr.settings.revisions.settings});
++  await rpc('FG_PATCH_SETTINGS',{patch:{preset:'custom',profileMode:$('profile-mode').value,protectUseful:$('protect-useful').checked,mode:$('application-mode').value,labelledAds:$('labelled-ads').checked,customInstruction:$('custom-instruction').value,dailyLimit:Number($('daily-limit').value),concurrency:Number($('concurrency').value),cacheMinutes:Number($('cache-minutes').value),grouping:$('grouping').checked,thrift:$('thrift').checked,thriftDelayMs:Number($('thrift-delay').value),categories},domain:'settings',expect:lr.settings.revisions.settings});
+   await load();notice('policy-status','Policy saved. Open feeds have been re-evaluated.');
+ },'policy-status');});
+ $('hud-mode').addEventListener('change',()=>action(async()=>{
+@@ -301,7 +358,7 @@
+ }
+ $('export-diagnostics').addEventListener('click',()=>action(async()=>{
+   const data=await rpc('FG_DIAGNOSTICS');
+-  saveDownload('feedgate-3.2.0-diagnostics-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json',data);
++  saveDownload('feedgate-3.3.0-diagnostics-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json',data);
+   toast('Diagnostic file prepared. It does not contain keys, post text, authors, full browsing URLs or raw cosmetic selectors.');
+ }));
+ $('clear-cache').addEventListener('click',()=>action(async()=>{await rpc('FG_CLEAR_CACHE');await load();toast('Cached scores cleared. Enabled feeds may make new API requests.');}));
+@@ -316,6 +373,12 @@
+   if(data?.format!=='feedgate-key-backup'||data.version!==1)throw new Error('INVALID_RECORD');
+   await rpc('FG_IMPORT_VAULT',{vault:data.vault});$('import-vault-file').value='';await load();notice('vault-status','Key backup imported. Unlock it with its passphrase on the API & privacy page.');
+ },'vault-status'));
++$('save-pricing').addEventListener('click',()=>action(async()=>{
++  const input=$('pricing-input').value.trim(),output=$('pricing-output').value.trim();
++  const fresh=await rpc('FG_STATUS');
++  await rpc('FG_PATCH_SETTINGS',{patch:{pricing:{inputPerMTok:input===''?null:Number(input),outputPerMTok:output===''?null:Number(output),currency:$('pricing-currency').value.trim()}},domain:'settings',expect:fresh.settings.revisions.settings});
++  await load();toast('Rates saved. Cost estimates use your own numbers and are not a provider bill.');
++}));
+ for(const button of document.querySelectorAll('[data-preset]'))button.addEventListener('click',()=>action(async()=>{
+   const name=button.dataset.preset;
+   const patch=name==='custom'?{preset:'custom',mode:'filter',protectUseful:true}:C.presetPatch(name);
+@@ -359,4 +422,4 @@
+ await action(()=>load());
+ fillUpgradeBanner();
+ action(()=>loadUpdate());
+-setInterval(()=>{if(!document.hidden)action(()=>load(false));},4000);
++setInterval(()=>{if(!document.hidden)action(async()=>{await load(false);fillUsage(state);});},4000);
+--- a/src/popup.js
++++ b/src/popup.js
+@@ -47,6 +47,8 @@
+   $('filtered').textContent=hidden;$('observed').textContent=observed;
+   $('pending').textContent=page?.pending?`${page.pending} pending judgment(s)`:'No pending requests';
+   $('hud-mode').value=status.settings.hudMode||'compact';
++  const dm=status.metrics||{},dd=status.daily||{requests:0},dlimit=status.settings.dailyLimit||0;
++  $('usage-line').textContent=`${dd.requests||0}/${dlimit} today · ${(dm.requests||0).toLocaleString()} attempts · ${(dm.classified||0).toLocaleString()} classified · ${(dm.cacheHits||0).toLocaleString()} cache hits · ${((dm.inputTokens||0)+(dm.outputTokens||0)).toLocaleString()} tokens`+(status.settings.thrift?' · Thrift mode: waits for a visible, settled post.':'');
+   $('pause').textContent=status.settings.enabled?'Pause everywhere':'Resume everywhere';
+   const supported=!!site||isDemo();
+   for(const id of ['restore','rescan','pick'])$(id).disabled=!supported;
+--- a/static/manifest.json
++++ b/static/manifest.json
+@@ -1,9 +1,9 @@
+ {
+   "manifest_version": 3,
+-  "name": "FeedGate 3.2.0 | TypeSafe filter",
++  "name": "FeedGate 3.3.0 | TypeSafe filter",
+   "short_name": "FeedGate",
+   "description": "Safe-controls Jev feed filtering for X, Reddit, LinkedIn, Facebook, Instagram and Wykop: reversible cosmetics with a transactional picker, per-site recovery, a status panel you can hide, and a precision-first policy.",
+-  "version": "3.2.0",
++  "version": "3.3.0",
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5OFJ4Mu3VRkRWqiTam7rjAqHm8P9HFYFvOVFrgjDVk8PFyRfXDwCyRKGVFqSS+XY1E2aiMcS+cJnoQrEN2LJX62ZylFvezUc8BJjOgaVnHqP1mSRrvr1DPR2/X+mL++vadYalaEhtu4UC74rsQJlQiZYnEFuM0rrzBfToB2EyDUXLDNlUz60IXh+PSS61RYGAGdLNptfY3IKG0Izzfb43ZGdNRPrAJlTUybpchBcxzCDCJ3MkNCJj9Tqiv55tlaN43IRtqw3/kvi+flOlKTdewfi4C8XwkJPwebQubyui7CniuK728A0EYt/K04o1d+dM1Of+MvgIieVk7LSsPH3hwIDAQAB",
+   "minimum_chrome_version": "120",
+   "permissions": [
+--- a/static/options.html
++++ b/static/options.html
+@@ -1,11 +1,11 @@
+ <!doctype html>
+ <html lang="en">
+-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FeedGate 3.2.0 · Control room</title><link rel="stylesheet" href="ui.css"></head>
++<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FeedGate 3.3.0 · Control room</title><link rel="stylesheet" href="ui.css"></head>
+ <body>
+ <div class="app">
+ <aside class="sidebar">
+   <div class="wordmark"><img class="brand-icon" src="icons/48.png" alt="">FeedGate</div>
+-  <div class="eyebrow">Your feed, on your terms</div><div class="version">3.2.0 / safe controls preview</div>
++  <div class="eyebrow">Your feed, on your terms</div><div class="version">3.3.0 / safe controls preview</div>
+   <nav class="nav" aria-label="Settings">
+     <button data-page="overview" class="active"><span>01</span>Overview</button>
+     <button data-page="policy"><span>02</span>Filter policy</button>
+@@ -17,7 +17,7 @@
+   <div class="sidebar-bottom"><b>Your decisions stay reversible.</b><p>Jev estimates content features. It does not prove bot identity, originality or truth.</p><button id="open-demo">Open live test feed</button><p class="fine">Fictional posts. Actual API calls when enabled.</p></div>
+ </aside>
+ <main class="main">
+-  <header class="topline"><div><div class="eyebrow">Chrome / TypeSafe Jev</div><strong>FeedGate 3.2.0</strong></div><div class="top-actions"><span id="key-badge" class="badge warn">Checking key</span><button id="global-toggle" class="small-btn">Pause filtering</button></div></header>
++  <header class="topline"><div><div class="eyebrow">Chrome / TypeSafe Jev</div><strong>FeedGate 3.3.0</strong></div><div class="top-actions"><span id="key-badge" class="badge warn">Checking key</span><button id="global-toggle" class="small-btn">Pause filtering</button></div></header>
+   <div id="last-error" class="note warning hidden" role="status"></div>
+   <div id="upgrade-banner" class="note hidden" role="status"><p><b>FeedGate now supports Wykop and safer cosmetics.</b> Your earlier settings were kept. One-time choice: <button id="upgrade-all" class="small-btn">Select all six supported feeds</button> <button id="upgrade-dismiss" class="small-btn">Keep my current feeds</button></p></div>
+   <section id="overview" class="page active">
+@@ -56,6 +56,9 @@
+         <div class="tri"><label class="field"><span>Application mode</span><select id="application-mode"><option value="filter">Apply filtering</option><option value="observe">Observe only</option></select></label><label class="field"><span>Opened profiles</span><select id="profile-mode"><option value="soft">Gentle: dim semantic noise</option><option value="normal">Use normal filtering</option></select></label><label class="check"><input id="protect-useful" type="checkbox"><span>Protect substantive information and concrete contributions</span></label></div>
+         <label class="check"><input id="labelled-ads" type="checkbox"><span>Collapse platform-labelled ads locally only with verified evidence. Author and per-post exceptions still win.</span></label>
+         <label class="field"><span>Status panel on enabled pages</span><select id="hud-mode"><option value="compact">Compact pill</option><option value="expanded">Expanded panel</option><option value="hidden">Hidden (filtering continues)</option></select></label>
++        <label class="check"><input id="grouping" type="checkbox"><span>Group repeated posts. The first copy stays visible; later near-duplicates fold behind a “more similar posts” control. Nothing is deleted and each folded copy can still be read.</span></label>
++        <label class="check"><input id="thrift" type="checkbox"><span>Thrift mode. Cloud analysis starts only when a post is actually visible and you briefly stop scrolling. Local author, verified-ad and cosmetic rules still act immediately.</span></label>
++        <label class="field"><span>Thrift pause in ms</span><input id="thrift-delay" type="number" min="300" max="3000" step="50"></label>
+         <p class="fine">Hiding the status panel never pauses filtering. Pausing keeps your chosen panel setting. Gentler profiles do not exempt your own exclusion rule or concrete fraud-like solicitation. Truncated semantic content is normally dimmed rather than collapsed.</p>
+       </div>
+       <div class="panel"><h2>Noise rules</h2><div id="categories"></div><div class="separator"></div><div class="row spread"><h2>My exception rule (optional)</h2><span id="custom-status" class="badge">Not active</span></div><label class="field"><span>Plain-language description of what you do not want to see</span><textarea id="custom-instruction" maxlength="700" rows="3" placeholder="Example: empty requests to comment a keyword to receive a generic document."></textarea></label><output id="custom-count" class="fine">0 / 700 characters sent as an extra question</output><p class="fine">This is a hint for the model, not a guaranteed filter: Jev can still ignore it, and it never hides a platform-labelled ad on its own. While the text is not empty it is sent with every cloud request as an extra question, even when “Your exclusion rule” is Off — that costs tokens. Turn the rule On below to let a match actually dim or collapse. Clear the text to stop sending it. Never put secrets in this field.</p></div>
+@@ -79,6 +82,7 @@
+     <div class="metrics"><div class="metric"><div class="eyebrow">Provider attempts</div><strong data-stat="requests">0</strong></div><div class="metric"><div class="eyebrow">Input tokens</div><strong data-stat="inputTokens">0</strong></div><div class="metric"><div class="eyebrow">Cache hits</div><strong data-stat="cacheHits">0</strong></div><div class="metric"><div class="eyebrow">Last latency / ms</div><strong data-stat="latency">n/a</strong></div></div>
+     <div class="panel"><h2>Current page adapters</h2><p class="fine">Counts are for connected post elements, not lifetime unique posts. Reports older than one day are omitted from export. An empty list does not prove that no renderer is running.</p><div id="page-reports"></div></div>
+     <div class="panel"><h2>Cosmetic actions</h2><p class="fine">Local cosmetic work is counted separately from semantic decisions. Safety rejections and breaker activations mean FeedGate refused to hide something, not that it hid a post.</p><div id="cosmetic-stats" class="fine"></div></div>
++    <div class="panel"><div class="row spread"><h2>API usage</h2><span id="usage-badge" class="badge">—</span></div><div id="usage-stats" class="fine"></div><div id="usage-cost" class="fine" style="margin-top:6px"></div><div class="row" style="margin-top:10px"><label class="field"><span>Input tokens rate / 1M</span><input id="pricing-input" type="number" step="0.0001" min="0"></label><label class="field"><span>Output tokens rate / 1M</span><input id="pricing-output" type="number" step="0.0001" min="0"></label><label class="field"><span>Currency</span><input id="pricing-currency" type="text" maxlength="8" placeholder="USD"></label><button id="save-pricing" class="small-btn">Save rates</button></div><p class="fine">Counters describe local usage, not a provider bill. Provider attempts include failed and cancelled requests that the provider may still bill. The daily limit resets at 00:00 UTC, shown in your local time. Money is shown only from your own rates; leave the rates empty to skip cost estimates.</p></div>
+     <div class="panel"><div class="review-head"><div><h2>Recent decisions</h2><p class="fine">Author labels are local only and excluded from diagnostics. Raw post text is never stored in this log.</p></div></div><div id="log"></div></div>
+   </section>
+   <section id="rules" class="page">
+@@ -90,6 +94,7 @@
+       <div class="panel"><h2>Recovery</h2><p class="fine">Restore persists a pause for one site first, then asks its open tabs to remove visible effects. Pending work is cancelled; other sites are untouched. If a page cannot respond, it stays paused and you can reload it paused.</p><div id="recovery-list"></div><div id="recovery-status" class="statusline" role="status"></div></div>
+       <div class="panel"><h2>Allowed authors</h2><p class="fine">These local exceptions override semantic and labelled-ad post filtering, but not your cosmetic rules.</p><div id="allowlist"></div></div>
+       <div class="panel"><h2>Muted authors</h2><p class="fine">One click hides every post from an author on this site. This is a deterministic local list: no model request is used, “Keep this post” still wins for a specific post, and your cosmetic rules are unaffected. Muting and allowing are mutually exclusive for the same author.</p><div id="mute-list"></div></div>
++      <div class="panel"><h2>Muted topics</h2><p class="fine">Temporary or permanent topic mutes. Matching uses the same Jev request as filtering and can increase API usage. A passing mention or a quoted claim stays visible; “Keep this post” wins for a specific post; expired topics stop hiding posts automatically.</p><div id="topic-list"></div></div>
+       <div class="panel"><h2>Saved post choices</h2><p class="fine">“Keep this post” remembers a hash of the specific visible post, not a training label for the author. Edited content is evaluated again. Up to 2,000 choices stay on this device.</p><button id="reset-feedback">Reset saved post choices</button></div>
+     </div></div>
+   </section>
+--- a/static/popup.html
++++ b/static/popup.html
+@@ -1,7 +1,8 @@
+ <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FeedGate</title><link rel="stylesheet" href="ui.css"></head><body class="popup">
+-<div class="topline"><div class="wordmark"><img class="brand-icon" src="icons/48.png" alt="">FeedGate 3.2.0</div><span id="connection" class="badge warn">Locked</span></div><div class="eyebrow">This tab</div><h1 id="host">Loading...</h1><p id="page-info">Reading extension status.</p><button id="site-toggle" class="primary site-button" disabled>Enable on this platform</button>
++<div class="topline"><div class="wordmark"><img class="brand-icon" src="icons/48.png" alt="">FeedGate 3.3.0</div><span id="connection" class="badge warn">Locked</span></div><div class="eyebrow">This tab</div><h1 id="host">Loading...</h1><p id="page-info">Reading extension status.</p><button id="site-toggle" class="primary site-button" disabled>Enable on this platform</button>
+ <div class="metrics"><div class="metric first"><div class="eyebrow">Hidden now</div><strong id="filtered">0</strong><small>Current page only</small></div><div class="metric"><div class="eyebrow">Observed</div><strong id="observed">0</strong><small id="pending">No pending requests</small></div></div>
+ <div class="row-labelled"><label for="hud-mode">Status panel</label><select id="hud-mode"><option value="compact">Compact pill</option><option value="expanded">Open panel</option><option value="hidden">Hidden</option></select></div>
++<p id="usage-line" class="fine">Usage: reading counters…</p>
+ <div class="buttons"><button id="restore" disabled>Show filtered posts</button><button id="rescan" disabled>Rescan this page</button><button id="pick" disabled>Pick element</button><button id="pause">Pause everywhere</button></div>
+ <div class="section-label">Feeds</div><p id="feeds-line" class="fine">Reading feed status.</p><div class="buttons"><button id="enable-all">Enable all supported feeds</button><button id="disable-all">Disable all feeds</button></div>
+ <div class="section-label">Cosmetic filters</div><p id="cosmetic-line" class="fine">No cosmetic filter data yet.</p><div class="buttons"><button id="cosmetic-toggle">Disable cosmetic filtering</button><button id="undo-rule" disabled>Undo last picked rule</button></div><button id="manage-rules" style="width:100%;margin-top:6px">My cosmetic filters ↗</button>
+--- a/tests/browser.py
++++ b/tests/browser.py
+@@ -40,16 +40,17 @@
+  if(message.type==='FG_CLASSIFY'){
+    const r=structuredClone(message.record),delay=H.delay,mode=H.mode;H.requests.push(r);
+    if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
+-   const scores={unwantedAd:r.text.includes('BUILDER_FIXTURE')?.9:.01,feedSpam:r.text.includes('SPAM_FIXTURE')?.99:.01,bait:r.text.includes('BAIT_FIXTURE')?.99:.01,lowSignal:.01,useful:r.text.includes('BUILDER_FIXTURE')?.95:.1,original:r.text.includes('BUILDER_FIXTURE')?.9:.1,risk:.01,sufficient:.99};
++   const scores={unwantedAd:r.text.includes('BUILDER_FIXTURE')?.9:.01,feedSpam:r.text.includes('SPAM_FIXTURE')?.99:.01,bait:r.text.includes('BAIT_FIXTURE')?.99:.01,lowSignal:.01,useful:r.text.includes('BUILDER_FIXTURE')?.95:.1,original:r.text.includes('BUILDER_FIXTURE')?.9:.1,risk:.01,topic:r.text.includes('TOPIC_FIXTURE')?.99:.01,sufficient:.99};
+    const result=mode==='success'?{model:'synthetic-DOM-fixture',scores,usage:{input_tokens:0,output_tokens:0},latencyMs:delay}:null;
+    return {ok:true,data:{result,decision:C.decide(r,result,H.settings,{revealed:H.kept.includes(r.id)}),...(mode==='success'?{}:{error:{code:'NETWORK',message:'Simulated offline'}})}};
+  }
+  if(message.type==='FG_KEEP_POST'){H.kept.push(message.record.id);H.refresh();return {ok:true,data:{saved:true}};}
+  if(message.type==='FG_PAGE_STATS'){H.pages=[{...message.stats,site:'x',context:'feed'}];return {ok:true,data:{}};}
+- if(message.type==='FG_DIAGNOSTICS')return {ok:true,data:{format:'feedgate-diagnostics',version:7,build:{release:'3.2.0',rubric:'feed-v2.1.0',policy:'policy-3.1.0',detector:'ad-3.0.0',extraction:'extract-3.0.0',schema:7},pages:H.pages,cosmeticEvents:H.cosmeticEvents,update:{running:C.VERSION,onDisk:H.buildRelease,buildId:'harness-build',updateAvailable:H.buildRelease!==C.VERSION,checkedAt:Date.now()}}};
+- if(message.type==='FG_ALLOW_AUTHOR'){const key=C.authorKey('x',message.author);H.settings.allowedAuthors=[...H.settings.allowedAuthors.filter(a=>a!==key),key];H.settings.blockedAuthors=H.settings.blockedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{}};}
+- if(message.type==='FG_MUTE_AUTHOR'){const key=C.authorKey('x',message.author);H.settings.blockedAuthors=[...H.settings.blockedAuthors.filter(a=>a!==key),key];H.settings.allowedAuthors=H.settings.allowedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{}};}
+- if(message.type==='FG_FORGET_AUTHOR'){const key=C.authorKey('x',message.author);H.settings.allowedAuthors=H.settings.allowedAuthors.filter(a=>a!==key);H.settings.blockedAuthors=H.settings.blockedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{}};}
++ if(message.type==='FG_DIAGNOSTICS')return {ok:true,data:{format:'feedgate-diagnostics',version:8,build:{release:'3.3.0',rubric:'feed-v2.2.0',policy:'policy-3.3.0',detector:'ad-3.0.0',extraction:'extract-3.3.0',schema:8},pages:H.pages,cosmeticEvents:H.cosmeticEvents,update:{running:C.VERSION,onDisk:H.buildRelease,buildId:'harness-build',updateAvailable:H.buildRelease!==C.VERSION,checkedAt:Date.now()}}};
++ if(message.type==='FG_ALLOW_AUTHOR'){const key=C.authorKey('x',message.author);const previous=H.settings.blockedAuthors.includes(key)?'blocked':(H.settings.allowedAuthors.includes(key)?'allowed':'none');H.settings.allowedAuthors=[...H.settings.allowedAuthors.filter(a=>a!==key),key];H.settings.blockedAuthors=H.settings.blockedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{saved:true,key,previous,applied:'allowed',revision:H.settings.revisions.settings}};}
++ if(message.type==='FG_MUTE_AUTHOR'){const key=C.authorKey('x',message.author);const previous=H.settings.blockedAuthors.includes(key)?'blocked':(H.settings.allowedAuthors.includes(key)?'allowed':'none');H.settings.blockedAuthors=[...H.settings.blockedAuthors.filter(a=>a!==key),key];H.settings.allowedAuthors=H.settings.allowedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{saved:true,key,previous,applied:'blocked',revision:H.settings.revisions.settings}};}
++ if(message.type==='FG_FORGET_AUTHOR'){const key=C.authorKey('x',message.author);const previous=H.settings.blockedAuthors.includes(key)?'blocked':(H.settings.allowedAuthors.includes(key)?'allowed':'none');H.settings.allowedAuthors=H.settings.allowedAuthors.filter(a=>a!==key);H.settings.blockedAuthors=H.settings.blockedAuthors.filter(a=>a!==key);H.refresh();return {ok:true,data:{saved:true,key,previous,applied:'none',revision:H.settings.revisions.settings}};}
++ if(message.type==='FG_AUTHOR_UNDO'){const key=C.authorKey('x',message.author);const previous=['none','blocked','allowed'].includes(message.previous)?message.previous:'none';H.settings.allowedAuthors=H.settings.allowedAuthors.filter(a=>a!==key);H.settings.blockedAuthors=H.settings.blockedAuthors.filter(a=>a!==key);if(previous==='allowed')H.settings.allowedAuthors=[...H.settings.allowedAuthors,key];if(previous==='blocked')H.settings.blockedAuthors=[...H.settings.blockedAuthors,key];H.refresh();return {ok:true,data:{saved:true,stale:false,key,state:message.applied}};}
+  if(message.type==='FG_ADD_RULE'){
+    const rule=C.sanitizeCosmeticRule({id:'r-'+Math.random().toString(36).slice(2,10),host:new URL(H.location.href).hostname,selector:message.selector,status:'active',source:'picker',reason:'user_created',createdAt:Date.now(),validatedAt:Date.now()});
+    if(!rule)return {ok:false,error:{code:'UNSAFE_SELECTOR',message:'selector rejected'}};
+@@ -71,10 +72,13 @@
+  if(message.type==='FG_SET_KEY'){H.keyReady=true;H.hasVault=message.remember;return {ok:true,data:{saved:true}};}
+  if(message.type==='FG_LOCK'){H.keyReady=false;return {ok:true,data:{}};}
+  if(message.type==='FG_TEST_CONNECTION'){H.verifiedAt=Date.now();return {ok:true,data:{model:'jev-fixture-only',latencyMs:1,usage:{input_tokens:0,output_tokens:0},scores:{},decision:{action:'allow',reason:'Synthetic test fixture'}}};}
+- if(message.type==='FG_EXPORT_SETTINGS')return {ok:true,data:{format:'feedgate-settings',version:5,settings:{...H.settings,sites:[],consent:false}}};
++ if(message.type==='FG_EXPORT_SETTINGS')return {ok:true,data:{format:'feedgate-settings',version:6,settings:{...H.settings,sites:[],consent:false}}};
+  if(message.type==='FG_TAB_COMMAND')return {ok:true,data:{}};
+  if(message.type==='FG_UPDATE_INFO')return {ok:true,data:{running:C.VERSION,onDisk:H.buildRelease,buildId:'harness-build',updateAvailable:H.buildRelease!==C.VERSION,checkedAt:Date.now()}};
+  if(message.type==='FG_EXPORT_VAULT')return {ok:true,data:{format:'feedgate-key-backup',version:1,vault:{version:1,kdf:'PBKDF2-SHA256',iterations:600000,salt:'AAAAAAAAAAAAAAAAAAAAAA==',iv:'AAAAAAAAAAAAAAAA',ciphertext:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'}}};
++ if(message.type==='FG_TOPIC_ADD'){const t=message.topic||{};const topic={id:t.id||'t-'+Math.random().toString(36).slice(2,10),label:C.text(t.label,80),scope:t.scope==='all'?'all':'site',site:t.scope==='site'?'x':'',until:C.finite(t.until)&&t.until>0?Math.round(t.until):0,createdAt:Date.now()};if(!topic.label)return {ok:false,error:{code:'INVALID_RECORD',message:'label required'}};H.settings.topics=[...H.settings.topics,topic];H.bump('settings');H.refresh();return {ok:true,data:{saved:true,created:true,topic,revision:H.settings.revisions.settings}};}
++ if(message.type==='FG_TOPIC_DELETE'){const found=H.settings.topics.find(t=>t.id===message.id);if(!found)return {ok:false,error:{code:'TOPIC_NOT_FOUND',message:'missing'}};H.settings.topics=H.settings.topics.filter(t=>t.id!==message.id);H.bump('settings');H.refresh();return {ok:true,data:{saved:true,topic:found,revision:H.settings.revisions.settings}};}
++ if(message.type==='FG_TOPIC_UPDATE'){const found=H.settings.topics.find(t=>t.id===message.id);if(!found)return {ok:false,error:{code:'TOPIC_NOT_FOUND',message:'missing'}};const patch=message.patch||{};if(patch.label!==undefined)found.label=C.text(patch.label,80);if(patch.scope==='all'||patch.scope==='site')found.scope=patch.scope;if(patch.site!==undefined)found.site=C.text(patch.site,40);if(patch.until!==undefined)found.until=C.finite(patch.until)&&patch.until>0?Math.round(patch.until):0;H.bump('settings');H.refresh();return {ok:true,data:{saved:true,topic:found,revision:H.settings.revisions.settings}};}
+  return {ok:true,data:{}};
+ }},storage:{local:{get:async()=>({}),set:async()=>{},remove:async()=>{}},session:{get:async()=>({}),set:async()=>{}}},permissions:{request:async()=>!H.permissionDenied,remove:async()=>true,contains:async()=>!H.permissionDenied,getAll:async()=>({permissions:['storage','scripting','activeTab'],origins:H.permissionDenied?[]:['https://x.com/*','https://twitter.com/*']})},tabs:{getCurrent:async()=>({id:1,url:H.location.href}),create:async()=>({id:2}),sendMessage:async(_id,m)=>H.command(m.type),query:async()=>[{id:1,url:'https://x.com/home'}]}};
+ }'''
+@@ -279,7 +283,7 @@
+             await pg.evaluate("Object.assign(harness.location,{protocol:'chrome-extension:',hostname:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',pathname:'/demo.html',href:'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/demo.html'});harness.mode='offline'")
+             await code(pg,source('adapters.js'),True);await code(pg,source('demo.js'));await code(pg,source('content.js'),True)
+             await pg.wait_for_function("document.querySelectorAll('feedgate-card').length===1")
+-            assert await pg.evaluate("FeedGateCore.VERSION")=='3.2.0'
++            assert await pg.evaluate("FeedGateCore.VERSION")=='3.3.0'
+             assert await pg.locator('feedgate-status').count()==0,'demo mode keeps the HUD out of the fixture'
+             await pg.screenshot(path=str(ROOT/'evidence/test-feed-local.png'),full_page=True)
+             await pg.locator('#demo-restore').click();await pg.wait_for_function("document.querySelectorAll('feedgate-card').length===0")
+@@ -403,8 +407,8 @@
+             await pg.locator('#export-diagnostics').click()
+             await pg.wait_for_function('window.savedBlobs.length===1')
+             data=await pg.evaluate('async()=>JSON.parse(await window.savedBlobs[0].text())')
+-            assert data['format']=='feedgate-diagnostics' and data['version']==7
+-            assert data['build']['detector']=='ad-3.0.0' and data['build']['release']=='3.2.0'
++            assert data['format']=='feedgate-diagnostics' and data['version']==8
++            assert data['build']['detector']=='ad-3.0.0' and data['build']['release']=='3.3.0'
+             assert not errors,errors
+             await pg.screenshot(path=str(ROOT/'evidence/diagnostics-fixture.png'),full_page=True)
+             await pg.close()
+@@ -796,8 +800,8 @@
+             await pg.locator('button[data-page="updates"]').click()
+             await pg.wait_for_function("document.querySelector('#update-badge')&&document.querySelector('#update-badge').textContent.trim()==='Up to date'")
+             info=await pg.locator('#update-info').inner_text()
+-            assert 'Running build: 3.2.0' in info,info
+-            assert 'Files on disk: 3.2.0' in info,info
++            assert 'Running build: 3.3.0' in info,info
++            assert 'Files on disk: 3.3.0' in info,info
+             await pg.evaluate("harness.buildRelease='3.2.1'")
+             await pg.locator('#update-check').click()
+             await pg.wait_for_function("document.querySelector('#update-badge').textContent.trim()==='Update available'")
+@@ -815,6 +819,74 @@
+             await pg.close()
+         await run_case('UPDATE01: the Updates panel compares running and on-disk builds and prepares a sealed key backup',update_panel)
+ 
++        async def topic_picker():
++            pg=await fixture(browser,tweet('t1','TOPIC_FIXTURE discussion about the local council budget'))
++            await pg.wait_for_function('harness.requests.length===1')
++            await pg.click('feedgate-status button')
++            await pg.wait_for_function("()=>document.querySelector('feedgate-status').shadowRoot.textContent.includes('Mute topic')")
++            await pg.locator('feedgate-status').get_by_role('button',name='Mute topic').click()
++            await pg.wait_for_function("document.documentElement.innerText.includes('hover a post')")
++            await pg.click('#t1')
++            await pg.wait_for_function("document.querySelector('feedgate-topic') && document.querySelector('feedgate-topic').shadowRoot.textContent.includes('Mute topic preview')")
++            await pg.locator('feedgate-topic input').fill('local politics')
++            await pg.locator('feedgate-topic').get_by_role('button',name='Mute topic',exact=True).click()
++            await pg.wait_for_function('harness.settings.topics.length===1')
++            topic=await pg.evaluate('harness.settings.topics[0]')
++            assert topic['label']=='local politics',topic
++            assert topic['scope']=='site' and topic['site']=='x',topic
++            assert topic['until']>0,topic
++            await pg.wait_for_function("document.querySelector('feedgate-card') && document.querySelector('feedgate-card').shadowRoot.textContent.includes('Your muted topic')")
++            await pg.screenshot(path=str(ROOT/'evidence/topic-mute.png'),full_page=True)
++            await pg.close()
++        await run_case('TOPIC01: the status panel mutes a topic with scope and duration, then hides matching posts',topic_picker)
++
++        async def grouping_bar():
++            pg=await fixture(browser,tweet('d1','Duplicate fixture text about regional train delays')+tweet('d2','Duplicate fixture text about regional train delays')+tweet('o1','A different post with unrelated information'))
++            await pg.wait_for_function('harness.requests.length===3')
++            await pg.evaluate("harness.settings.grouping=true;harness.command('FG_CONFIG_CHANGED');")
++            await pg.wait_for_function("document.querySelector('feedgate-group')")
++            text=await pg.evaluate("document.querySelector('feedgate-group').shadowRoot.textContent")
++            assert 'more similar post' in text,text
++            hidden=await pg.evaluate("getComputedStyle(document.querySelector('#d2')).display")
++            assert hidden=='none',hidden
++            await pg.locator('feedgate-group').get_by_role('button').click()
++            await pg.wait_for_function("getComputedStyle(document.querySelector('#d2')).display!=='none'")
++            await pg.screenshot(path=str(ROOT/'evidence/grouping.png'),full_page=True)
++            await pg.close()
++        await run_case('GROUP01: repeated posts fold behind a group bar and expand on demand',grouping_bar)
++
++        async def usage_panel():
++            pg=await browser.new_page()
++            await pg.set_content(shell('options.html'))
++            await code(pg,source('core.js'))
++            await pg.evaluate(HARNESS)
++            await code(pg,source('options.js'))
++            await pg.click('button[data-page="review"]')
++            await pg.wait_for_function("document.querySelector('#usage-badge').textContent.includes('today')")
++            badge=await pg.locator('#usage-badge').text_content()
++            assert '0 /' in badge,badge
++            stats=await pg.locator('#usage-stats').text_content()
++            assert 'provider attempts' in stats and 'cache hits' in stats,stats
++            cost=await pg.locator('#usage-cost').text_content()
++            assert 'not calculated' in cost,cost
++            await pg.evaluate("harness.settings.pricing={inputPerMTok:1,outputPerMTok:2,currency:'USD'};")
++            await pg.wait_for_function("document.querySelector('#usage-cost').textContent.includes('estimate from your own rates')",timeout=9000)
++            await pg.close()
++        await run_case('USAGE01: the API usage panel shows daily counters and cost only from configured rates',usage_panel)
++
++        async def thrift_defer():
++            pg=await fixture(browser,tweet('v1','A visible useful post about testing'),content=False)
++            await pg.evaluate("harness.settings.thrift=true;harness.settings.thriftDelayMs=400;")
++            await code(pg,source('content.js'),True)
++            await pg.wait_for_function('harness.requests.length===1')
++            await pg.evaluate("()=>{const a=document.createElement('article');a.id='late';a.setAttribute('data-testid','tweet');a.innerHTML='<header data-testid=\"User-Name\">@late</header><div data-testid=\"tweetText\">Late post content</div>';document.body.append(a);window.__burst=setInterval(()=>window.dispatchEvent(new Event('scroll')),100);setTimeout(()=>clearInterval(window.__burst),900);}")
++            await asyncio.sleep(0.5)
++            count=await pg.evaluate('harness.requests.length')
++            assert count==1,'thrift mode must not analyze while scrolling, saw %s'%count
++            await pg.wait_for_function('harness.requests.length===2',timeout=6000)
++            await pg.close()
++        await run_case('THRIFT01: thrift mode defers analysis while scrolling and runs after scrolling settles',thrift_defer)
++
+         await browser.close()
+     report={'scope':'Real Chromium DOM; mocked Chrome APIs, page location and Jev responses. No extension installed; no live API or signed-in feeds tested.','browser':version,'results':REPORT,'passed':sum(r['status']=='PASS' for r in REPORT)}
+     (ROOT/'evidence/browser-dom-tests.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
+--- a/tests/core.test.mjs
++++ b/tests/core.test.mjs
+@@ -14,14 +14,14 @@
+ const sanitized=patch=>C.sanitizeRecord(record(patch),'x');
+ 
+ test('release, rubric, detector, extraction, policy and schema versions are separate',()=>{
+-  assert.equal(C.VERSION,'3.2.0');
+-  assert.equal(C.RUBRIC_VERSION,'feed-v2.1.0');
+-  assert.equal(C.POLICY_VERSION,'policy-3.1.0');
++  assert.equal(C.VERSION,'3.3.0');
++  assert.equal(C.RUBRIC_VERSION,'feed-v2.2.0');
++  assert.equal(C.POLICY_VERSION,'policy-3.3.0');
+   assert.equal(C.AD_DETECTOR_VERSION,'ad-3.0.0');
+-  assert.equal(C.EXTRACTION_VERSION,'extract-3.0.0');
+-  assert.equal(C.SETTINGS_VERSION,5);
+-  assert.equal(C.RUNTIME_VERSION,5);
+-  assert.equal(C.DIAGNOSTICS_VERSION,7);
++  assert.equal(C.EXTRACTION_VERSION,'extract-3.3.0');
++  assert.equal(C.SETTINGS_VERSION,6);
++  assert.equal(C.RUNTIME_VERSION,6);
++  assert.equal(C.DIAGNOSTICS_VERSION,8);
+ });
+ 
+ test('host matching rejects lookalikes and accepts subdomains',()=>{
+@@ -45,7 +45,7 @@
+ test('settings sanitization keeps bounds, resets versions and ignores junk keys',()=>{
+   const dirty=JSON.parse('{"__proto__":{"polluted":true},"version":2,"consent":"yes","concurrency":99,"dailyLimit":1,"cacheMinutes":-5,"model":"gpt","sites":["x","youtube","x"],"allowedAuthors":["x:allowed","bad key","y:other"],"categories":{"promotion":{"mode":"collapse","threshold":0.1},"risk":{"mode":"nope","threshold":"0.9"}}}');
+   const s=C.sanitizeSettings(dirty);
+-  assert.equal(s.version,5);
++  assert.equal(s.version,6);
+   assert.equal(s.consent,false);
+   assert.equal(s.concurrency,12);
+   assert.equal(s.dailyLimit,10);
+@@ -53,7 +53,7 @@
+   assert.equal(s.model,'jev-latest');
+   assert.deepEqual(s.sites,['x']);
+   assert.deepEqual(s.allowedAuthors,['x:allowed','y:other']);
+-  assert.equal(Object.keys(s.categories).length,6);
++  assert.equal(Object.keys(s.categories).length,7);
+   assert.equal(s.categories.risk.mode,'collapse');
+   assert.equal(s.categories.risk.threshold,0.94);
+   assert.equal(s.categories.unwantedAd.threshold,0.85);
+@@ -69,7 +69,7 @@
+     protectUseful:true,profileMode:'normal',concurrency:4,dailyLimit:120,cacheMinutes:60,customInstruction:'no memes',cosmeticRules:'x.com##.ad',
+     allowedAuthors:['x:friend'],categories:{promotion:{mode:'collapse',threshold:0.55},spam:{mode:'collapse',threshold:0.6},bait:{mode:'collapse',threshold:0.7}}};
+   const s=C.migrateSettings(legacy);
+-  assert.equal(s.version,5);
++  assert.equal(s.version,6);
+   assert.equal(s.consent,true);
+   assert.deepEqual(s.sites,['x']);
+   assert.deepEqual(s.allowedAuthors,['x:friend']);
+@@ -327,7 +327,7 @@
+   const many=settings({blockedAuthors:Array.from({length:600},(_,i)=>'x:name'+i)});
+   assert.equal(many.blockedAuthors.length,500);
+   const migrated=C.migrateSettings({version:4,consent:true,sites:['x'],allowedAuthors:['x:@friend'],cosmeticFilters:{version:3,revision:2,rules:[]}});
+-  assert.equal(migrated.version,5);
++  assert.equal(migrated.version,6);
+   assert.deepEqual(migrated.blockedAuthors,[]);
+   assert.deepEqual(migrated.allowedAuthors,['x:@friend']);
+   assert.equal(migrated.cosmeticFilters.revision,2,'v4 settings keep their cosmetic rules on upgrade');
+--- a/tests/diagnostics-v21.test.mjs
++++ b/tests/diagnostics-v21.test.mjs
+@@ -5,9 +5,9 @@
+ test('direct transport never opens a localhost bridge and verified local ads cost no API request',async()=>{
+  const w=await createWorker();await w.enable();const r=await w.classify({...post('Labelled placement'),adEvidence:adEvidenceVerified});
+  assert.equal(r.decision.source,'local');assert.equal(r.decision.rule,'platform_labelled_ad');assert.equal(w.calls.length,0);
+- const d=await w.ok({type:'FG_DIAGNOSTICS'});assert.equal(d.connection.transport,'direct TypeSafe HTTPS');assert.equal(d.version,7);assert.equal(d.rubric,'feed-v2.1.0');
+- assert.equal(d.build.release,'3.2.0');assert.equal(d.build.rubric,'feed-v2.1.0');assert.equal(d.build.policy,'policy-3.1.0');assert.equal(d.build.detector,'ad-3.0.0');assert.equal(d.build.extraction,'extract-3.0.0');assert.equal(d.build.schema,7);
+- assert.equal(d.update.running,'3.2.0');assert.equal(d.update.onDisk,null);assert.equal(d.update.updateAvailable,null);assert.ok(d.update.note.includes('Updates panel'));
++ const d=await w.ok({type:'FG_DIAGNOSTICS'});assert.equal(d.connection.transport,'direct TypeSafe HTTPS');assert.equal(d.version,8);assert.equal(d.rubric,'feed-v2.2.0');
++ assert.equal(d.build.release,'3.3.0');assert.equal(d.build.rubric,'feed-v2.2.0');assert.equal(d.build.policy,'policy-3.3.0');assert.equal(d.build.detector,'ad-3.0.0');assert.equal(d.build.extraction,'extract-3.3.0');assert.equal(d.build.schema,8);
++ assert.equal(d.update.running,'3.3.0');assert.equal(d.update.onDisk,null);assert.equal(d.update.updateAvailable,null);assert.ok(d.update.note.includes('Updates panel'));
+  const local=d.decisions.find(x=>x.rule==='platform_labelled_ad');
+  assert.equal(local.adEvidence.status,'verified');assert.equal(local.adEvidence.markerKind,'x_is_promoted_attribute');assert.equal(local.adEvidence.scope,'outer_post');assert.equal(local.protectionEligible,false);
+  assert.equal(d.settings.mutedAuthorCount,0);
+@@ -57,14 +57,14 @@
+ });
+ test('legacy settings keep safe preferences but never reuse old thresholds',async()=>{
+  const w=await createWorker({local:{settings:{version:1,consent:true,sites:['x'],categories:{promotion:{mode:'collapse',threshold:.5}}}},session:{runtimeState:{metrics:{requests:999},log:[{reason:'OLD'}]}}});
+- const s=await w.ok({type:'FG_STATUS'});assert.equal(s.settings.version,5);assert.equal(s.settings.hudMode,'compact');assert.equal(s.settings.consent,true);assert.deepEqual(s.settings.sites,['x']);assert.equal(s.settings.categories.unwantedAd.threshold,.85);assert.equal(s.settings.categories.promotion,undefined);assert.equal(s.metrics.requests,0);
++ const s=await w.ok({type:'FG_STATUS'});assert.equal(s.settings.version,6);assert.equal(s.settings.hudMode,'compact');assert.equal(s.settings.consent,true);assert.deepEqual(s.settings.sites,['x']);assert.equal(s.settings.categories.unwantedAd.threshold,.85);assert.equal(s.settings.categories.promotion,undefined);assert.equal(s.metrics.requests,0);
+ });
+-test('settings export format is explicitly v5, v4/v3/v2 imports migrate and v1 imports are rejected',async()=>{
+- const w=await createWorker();const data=await w.ok({type:'FG_EXPORT_SETTINGS'});assert.equal(data.version,5);
++test('settings export format is explicitly v6, v5/v4/v3/v2 imports migrate and v1 imports are rejected',async()=>{
++ const w=await createWorker();const data=await w.ok({type:'FG_EXPORT_SETTINGS'});assert.equal(data.version,6);
+  const r=await w.send({type:'FG_IMPORT_SETTINGS',data:{...data,version:1}});assert.equal(r.error.code,'INVALID_RECORD');
+  const legacy={format:'feedgate-settings',version:2,settings:{version:2,consent:true,sites:['x'],categories:{promotion:{mode:'collapse',threshold:.5},spam:{mode:'collapse',threshold:.5}},allowedAuthors:['x:@friend'],dailyLimit:321}};
+  const imported=await w.ok({type:'FG_IMPORT_SETTINGS',data:legacy});
+- assert.equal(imported.settings.version,5);assert.equal(imported.settings.consent,false);assert.deepEqual(imported.settings.sites,[]);
++ assert.equal(imported.settings.version,6);assert.equal(imported.settings.consent,false);assert.deepEqual(imported.settings.sites,[]);
+  assert.equal(imported.settings.categories.unwantedAd.threshold,.85);assert.equal(imported.settings.categories.feedSpam.threshold,.9);
+  assert.deepEqual(imported.settings.allowedAuthors,['x:@friend']);assert.equal(imported.settings.dailyLimit,321);
+ });
+--- a/tests/extension_smoke.py
++++ b/tests/extension_smoke.py
+@@ -136,7 +136,7 @@
+             version = None
+             worker_errors.append(f"evaluate failed: {exc}")
+         result["version"] = version
+-        check("worker reports release version 3.2.0", version == "3.2.0", str(version))
++        check("worker reports release version 3.3.0", version == "3.3.0", str(version))
+ 
+         await page.goto(f"chrome-extension://{result['extensionId']}/demo.html")
+         await page.wait_for_timeout(2000)
+@@ -159,7 +159,7 @@
+         await page.wait_for_timeout(600)
+         label = await page.locator(".version, [data-version], #version").first.inner_text() if await page.locator(".version, [data-version], #version").count() else ""
+         result["optionsVersionLabel"] = label
+-        check("options page opens as the real extension page", "3.2.0" in label, label.strip()[:60])
++        check("options page opens as the real extension page", "3.3.0" in label, label.strip()[:60])
+ 
+         check("no localhost or bridge traffic", not result["localhostHits"], ",".join(result["localhostHits"][:3]))
+         check("no page errors during the demo run", not page_errors, "; ".join(page_errors[:2]))
+--- a/tests/policy-v21.test.mjs
++++ b/tests/policy-v21.test.mjs
+@@ -181,7 +181,7 @@
+     allowedAuthors:['x:@friend'],categories:{promotion:{mode:'collapse',threshold:0.5},spam:{mode:'collapse',threshold:0.5},bait:{mode:'off',threshold:0.6}}};
+   const w=await createWorker({local:{settings:legacy}});
+   const status=await w.ok({type:'FG_STATUS'});
+-  assert.equal(status.settings.version,5);
++  assert.equal(status.settings.version,6);
+   assert.equal(status.settings.consent,true);
+   assert.deepEqual(status.settings.sites,['x']);
+   assert.deepEqual(status.settings.allowedAuthors,['x:@friend']);
+--- a/tests/v3-features.test.mjs
++++ b/tests/v3-features.test.mjs
+@@ -55,7 +55,7 @@
+ 
+ test('legacy settings migrate to HUD modes and quarantined cosmetic review',()=>{
+   const hidden=C.migrateSettings({version:3,showStatus:false,cosmeticRules:'x.com##.ad'});
+-  assert.equal(hidden.version,5);
++  assert.equal(hidden.version,6);
+   assert.equal(hidden.hudMode,'hidden');
+   assert.equal(hidden.cosmeticFilters.rules.length,1);
+   assert.equal(hidden.cosmeticFilters.rules[0].status,'quarantined');
+@@ -269,7 +269,7 @@
+ test('exports are v4 while imports re-quarantine unverified rules and reject v1',async()=>{
+   const w=await createWorker();
+   const exported=await w.ok({type:'FG_EXPORT_SETTINGS'});
+-  assert.equal(exported.version,5);
++  assert.equal(exported.version,6);
+    const data={format:'feedgate-settings',version:4,settings:{...base(),version:4,cosmeticFilters:{version:3,revision:0,rules:[
+     rule({id:'r-keep0001',selector:'.keep',validatedAt:5}),
+     rule({id:'r-review01',selector:'.review',validatedAt:0})
+--- /dev/null
++++ b/tests/v330-features.test.mjs
++import test from 'node:test';
++import assert from 'node:assert/strict';
++
++import '../src/core.js';
++import {createWorker,post,sender,sleep} from './worker-harness.mjs';
++
++const C=globalThis.FeedGateCore;
++const KEYS=['unwantedAd','feedSpam','bait','lowSignal','useful','original','risk','sufficient','topic'];
++const result=(extra={})=>({
++  model:'jev-test-fixture',
++  scores:Object.fromEntries(KEYS.map((k)=>[k,k==='sufficient'?0.99:0.01]).concat(Object.entries(extra))),
++  usage:{input_tokens:1,output_tokens:0},
++  latencyMs:1,
++});
++
++test('A1: concurrent author mutes keep every author (atomic read-modify-write)',async()=>{
++  const w=await createWorker();
++  await w.enable();
++  await Promise.all([
++    w.ok({type:'FG_MUTE_AUTHOR',author:'@alpha'},sender),
++    w.ok({type:'FG_MUTE_AUTHOR',author:'@beta'},sender),
++  ]);
++  const s=await w.ok({type:'FG_STATUS'});
++  assert.deepEqual(s.settings.blockedAuthors.slice().sort(),['x:@alpha','x:@beta']);
++});
++
++test('A1: sequential changes of the same author settle on the last write',async()=>{
++  const w=await createWorker();
++  await w.enable();
++  await w.ok({type:'FG_MUTE_AUTHOR',author:'@one'},sender);
++  await w.ok({type:'FG_ALLOW_AUTHOR',author:'@one'},sender);
++  await w.ok({type:'FG_MUTE_AUTHOR',author:'@one'},sender);
++  const s=await w.ok({type:'FG_STATUS'});
++  assert.deepEqual(s.settings.allowedAuthors,[]);
++  assert.deepEqual(s.settings.blockedAuthors,['x:@one']);
++});
++
++test('A2: undo restores the exact previous state (mute and allow)',async()=>{
++  const w=await createWorker();
++  await w.enable();
++  const first=await w.ok({type:'FG_MUTE_AUTHOR',author:'@u1'},sender);
++  assert.equal(first.previous,'none');
++  assert.equal(first.applied,'blocked');
++  const undo=await w.ok({type:'FG_AUTHOR_UNDO',author:'@u1',previous:first.previous,applied:first.applied},sender);
++  assert.equal(undo.saved,true);
++  let s=await w.ok({type:'FG_STATUS'});
++  assert.deepEqual(s.settings.blockedAuthors,[]);
++  assert.deepEqual(s.settings.allowedAuthors,[]);
++
++  await w.ok({type:'FG_MUTE_AUTHOR',author:'@u1'},sender);
++  const second=await w.ok({type:'FG_ALLOW_AUTHOR',author:'@u1'},sender);
++  assert.equal(second.previous,'blocked');
++  assert.equal(second.applied,'allowed');
++  const undo2=await w.ok({type:'FG_AUTHOR_UNDO',author:'@u1',previous:'blocked',applied:'allowed'},sender);
++  assert.equal(undo2.saved,true);
++  s=await w.ok({type:'FG_STATUS'});
++  assert.deepEqual(s.settings.blockedAuthors,['x:@u1']);
++  assert.deepEqual(s.settings.allowedAuthors,[]);
++});
++
++test('A2: an outdated undo never overwrites a newer decision',async()=>{
++  const w=await createWorker();
++  await w.enable();
++  const first=await w.ok({type:'FG_MUTE_AUTHOR',author:'@old'},sender);
++  await w.ok({type:'FG_ALLOW_AUTHOR',author:'@old'},sender);
++  const stale=await w.ok({type:'FG_AUTHOR_UNDO',author:'@old',previous:first.previous,applied:first.applied},sender);
++  assert.equal(stale.saved,false);
++  assert.equal(stale.stale,true);
++  const s=await w.ok({type:'FG_STATUS'});
++  assert.deepEqual(s.settings.allowedAuthors,['x:@old']);
++  assert.deepEqual(s.settings.blockedAuthors,[]);
++});
++
++test('A2: undo for one author does not disturb another author',async()=>{
++  const w=await createWorker();
++  await w.enable();
++  await w.ok({type:'FG_MUTE_AUTHOR',author:'@keep'},sender);
++  const m=await w.ok({type:'FG_MUTE_AUTHOR',author:'@drop'},sender);
++  await w.ok({type:'FG_AUTHOR_UNDO',author:'@drop',previous:m.previous,applied:m.applied},sender);
++  const s=await w.ok({type:'FG_STATUS'});
++  assert.deepEqual(s.settings.blockedAuthors,['x:@keep']);
++});
++
++test('A3: display-name-only records never match author lists',()=>{
++  const nameOnly=C.sanitizeRecord({site:'linkedin',author:'Jan Kowalski',text:'A substantive post with real detail.'},'linkedin');
++  assert.equal(nameOnly.authorId,'');
++  assert.equal(nameOnly.authorNameOnly,true);
++  const named=C.sanitizeRecord({site:'linkedin',author:'Jan Kowalski',authorId:'in:jan-kowalski-123',text:'Another substantive post.'},'linkedin');
++  assert.equal(named.authorNameOnly,false);
++  assert.equal(named.authorId,'in:jan-kowalski-123');
++
++  const settings=C.sanitizeSettings({...C.DEFAULTS,blockedAuthors:['linkedin:in:jan-kowalski-123','linkedin:jan kowalski']});
++  const quiet=C.decide(nameOnly,result(),settings);
++  assert.notEqual(quiet.rule,'author_muted');
++  const matched=C.decide(named,result(),settings);
++  assert.equal(matched.rule,'author_muted');
++  assert.equal(matched.source,'author');
++  assert.equal(matched.action,'collapse');
++});
++
++test('A3: the same display name with a different profile id stays a different author',()=>{
++  const a=C.sanitizeRecord({site:'linkedin',author:'Jan Kowalski',authorId:'in:jan-kowalski-123',text:'First post body text.'},'linkedin');
++  const b=C.sanitizeRecord({site:'linkedin',author:'Jan Kowalski',authorId:'in:jan-kowalski-999',text:'Second post body text.'},'linkedin');
++  const ka=C.authorKey(a.site,a.authorId);
++  const kb=C.authorKey(b.site,b.authorId);
++  assert.notEqual(ka,kb);
++  const settings=C.sanitizeSettings({...C.DEFAULTS,blockedAuthors:[ka]});
++  assert.equal(C.decide(a,result(),settings).rule,'author_muted');
++  assert.notEqual(C.decide(b,result(),settings).rule,'author_muted');
++});
++
++test('B5: a muted topic collapses matching posts through the semantic path',async()=>{
++  const w=await createWorker();
++  await w.enable();
++  await w.ok({type:'FG_TOPIC_ADD',topic:{label:'crypto gambling',scope:'site',until:0}},sender);
++  const d=await w.classify(post('TOPIC_FIXTURE something about the muted subject','t1'));
++  assert.equal(d.decision.action,'collapse');
++  assert.equal(d.decision.rule,'topic_muted');
++  assert.equal(d.decision.source,'topic');
++  assert.equal(d.decision.category,'topic');
++});
++
++test('B5: a passing mention of a muted topic keeps the post visible',async()=>{
++  const w=await createWorker();
++  await w.enable();
++  await w.ok({type:'FG_TOPIC_ADD',topic:{label:'crypto gambling',scope:'site',until:0}},sender);
++  const d=await w.classify(post('Useful fixture','t2'));
++  assert.equal(d.decision.action,'allow');
++  assert.notEqual(d.decision.rule,'topic_muted');
++});
++
++test('B5: an expired topic stops hiding posts',async()=>{
++  const w=await createWorker();
++  await w.enable();
++  await w.ok({type:'FG_TOPIC_ADD',topic:{label:'old subject',scope:'site',until:Date.now()-1000,createdAt:Date.now()-100000}},sender);
++  const d=await w.classify(post('TOPIC_FIXTURE still around','t3'));
++  assert.equal(d.decision.action,'allow');
++  assert.notEqual(d.decision.rule,'topic_muted');
++});
++
++test('B5: keeping a post wins over an active topic mute',async()=>{
++  const w=await createWorker();
++  await w.enable();
++  await w.ok({type:'FG_TOPIC_ADD',topic:{label:'crypto gambling',scope:'site',until:0}},sender);
++  const r=post('TOPIC_FIXTURE kept by the user','t4');
++  await w.ok({type:'FG_KEEP_POST',record:r},sender);
++  const d=await w.classify(r);
++  assert.equal(d.decision.rule,'kept_by_you');
++  assert.equal(d.decision.action,'allow');
++});
++
++test('B5: deleting a topic restores matching posts',async()=>{
++  const w=await createWorker();
++  await w.enable();
++  const added=await w.ok({type:'FG_TOPIC_ADD',topic:{label:'crypto gambling',scope:'site',until:0}},sender);
++  const first=await w.classify(post('TOPIC_FIXTURE payload','t5'));
++  assert.equal(first.decision.action,'collapse');
++  await w.ok({type:'FG_TOPIC_DELETE',id:added.topic.id},sender);
++  const second=await w.classify(post('TOPIC_FIXTURE payload','t5'));
++  assert.equal(second.decision.action,'allow');
++});
++
++test('B5: editing a topic invalidates cached decisions',async()=>{
++  const w=await createWorker();
++  await w.enable();
++  const added=await w.ok({type:'FG_TOPIC_ADD',topic:{label:'crypto gambling',scope:'site',until:0}},sender);
++  await w.classify(post('TOPIC_FIXTURE payload','t6'));
++  const before=w.calls.length;
++  await w.ok({type:'FG_TOPIC_UPDATE',id:added.topic.id,patch:{label:'crypto betting'}});
++  const after=await w.ok({type:'FG_STATUS'});
++  assert.equal(after.settings.topics[0].label,'crypto betting');
++  await w.classify(post('TOPIC_FIXTURE payload','t6'));
++  assert.ok(w.calls.length>before,'a changed topic set must invalidate the cache key');
++});
++
++test('B5: topic rules are validated and bounded',async()=>{
++  const w=await createWorker();
++  await w.enable();
++  await assert.rejects(w.ok({type:'FG_TOPIC_ADD',topic:{label:''}},sender),/INVALID_RECORD/);
++  for(let i=0;i<C.TOPICS_MAX;i+=1)await w.ok({type:'FG_TOPIC_ADD',topic:{label:'subject number '+i,scope:'site',until:0}},sender);
++  await assert.rejects(w.ok({type:'FG_TOPIC_ADD',topic:{label:'one too many'}},sender),/TOPIC_LIMIT/);
++});
++
++test('B6: duplicate detection uses signatures and similarity',()=>{
++  assert.equal(C.tokenSignature('Hello   WORLD, hello world!'),C.tokenSignature('world hello'));
++  assert.ok(C.tokenSimilarity('alpha beta gamma delta epsilon zeta','alpha beta gamma delta epsilon eta')>0.5);
++  assert.equal(C.tokenSimilarity('alpha beta','gamma delta'),0);
++});
++
++test('B7: usage counters separate attempts, classifications and cache hits',async()=>{
++  const w=await createWorker();
++  await w.enable();
++  await w.classify(post('Useful fixture','c1'));
++  await w.classify(post('Useful fixture','c1'));
++  const s=await w.ok({type:'FG_STATUS'});
++  assert.equal(s.metrics.requests,1);
++  assert.equal(s.metrics.classified,1);
++  assert.equal(s.metrics.cacheHits,1);
++  assert.equal(s.metrics.decisions,2);
++});
++
++test('B7: the daily counter survives a worker restart',async()=>{
++  const w=await createWorker();
++  await w.enable();
++  await w.classify(post('Useful fixture','c2'));
++  const before=await w.ok({type:'FG_STATUS'});
++  assert.equal(before.daily.requests,1);
++  const w2=await createWorker({local:w.local,session:w.session});
++  const after=await w2.ok({type:'FG_STATUS'});
++  assert.equal(after.daily.requests,1);
++});
++
++test('B7: topic management spends no provider requests',async()=>{
++  const w=await createWorker();
++  await w.enable();
++  const added=await w.ok({type:'FG_TOPIC_ADD',topic:{label:'some subject here',scope:'site',until:0}},sender);
++  await w.ok({type:'FG_TOPIC_UPDATE',id:added.topic.id,patch:{label:'renamed subject'}});
++  await w.ok({type:'FG_TOPIC_DELETE',id:added.topic.id});
++  assert.equal(w.calls.length,0);
++});
+--- a/tests/worker-harness.mjs
++++ b/tests/worker-harness.mjs
+@@ -28,7 +28,7 @@
+   const fetch=async(url,o)=>{
+     if(String(url).endsWith('build.json')){
+       (events.buildFetches??=[]).push(String(url));
+-      const release=options.buildRelease===undefined?'3.2.0':options.buildRelease;
++      const release=options.buildRelease===undefined?'3.3.0':options.buildRelease;
+       if(release===null)return new Response('missing',{status:404});
+       return Response.json({release,buildId:'harness-build',builtAt:'2026-01-01T00:00:00.000Z'});
+     }
+@@ -38,8 +38,8 @@
+       if(mode==='network')throw Error('synthetic network failure');
+       if(typeof mode==='number')return new Response('untrusted provider text',{status:mode,headers:{'Retry-After':'30'}});
+       if(mode==='malformed')return Response.json({invalid:true});
+-      const body=JSON.parse(o.body),high=body.state.post_text.includes('SPAM_FIXTURE');
+-      return Response.json({model:'jev-fixture-not-live',answers:Object.fromEntries(Object.keys(body.questions).map(k=>[k,{type:'noul',noul:k==='sufficient'?.99:k==='feedSpam'&&high?.99:.01}])),usage:{input_tokens:42,output_tokens:0}});
++      const body=JSON.parse(o.body),high=body.state.post_text.includes('SPAM_FIXTURE'),topicHigh=body.state.post_text.includes('TOPIC_FIXTURE');
++      return Response.json({model:'jev-fixture-not-live',answers:Object.fromEntries(Object.keys(body.questions).map(k=>[k,{type:'noul',noul:k==='sufficient'?.99:k==='feedSpam'&&high?.99:k==='topic'&&topicHigh?.99:.01}])),usage:{input_tokens:42,output_tokens:0}});
+     }finally{fetchActive--;}
+   };
+   const context=vm.createContext({chrome,crypto:webcrypto,TextEncoder,TextDecoder,URL,AbortController,DOMException,Uint8Array,Response,performance,fetch,atob,btoa,console,
+--- a/tests/worker.test.mjs
++++ b/tests/worker.test.mjs
+@@ -61,7 +61,7 @@
+  const w=await createWorker();await w.ok({type:'FG_SET_KEY',key:'dummy-encrypted-key',remember:true,passphrase:'long protected passphrase'});const restarted=await createWorker({local:w.local,session:{}});const status=await restarted.ok({type:'FG_STATUS'});assert.equal(status.hasVault,true);assert.equal(status.keyReady,false);
+ });
+ test('worker-restart simulation restores session key and cached results',async()=>{
+- const w=await createWorker();await w.enable();await w.classify();await sleep(120);assert.equal(w.session.runtimeState.version,5);const next=await createWorker({local:w.local,session:w.session});assert.equal((await next.ok({type:'FG_STATUS'})).keyReady,true);assert.equal((await next.classify()).cached,true);assert.equal(next.calls.length,0);
++ const w=await createWorker();await w.enable();await w.classify();await sleep(120);assert.equal(w.session.runtimeState.version,6);const next=await createWorker({local:w.local,session:w.session});assert.equal((await next.ok({type:'FG_STATUS'})).keyReady,true);assert.equal((await next.classify()).cached,true);assert.equal(next.calls.length,0);
+ });
+ test('settings export never contains key/vault; import requires fresh permissions and consent',async()=>{
+  const w=await createWorker();await w.enable();const data=await w.ok({type:'FG_EXPORT_SETTINGS'});assert.equal(data.settings.consent,false);assert.deepEqual(data.settings.sites,[]);assert.ok(!JSON.stringify(data).includes('dummy-worker-test-key'));data.settings.consent=true;data.settings.sites=['x'];await w.ok({type:'FG_IMPORT_SETTINGS',data});const s=await w.ok({type:'FG_STATUS'});assert.equal(s.settings.consent,false);assert.deepEqual(s.settings.sites,[]);
+@@ -116,7 +116,7 @@
+  const w=await createWorker();await w.enable();const r=await w.classify({...post('Organic text with a legacy flag'),sponsored:true});assert.equal(r.decision.action,'allow');assert.equal(r.decision.rule,'no_noise_rule_matched');assert.equal(w.calls.length,1);
+ });
+ test('config responses carry the release version so a stale content script can detect an update',async()=>{
+- const w=await createWorker();const cfg=await w.ok({type:'FG_GET_CONFIG'},sender);assert.equal(cfg.appVersion,'3.2.0');
++ const w=await createWorker();const cfg=await w.ok({type:'FG_GET_CONFIG'},sender);assert.equal(cfg.appVersion,'3.3.0');
+ });
+ test('runtime state written by an older schema is dropped, not replayed',async()=>{
+  const legacy={version:3,metrics:{decisions:99},log:[{action:'collapse',reason:'legacy entry'}],cache:[],pageReports:[]};
+@@ -144,10 +144,10 @@
+ test('update info compares the running build with the packaged files without a provider call',async()=>{
+  const w=await createWorker({buildRelease:'3.2.1'});
+  const info=await w.ok({type:'FG_UPDATE_INFO'});
+- assert.equal(info.running,'3.2.0');assert.equal(info.onDisk,'3.2.1');assert.equal(info.buildId,'harness-build');assert.equal(info.updateAvailable,true);
++ assert.equal(info.running,'3.3.0');assert.equal(info.onDisk,'3.2.1');assert.equal(info.buildId,'harness-build');assert.equal(info.updateAvailable,true);
+  assert.equal(w.calls.length,0,'the local build check never calls the provider');
+  assert.ok(w.events.buildFetches[0].endsWith('/build.json'));
+  const d=await w.ok({type:'FG_DIAGNOSTICS'});assert.equal(d.update.onDisk,'3.2.1');assert.equal(d.update.updateAvailable,true);
+- const same=await createWorker({buildRelease:'3.2.0'});assert.equal((await same.ok({type:'FG_UPDATE_INFO'})).updateAvailable,false);
++ const same=await createWorker({buildRelease:'3.3.0'});assert.equal((await same.ok({type:'FG_UPDATE_INFO'})).updateAvailable,false);
+  const missing=await createWorker({buildRelease:null});const m=await missing.ok({type:'FG_UPDATE_INFO'});assert.equal(m.onDisk,null);assert.equal(m.updateAvailable,false);
+ });

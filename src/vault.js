@@ -27,13 +27,19 @@
       return {version:1,kdf:'PBKDF2-SHA256',iterations:ITERATIONS,salt:b64(salt),iv:b64(iv),ciphertext:b64(ciphertext)};
     } finally { data.fill(0); }
   }
+  function validate(value) {
+    const vault = value && typeof value === 'object' ? value : null;
+    if (!vault || vault.version !== 1 || vault.kdf !== 'PBKDF2-SHA256' || vault.iterations !== ITERATIONS) throw new Error('VAULT_ERROR');
+    const salt = unb64(vault.salt), iv = unb64(vault.iv), cipher = unb64(vault.ciphertext);
+    if (salt.length !== 16 || iv.length !== 12 || cipher.length < 24 || cipher.length > 528) throw new Error('VAULT_ERROR');
+    return {version:1,kdf:'PBKDF2-SHA256',iterations:ITERATIONS,salt:vault.salt,iv:vault.iv,ciphertext:vault.ciphertext};
+  }
   async function open(vault,passphrase) {
     if (!vault) throw new Error('NO_VAULT');
     if (typeof passphrase !== 'string' || passphrase.length > 1024) throw new Error('VAULT_ERROR');
     try {
-      if (vault.version !== 1 || vault.kdf !== 'PBKDF2-SHA256' || vault.iterations !== ITERATIONS) throw 0;
-      const salt = unb64(vault.salt), iv = unb64(vault.iv), cipher = unb64(vault.ciphertext);
-      if (salt.length !== 16 || iv.length !== 12 || cipher.length < 24 || cipher.length > 528) throw 0;
+      const checked = validate(vault);
+      const salt = unb64(checked.salt), iv = unb64(checked.iv), cipher = unb64(checked.ciphertext);
       const key = await derive(passphrase,salt);
       const plain = new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv,additionalData},key,cipher));
       try {
@@ -43,5 +49,5 @@
       } finally { plain.fill(0); }
     } catch { throw new Error('VAULT_ERROR'); }
   }
-  globalThis.FeedGateVault = Object.freeze({seal,open});
+  globalThis.FeedGateVault = Object.freeze({seal,open,validate});
 })();

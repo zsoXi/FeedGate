@@ -1,29 +1,34 @@
-# FeedGate 3.1.1 — start tutaj (PL)
+# FeedGate 3.3.0 — start tutaj (PL)
 
-Ten plik to krótki przewodnik po wersji 3.1.1. Pełniejsze, starsze instrukcje po
+Ten plik to krótki przewodnik po wersji 3.3.0. Pełniejsze, starsze instrukcje po
 polsku są w [INSTRUKCJA_PL.md](INSTRUKCJA_PL.md); dokumentacja techniczna jest
 po angielsku w katalogu `docs/`.
 
 ## 1. Zanim zaczniesz
 
-* Zrób kopię zapasową obecnego katalogu FeedGate (np. `FeedGate-3.0.1`).
+* Zrób kopię zapasową obecnego katalogu FeedGate (np. `FeedGate-3.1.0`).
 * Nigdy nie usuwaj starego katalogu „na naprawę” — najpierw eksportuj ustawienia.
-* Rozszerzenia nie trzeba przeinstalowywać, jeśli podmieniasz pliki w tej samej
-  ścieżce. Wtedy Chrome zachowuje tożsamość rozszerzenia, a klucz i sejf działają
-  dalej. Inny katalog = nowa tożsamość i nowe uprawnienia.
+* Od 3.2.0 rozszerzenie ma **stałą tożsamość** (klucz publiczny w manifeście), więc
+  klucz, sejf i ustawienia przeżywają aktualizacje i przenosiny katalogu. Zalecana
+  aktualizacja to podmiana plików w tym samym katalogu i **Reload** w
+  `chrome://extensions` — nigdy **Remove**.
 
-## 2. Aktualizacja do 3.1.1
+## 2. Aktualizacja do 3.3.0 (w miejscu)
 
-1. Rozpakuj wydanie do docelowego katalogu (np. `D:\FeedGate-3.1.1`).
-2. `chrome://extensions` → tryb programisty → **Załaduj rozpakowane** → wskaż
-   katalog `extension` z plikiem `manifest.json`.
-3. Przy pierwszym starcie po aktualizacji pojawi się jednorazowy pasek
-   „Select all six supported feeds”. Możesz wybrać wszystkie sześć serwisów
-   jednym oknem zgody Chrome albo zachować obecne ustawienie.
-4. Karty otwarte przed aktualizacją pokażą „Extension updated: reload this page”.
+1. Zrób kopię zapasową katalogu i (jeśli to możliwe) wyeksportuj ustawienia.
+2. Skopiuj nowe pliki wydania (zawartość katalogu `extension/`) na te w tym samym
+   katalogu, z którego działa obecna wersja.
+3. `chrome://extensions` → **Reload** (odświeżenie). **Nie klikaj Remove** —
+   usunięcie kasuje też lokalne dane rozszerzenia.
+4. Od 3.2.0 tożsamość rozszerzenia jest stała, więc sejf, klucz, listy i ustawienia
+   przechodzą aktualizację automatycznie — nie wpisujesz klucza ponownie. (Jednorazowa
+   zmiana tożsamości dotyczyła tylko przejścia ze starszej wersji na 3.2.0.)
+5. Karty otwarte przed aktualizacją pokażą „Extension updated: reload this page”.
    Odśwież je (F5). FeedGate nie filtruje stron starą wersją skryptu.
-5. Stare reguły CSS z wersji 2.x trafiają do kwarantanny (`legacy_unvalidated`).
+6. Stare reguły CSS z wersji 2.x trafiają do kwarantanny (`legacy_unvalidated`).
    Nie ukrywają nic, dopóki nie zostaną sprawdzone na prawdziwym elemencie.
+7. Wejdź w Ustawienia → **06 Updates** i kliknij **Check files on disk** — panel
+   porówna działającą wersję z plikami w katalogu i pokaże „Up to date”.
 
 ## 3. Codzienne użycie
 
@@ -44,7 +49,19 @@ po angielsku w katalogu `docs/`.
 * Te same akcje masz w rozwiniętym panelu statusu: **Mute author…** /
   **Allow author…**. Kliknij dowolny post na stronie — zobaczysz podgląd z
   nazwą autora i informacją, że to lokalna decyzja bez zapytania do modelu.
-  Zapis pokaże toast z **Undo**; Escape anuluje bez zapisywania.
+   Zapis pokaże toast z **Undo**; Escape anuluje bez zapisywania.
+* **Mute topic…** (rozwinięty panel) — kliknij post, sprawdź lub zmień nazwę tematu,
+  wybierz zasięg (ten serwis / wszystkie obsługiwane) i czas (24 h / 7 dni /
+  bezterminowo). Dopasowanie jest semantyczne i używa tego samego zapytania co
+  filtrowanie (jedno dodatkowe pytanie), więc może zwiększyć zużycie API. Przypadkowa
+  wzmianka pozostaje widoczna, a „Keep this post” wygrywa z wyciszeniem tematu.
+  Lista tematów, edycja, usuwanie i Undo: Ustawienia → **Muted topics**.
+* **Grupowanie powtórek** (Ustawienia → Filter policy) — pierwsza kopia zostaje,
+  kolejne bliskie powtórki zwijają się pod paskiem „more similar posts”. Post z nową
+  informacją lub kontrargumentem nie jest grupowany; wyłączenie opcji przywraca wszystko.
+* **Tryb oszczędny (thrift)** — analiza chmurowa startuje dopiero, gdy post jest
+  widoczny, a przewijanie na chwilę się zatrzyma (domyślnie 800 ms, zakres 300–3000 ms).
+  Szybkie przewijanie nie tworzy zapytań; lokalne reguły działają od razu.
 
 ## 3a. Mój wyjątek (My exception rule)
 
@@ -83,12 +100,21 @@ Wybrany element nie staje się „postem” dla modelu — to wyłącznie lokaln
 ## 6. Diagnostyka i kopie
 
 * **Export diagnostics** tworzy plik
-  `feedgate-3.1.1-diagnostics-….json` bez kluczy, tekstów postów, autorów,
+  `feedgate-3.3.0-diagnostics-….json` bez kluczy, tekstów postów, autorów,
   pełnych adresów URL i surowych selektorów. Zawiera m.in. sekcje `ui`, `sites`,
   `cosmetic`, `renderer` i `provider` oraz odcisk wersji (`build`).
-* **Export settings** zapisuje ustawienia w formacie wersji 5 (z regułami
-  kosmetycznymi — to Twoja lokalna kopia). Import akceptuje też formaty 2.x i 3.x;
+* **Export settings** zapisuje ustawienia w formacie wersji 6 (z regułami
+  kosmetycznymi — to Twoja lokalna kopia). Import akceptuje też formaty 2.x–5.x;
   niezweryfikowane reguły stają się kwarantanną.
+* **API usage** (Ustawienia → Review) — dzienny licznik żądań (reset 00:00 UTC,
+  pokazany w czasie lokalnym), trafienia cache, tokeny, błędy i anulowane żądania.
+  Koszt pieniężny pojawia się wyłącznie po wpisaniu własnych stawek i zawsze jako
+  *szacunek*, nigdy jako rachunek dostawcy.
+* **06 Updates** porównuje działającą wersję z plikami na dysku (pakietowy
+  `build.json`), otwiera `chrome://extensions` i pozwala pobrać **Export key
+  backup** — kopię wyłącznie zaszyfrowanego sejfu (nigdy klucza jawnie).
+  **Import key backup** wczytuje ją na innej instalacji; odblokujesz ją swoim
+  hasłem. Diagnostyka zawiera dodatkowo sekcję `update`.
 
 ## 7. Szybka lista kontrolna po aktualizacji
 
@@ -97,13 +123,18 @@ Wybrany element nie staje się „postem” dla modelu — to wyłącznie lokaln
 2. Otwórz zwykły post techniczny — ma pozostać widoczny.
 3. Sprawdź w pasku statusu, że tryb to „Running”, a w popupie, że sześć
    serwisów ma stan „ready”.
-4. W eksporcie diagnostyki sprawdź `build.release` = `3.1.1` oraz
+4. W eksporcie diagnostyki sprawdź `build.release` = `3.3.0` oraz
    `build.detector` = `ad-3.0.0`.
+5. W Ustawieniach → **06 Updates** kliknij **Check files on disk** — panel
+   powinien pokazać „Up to date”.
 
-## 8. Czego 3.1.1 świadomie nie robi
+## 8. Czego 3.3.0 świadomie nie robi
 
-* Nie zmienia progów kategorii ani modelu — to wydanie o kontroli, nie o
-  skuteczności modelu.
+* Nie zmienia progów istniejących kategorii ani modelu — to wydanie o kontroli,
+  nie o skuteczności modelu.
+* Nie wysyła osobnego zapytania dla każdej pary post–temat: wyciszenie tematu to
+  jedno dodatkowe pytanie w tym samym żądaniu, a grupowanie powtórek jest w pełni
+  lokalne i nie kosztuje żadnego zapytania.
 * Nie blokuje reklam sieciowych, nie skanuje obrazów, nie otwiera stron
   docelowych i nie zbiera historii przeglądania.
 * Wykop pozostaje w wersji beta: oznaczenia reklamowe Wykopu nie mają dziś

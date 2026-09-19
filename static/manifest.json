@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "FeedGate 3.1.1 | TypeSafe filter",
+  "name": "FeedGate 3.3.0 | TypeSafe filter",
   "short_name": "FeedGate",
   "description": "Safe-controls Jev feed filtering for X, Reddit, LinkedIn, Facebook, Instagram and Wykop: reversible cosmetics with a transactional picker, per-site recovery, a status panel you can hide, and a precision-first policy.",
-  "version": "3.1.1",
+  "version": "3.3.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5OFJ4Mu3VRkRWqiTam7rjAqHm8P9HFYFvOVFrgjDVk8PFyRfXDwCyRKGVFqSS+XY1E2aiMcS+cJnoQrEN2LJX62ZylFvezUc8BJjOgaVnHqP1mSRrvr1DPR2/X+mL++vadYalaEhtu4UC74rsQJlQiZYnEFuM0rrzBfToB2EyDUXLDNlUz60IXh+PSS61RYGAGdLNptfY3IKG0Izzfb43ZGdNRPrAJlTUybpchBcxzCDCJ3MkNCJj9Tqiv55tlaN43IRtqw3/kvi+flOlKTdewfi4C8XwkJPwebQubyui7CniuK728A0EYt/K04o1d+dM1Of+MvgIieVk7LSsPH3hwIDAQAB",
   "minimum_chrome_version": "120",
   "permissions": [
     "storage",
@@ -55,6 +56,6 @@
   },
   "incognito": "not_allowed",
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'none'; connect-src https://api.typesafe.ai; base-uri 'none'; form-action 'none'; frame-src 'none'"
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'self' https://api.typesafe.ai; base-uri 'none'; form-action 'none'; frame-src 'none'"
   }
 }

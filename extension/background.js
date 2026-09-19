@@ -22,6 +22,7 @@ let pageReports = new Map();
 let cosmeticLog = [];
 let cleanupSites = [];
 let migratedFrom = 0;
+let updateInfo = null;
 let verifiedAt = 0;
 let metrics = freshMetrics();
 let persistTimer;
@@ -132,8 +133,11 @@ async function saveSettings(patch, domain='settings', expect) {
     if (current !== null && current !== (settings.revisions[target]||0)) throw new Error('STALE_SETTINGS');
     const revisions = {...settings.revisions};
     revisions[target] = (revisions[target]||0)+1;
-    const base = {...settings,...patch,revisions};
-    if (C.object(patch.categories)) base.categories = {...settings.categories,...patch.categories};
+    // A patch may be a function so list changes read-modify-write atomically
+    // inside this queue instead of from a pre-queue snapshot.
+    const materialized = typeof patch === 'function' ? patch(C.clone(settings)) : patch;
+    const base = {...settings,...materialized,revisions};
+    if (C.object(materialized.categories)) base.categories = {...settings.categories,...materialized.categories};
     const next = C.sanitizeSettings(base);
     for (const site of next.sites) {
       if (!await chrome.permissions.contains({origins:C.originsForSite(site)})) throw new Error('FORBIDDEN');
@@ -153,6 +157,7 @@ function publicConfig(site) {
   const value = C.clone(settings);
   value.allowedAuthors = value.allowedAuthors.filter(a=>a.startsWith(site+':'));
   value.blockedAuthors = value.blockedAuthors.filter(a=>a.startsWith(site+':'));
+  value.topics = value.topics.filter(t=>t.scope==='all'||t.site===site);
   // appVersion lets a content script detect a reloaded worker with new schemas.
   return {settings:value,keyReady:!!apiKey && !authRejected,revision,appVersion:C.VERSION,
     recoveryPaused:settings.recoverySites.includes(site),cleanupRequired:cleanupSites.includes(site)};
@@ -397,7 +402,8 @@ async function diagnostics() {
     privacy:'No keys, vault ciphertext, post text, author names, post hashes, full URLs, custom rule text, raw cosmetic selectors or browser history included. Cosmetic rules appear as random local rule references only.',
     connection:{transport:'direct TypeSafe HTTPS',model:settings.model,keyReady:s.keyReady,authRejected,verifiedAt,
       hasEncryptedVault:s.hasVault,cooldownUntil},
-    ui:{hudMode:settings.hudMode,feedsOpen:settings.feedsOpen,engineEnabled:settings.enabled,preset:settings.preset,mode:settings.mode},
+    ui:{hudMode:settings.hudMode,feedsOpen:settings.feedsOpen,engineEnabled:settings.enabled,preset:settings.preset,mode:settings.mode,
+      grouping:settings.grouping,thrift:settings.thrift,thriftDelayMs:settings.thriftDelayMs},
     sites:s.siteStates,
     cosmetic:{enabled:settings.cosmeticEnabled,...cosmeticCounts(),applications:metrics.cosmeticApplied,
       restorations:metrics.cosmeticRestored,rejections:metrics.cosmeticRejected,breakerActivations:metrics.breakerActivations},
@@ -409,13 +415,15 @@ async function diagnostics() {
       unaccounted:Math.max(0,metrics.requests-metrics.classified-metrics.cancellations-metrics.errors),
       inputTokens:metrics.inputTokens,outputTokens:metrics.outputTokens,lastLatencyMs:metrics.lastLatencyMs,lastModel:metrics.lastModel},
     logStats:{retained:log.length,capacity:150,dropped:metrics.logDropped},
+    update:updateInfo?{...updateInfo}:{running:C.VERSION,onDisk:null,updateAvailable:null,checkedAt:null,
+      note:'Run a check from the Updates panel to compare the loaded build with the files on disk.'},
     cosmeticEvents:cosmeticLog.slice(-100),
     settings:{enabled:settings.enabled,consent:settings.consent,sites:settings.sites,hudMode:settings.hudMode,feedsOpen:settings.feedsOpen,
       mode:settings.mode,protectUseful:settings.protectUseful,profileMode:settings.profileMode,labelledAds:settings.labelledAds,
       categories:settings.categories,concurrency:settings.concurrency,dailyLimit:settings.dailyLimit,cacheMinutes:settings.cacheMinutes,
       hasCustomRule:!!settings.customInstruction,cosmeticEnabled:settings.cosmeticEnabled,recoverySites:[...settings.recoverySites],
       allowedAuthorCount:settings.allowedAuthors.length,savedPostChoices:keptPosts.size,
-      mutedAuthorCount:settings.blockedAuthors.length},
+      mutedAuthorCount:settings.blockedAuthors.length,mutedTopicCount:settings.topics.length},
     metrics:C.clone(metrics),daily:s.daily,queue:queue.length,active,cached:cache.size,
     permissions:{permissions:permissions.permissions||[],origins:permissions.origins||[]},
     pages:reports.filter(p=>now-(Number(p.updatedAt)||0)<86400000),
@@ -424,6 +432,24 @@ async function diagnostics() {
       protectionEligible:e.protectionEligible===true,adEvidence:e.adEvidence||null,
       sufficient:C.finite(e.scores?.sufficient),scores:e.scores,model:e.model,latencyMs:e.latencyMs,cached:e.cached,error:e.error?.code||null}))
   };
+}
+async function updateCheck() {
+  // The loaded manifest is the running build; build.json on disk is what the
+  // folder would deliver on the next reload. Nothing leaves the machine.
+  let onDisk = null;
+  let buildId = null;
+  try {
+    const response = await fetch(chrome.runtime.getURL('build.json'), {cache:'no-store'});
+    if (response.ok) {
+      const data = JSON.parse(await response.text());
+      if (C.object(data) && typeof data.release === 'string' && /^\d+\.\d+\.\d+$/.test(data.release)) {
+        onDisk = data.release;
+        buildId = typeof data.buildId === 'string' ? data.buildId : null;
+      }
+    }
+  } catch {}
+  updateInfo = {running:C.VERSION,onDisk,buildId,updateAvailable:onDisk!==null&&onDisk!==C.VERSION,checkedAt:Date.now()};
+  return updateInfo;
 }
 async function keyChange(key) {
   cancelPending();
@@ -449,35 +475,49 @@ async function handle(message,sender) {
     await chrome.runtime.openOptionsPage();return {opened:true};
   }
   if (message.type==='FG_CLASSIFY') return classify(message.record,sender,trusted);
-  if (message.type==='FG_ALLOW_AUTHOR') {
+  if (message.type==='FG_ALLOW_AUTHOR'||message.type==='FG_MUTE_AUTHOR'||message.type==='FG_FORGET_AUTHOR') {
     const site = trusted ? message.site : await validateContentSender(sender);
     const key = C.authorKey(site,message.author);
     if (!key) throw new Error('INVALID_RECORD');
-    await saveSettings({
-      allowedAuthors:[...settings.allowedAuthors.filter(a=>a!==key),key],
-      blockedAuthors:settings.blockedAuthors.filter(a=>a!==key),
+    let previous = 'none';
+    const saved = await saveSettings((current)=>{
+      const hadBlocked = current.blockedAuthors.includes(key);
+      const hadAllowed = current.allowedAuthors.includes(key);
+      previous = hadBlocked ? 'blocked' : (hadAllowed ? 'allowed' : 'none');
+      if (message.type==='FG_ALLOW_AUTHOR') return {
+        allowedAuthors:[...current.allowedAuthors.filter(a=>a!==key),key],
+        blockedAuthors:current.blockedAuthors.filter(a=>a!==key),
+      };
+      if (message.type==='FG_MUTE_AUTHOR') return {
+        blockedAuthors:[...current.blockedAuthors.filter(a=>a!==key),key],
+        allowedAuthors:current.allowedAuthors.filter(a=>a!==key),
+      };
+      return {
+        allowedAuthors:current.allowedAuthors.filter(a=>a!==key),
+        blockedAuthors:current.blockedAuthors.filter(a=>a!==key),
+      };
     });
-    return {saved:true};
+    const applied = message.type==='FG_ALLOW_AUTHOR' ? 'allowed' : (message.type==='FG_MUTE_AUTHOR' ? 'blocked' : 'none');
+    return {saved:true,key,previous,applied,revision:saved.revisions.settings};
   }
-  if (message.type==='FG_MUTE_AUTHOR') {
+  if (message.type==='FG_AUTHOR_UNDO') {
     const site = trusted ? message.site : await validateContentSender(sender);
     const key = C.authorKey(site,message.author);
     if (!key) throw new Error('INVALID_RECORD');
-    await saveSettings({
-      blockedAuthors:[...settings.blockedAuthors.filter(a=>a!==key),key],
-      allowedAuthors:settings.allowedAuthors.filter(a=>a!==key),
+    const previous = ['none','blocked','allowed'].includes(message.previous) ? message.previous : 'none';
+    const applied = message.applied==='allowed' ? 'allowed' : 'blocked';
+    let stale = false;
+    await saveSettings((current)=>{
+      const stateOf = current.blockedAuthors.includes(key) ? 'blocked' : (current.allowedAuthors.includes(key) ? 'allowed' : 'none');
+      // An old undo must never overwrite a newer decision for the same author.
+      if (stateOf !== applied) { stale = true; return {}; }
+      const allowedAuthors = current.allowedAuthors.filter(a=>a!==key);
+      const blockedAuthors = current.blockedAuthors.filter(a=>a!==key);
+      if (previous==='allowed') allowedAuthors.push(key);
+      if (previous==='blocked') blockedAuthors.push(key);
+      return {allowedAuthors,blockedAuthors};
     });
-    return {saved:true};
-  }
-  if (message.type==='FG_FORGET_AUTHOR') {
-    const site = trusted ? message.site : await validateContentSender(sender);
-    const key = C.authorKey(site,message.author);
-    if (!key) throw new Error('INVALID_RECORD');
-    await saveSettings({
-      allowedAuthors:settings.allowedAuthors.filter(a=>a!==key),
-      blockedAuthors:settings.blockedAuthors.filter(a=>a!==key),
-    });
-    return {saved:true};
+    return {saved:!stale,stale,key,state:applied};
   }
   if (message.type==='FG_ADD_RULE') {
     const site = await validateContentSender(sender);
@@ -585,11 +625,69 @@ async function handle(message,sender) {
     await saveSettings({cosmeticFilters:{...settings.cosmeticFilters,rules}},'cosmetic',message.expect);
     return {status:'active',reason:'revalidated_with_target'};
   }
+  if (message.type==='FG_TOPIC_ADD') {
+    const site = trusted ? C.text(message.topic && message.topic.site,40) : await validateContentSender(sender);
+    const raw = message.topic && C.object(message.topic) ? message.topic : {};
+    const candidate = {
+      id: typeof raw.id==='string' ? raw.id : 't-'+(globalThis.crypto && globalThis.crypto.randomUUID ? globalThis.crypto.randomUUID() : Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10)),
+      label: raw.label,
+      scope: raw.scope==='all' ? 'all' : 'site',
+      site,
+      until: raw.until,
+      createdAt: C.finite(raw.createdAt) || Date.now(),
+    };
+    const clean = C.sanitizeTopics([candidate])[0];
+    if (!clean) throw new Error('INVALID_RECORD');
+    let created = false;
+    let savedTopic = clean;
+    const saved = await saveSettings((current)=>{
+      const existing = current.topics.find(t=>t.id===clean.id);
+      if (existing) { savedTopic = existing; return {topics:current.topics}; }
+      if (current.topics.length >= C.TOPICS_MAX) throw new Error('TOPIC_LIMIT');
+      created = true;
+      return {topics:[...current.topics,clean]};
+    });
+    return {saved:true,created,topic:savedTopic,revision:saved.revisions.settings};
+  }
+  if (message.type==='FG_TOPIC_DELETE') {
+    let removed = null;
+    const saved = await saveSettings((current)=>{
+      const found = current.topics.find(t=>t.id===message.id);
+      if (!found) throw new Error('TOPIC_NOT_FOUND');
+      removed = found;
+      return {topics:current.topics.filter(t=>t.id!==message.id)};
+    });
+    return {saved:true,topic:removed,revision:saved.revisions.settings};
+  }
   if (!trusted) throw new Error('FORBIDDEN');
   switch(message.type) {
     case 'FG_STATUS': return status();
     case 'FG_DIAGNOSTICS': return diagnostics();
     case 'FG_PATCH_SETTINGS': return {settings:await saveSettings(C.object(message.patch)?message.patch:{},typeof message.domain==='string'?message.domain:'settings',message.expect)};
+    case 'FG_TOPIC_UPDATE': {
+      const patch = message.patch && C.object(message.patch) ? message.patch : {};
+      let updated = null;
+      const saved = await saveSettings((current)=>{
+        const index = current.topics.findIndex(t=>t.id===message.id);
+        if (index < 0) throw new Error('TOPIC_NOT_FOUND');
+        const existing = current.topics[index];
+        const merged = {
+          id: existing.id,
+          label: patch.label!==undefined ? C.text(patch.label,C.TOPIC_LABEL_MAX) : existing.label,
+          scope: patch.scope!==undefined ? (patch.scope==='all'?'all':'site') : existing.scope,
+          site: patch.site!==undefined ? C.text(patch.site,40) : existing.site,
+          until: patch.until!==undefined ? (C.finite(patch.until)>0?Math.round(patch.until):0) : existing.until,
+          createdAt: existing.createdAt,
+        };
+        const clean = C.sanitizeTopics([merged])[0];
+        if (!clean) throw new Error('INVALID_RECORD');
+        const topics = current.topics.slice();
+        topics[index] = clean;
+        updated = clean;
+        return {topics};
+      });
+      return {saved:true,topic:updated,revision:saved.revisions.settings};
+    }
     case 'FG_SET_KEY': {
       const stamp = ++credentialEpoch;
       const key = typeof message.key==='string'?message.key.trim():'';
@@ -614,9 +712,21 @@ async function handle(message,sender) {
       return commitCredential(stamp,async()=>{await keyChange('');return {locked:true};});
     }
     case 'FG_FORGET_KEY': {
-      const stamp=++credentialEpoch;
+      const stamp = ++credentialEpoch;
       return commitCredential(stamp,async()=>{await keyChange('');await chrome.storage.local.remove('vault');return {forgotten:true};});
     }
+    case 'FG_EXPORT_VAULT': {
+      // Sealed ciphertext only; the passphrase and the plaintext key never leave the worker.
+      const {vault} = await chrome.storage.local.get('vault');
+      if (!vault) throw new Error('NO_VAULT');
+      return {format:'feedgate-key-backup',version:1,vault:VAULT.validate(vault)};
+    }
+    case 'FG_IMPORT_VAULT': {
+      const vault = VAULT.validate(message.vault);
+      await chrome.storage.local.set({vault});
+      return {imported:true};
+    }
+    case 'FG_UPDATE_INFO': return updateCheck();
     case 'FG_TEST_CONNECTION': {
       checkReady();
       const r = C.sanitizeRecord({id:'connection-test',text:'I built an open-source Discord moderation tool using Jev. My test processed 1,000 messages per day. Here are the implementation details, measured API usage, known false positives and setup instructions. Human moderators still handle appeals.',author:'',mediaAlt:'',linkDomains:[]},'demo');
@@ -702,7 +812,7 @@ async function handle(message,sender) {
     }
     case 'FG_IMPORT_SETTINGS': {
       const version = message.data&&C.finite(message.data.version);
-      if (!C.object(message.data)||message.data.format!=='feedgate-settings'||![5,4,3,2].includes(version===null?NaN:version)) throw new Error('INVALID_RECORD');
+      if (!C.object(message.data)||message.data.format!=='feedgate-settings'||![6,5,4,3,2].includes(version===null?NaN:version)) throw new Error('INVALID_RECORD');
       // Older exports are migrated safely: thresholds never map promotion onto unwanted advertising,
       // and legacy selector lines arrive quarantined for review.
       const imported=C.migrateSettings(message.data.settings);

@@ -3,14 +3,18 @@
 
   // Separate versions: the release, the semantic rubric, the local ad detector,
   // the DOM extraction and the policy engine can change independently.
-  const VERSION = '3.1.1';
-  const RUBRIC_VERSION = 'feed-v2.1.0';
-  const POLICY_VERSION = 'policy-3.1.0';
+  const VERSION = '3.3.0';
+  // The eight base questions keep their exact wording and order. The rubric
+  // version changes because a new optional question (muted topics) can join
+  // the request; the cache key below separates topic sets, and the version
+  // bump keeps pre-3.3 estimates from being reused under the new contract.
+  const RUBRIC_VERSION = 'feed-v2.2.0';
+  const POLICY_VERSION = 'policy-3.3.0';
   const AD_DETECTOR_VERSION = 'ad-3.0.0';
-  const EXTRACTION_VERSION = 'extract-3.0.0';
-  const SETTINGS_VERSION = 5;
-  const RUNTIME_VERSION = 5;
-  const DIAGNOSTICS_VERSION = 6;
+  const EXTRACTION_VERSION = 'extract-3.3.0';
+  const SETTINGS_VERSION = 6;
+  const RUNTIME_VERSION = 6;
+  const DIAGNOSTICS_VERSION = 8;
   // The settings schema is split into scoped revisions so an old form cannot
   // overwrite a newer cosmetic, UI, recovery or site decision.
   const SETTINGS_DOMAINS = ['settings', 'ui', 'cosmetic', 'recovery'];
@@ -64,6 +68,7 @@
     risk: 'Risk or scam-like content',
     sufficient: 'Enough visible evidence',
     custom: 'Your exclusion rule',
+    topic: 'Muted topic match',
   };
 
   const CATEGORIES = {
@@ -103,6 +108,12 @@
       mode: 'off',
       threshold: 0.92,
     },
+    topic: {
+      label: 'Muted topic',
+      description: 'Topics you muted for 24 hours, 7 days or indefinitely. Matched semantically; a passing mention stays visible and the kept-post choice still wins.',
+      mode: 'collapse',
+      threshold: 0.85,
+    },
   };
 
   const DEFAULTS = {
@@ -125,6 +136,17 @@
     // site. Kept separate from allowedAuthors; sanitizeSettings enforces that
     // a key can never sit on both lists (an explicit allow wins).
     blockedAuthors: [],
+    // Semantic topic mutes. The list starts empty, so no extra question leaves
+    // the device until the user creates one.
+    topics: [],
+    // Local duplicate grouping and the scroll-rest-aware thrift mode are
+    // optional and stay off for existing profiles until switched on.
+    grouping: false,
+    thrift: false,
+    thriftDelayMs: 800,
+    // Cost is only ever estimated from rates the user typed in. Both null
+    // means no money estimate is shown at all.
+    pricing: { inputPerMTok: null, outputPerMTok: null, currency: '' },
     categories: cloneCategories(),
     // v3 control surfaces. hudMode replaces the old showStatus boolean.
     hudMode: 'compact',
@@ -138,6 +160,15 @@
   const HUD_MODES = ['compact', 'expanded', 'hidden'];
   const COSMETIC_RULE_STATUSES = ['active', 'quarantined', 'disabled', 'deleted'];
   const COSMETIC_SOURCES = ['picker', 'legacy', 'import', 'edit'];
+  const TOPICS_MAX = 20;
+  const TOPIC_LABEL_MAX = 80;
+  const TOPIC_SCOPES = ['site', 'all'];
+  const THRIFT_DELAY_MIN = 300;
+  const THRIFT_DELAY_MAX = 3000;
+  // LinkedIn, Facebook and Instagram often expose nothing but a display name
+  // in a post. A display name is not an account identity: two people can share
+  // it, so an exception saved against it would silently cover all of them.
+  const AUTHOR_NAME_ONLY_SITES = ['linkedin', 'facebook', 'instagram'];
 
   // ---- Cosmetic selector safety ------------------------------------------
   // Documented supported subset: compound selectors built from a type,
@@ -482,6 +513,74 @@
     return String(site) + ':' + clean;
   }
 
+  // Muted topics: an explicit, time-boxed local decision that travels to the
+  // model as one optional extra question. Labels stay local; diagnostics only
+  // ever see counts and rule names.
+  function sanitizeTopics(value) {
+    if (!Array.isArray(value)) return [];
+    const out = [];
+    const seen = new Set();
+    for (const entry of value.slice(0, TOPICS_MAX)) {
+      const raw = object(entry);
+      if (!raw) continue;
+      const id = typeof raw.id === 'string' && /^[a-z0-9][a-z0-9-]{7,47}$/.test(raw.id) ? raw.id : '';
+      const label = text(raw.label, TOPIC_LABEL_MAX);
+      if (!id || !label || seen.has(id)) continue;
+      const scope = TOPIC_SCOPES.includes(raw.scope) ? raw.scope : 'site';
+      if (scope === 'site' && !SITE_DEFS[raw.site]) continue;
+      const until = finite(raw.until);
+      seen.add(id);
+      out.push({
+        id,
+        label,
+        scope,
+        site: scope === 'site' ? raw.site : '',
+        until: until !== null && until > 0 ? Math.round(until) : 0,
+        createdAt: Math.round(finite(raw.createdAt) || 0),
+      });
+    }
+    return out;
+  }
+
+  function activeTopics(settingsValue, site, now) {
+    const s = object(settingsValue) || {};
+    const at = finite(now) !== null ? now : Date.now();
+    if (!Array.isArray(s.topics)) return [];
+    return s.topics.filter((topic) => {
+      if (!topic || !topic.label) return false;
+      if (topic.until !== 0 && !(topic.until > at)) return false;
+      return topic.scope === 'all' || topic.site === site;
+    });
+  }
+
+  // Conservative local text comparisons used by duplicate grouping. They never
+  // leave the page and never replace the model.
+  function normalizeText(value) {
+    const base = text(value, 6000).normalize('NFKC');
+    return base
+      .toLowerCase()
+      .replace(/https?:\/\/\S+/g, ' ')
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')
+      .trim();
+  }
+
+  function tokenSignature(value) {
+    const tokens = normalizeText(value).split(' ').filter((t) => t.length >= 3);
+    const unique = new Set(tokens.slice(0, 200));
+    return Array.from(unique).sort().join(' ');
+  }
+
+  function tokenSimilarity(a, b) {
+    const setA = new Set(String(a || '').split(' ').filter((t) => t.length >= 3));
+    const setB = new Set(String(b || '').split(' ').filter((t) => t.length >= 3));
+    if (!setA.size || !setB.size) return 0;
+    let shared = 0;
+    for (const token of setA) {
+      if (setB.has(token)) shared += 1;
+    }
+    return shared / (setA.size + setB.size - shared);
+  }
+
   function clampNumber(value, min, max, fallback) {
     const n = finite(value);
     if (n === null) return fallback;
@@ -491,6 +590,14 @@
   function migrateSettings(legacy) {
     if (!object(legacy)) return Object.assign(clone(DEFAULTS), { categories: cloneCategories() });
     if (legacy.version === SETTINGS_VERSION) return sanitizeSettings(legacy);
+    // Schema 5 (3.1/3.2) already stores every current list and control. The
+    // new optional features (topics, grouping, thrift, pricing) start off and
+    // every existing preference is carried verbatim.
+    if (legacy.version === 5) {
+      const carried = clone(legacy);
+      carried.version = SETTINGS_VERSION;
+      return sanitizeSettings(carried);
+    }
     // Schema 4 (3.0.x) already stores cosmeticFilters as structured rules.
     // It only needs the new blocked-authors list, which defaults to empty.
     if (legacy.version === 4) {
@@ -566,6 +673,20 @@
     out.dailyLimit = Math.round(clampNumber(raw.dailyLimit, 10, 100000, DEFAULTS.dailyLimit));
     out.cacheMinutes = Math.round(clampNumber(raw.cacheMinutes, 0, 1440, DEFAULTS.cacheMinutes));
     out.customInstruction = text(raw.customInstruction, 700);
+    out.topics = sanitizeTopics(raw.topics);
+    out.grouping = raw.grouping === true;
+    out.thrift = raw.thrift === true;
+    out.thriftDelayMs = Math.round(clampNumber(raw.thriftDelayMs, THRIFT_DELAY_MIN, THRIFT_DELAY_MAX, DEFAULTS.thriftDelayMs));
+    const pricing = object(raw.pricing) || {};
+    const cleanRate = (value) => {
+      const n = finite(value);
+      return n !== null && n >= 0 && n <= 1000 ? n : null;
+    };
+    out.pricing = {
+      inputPerMTok: cleanRate(pricing.inputPerMTok),
+      outputPerMTok: cleanRate(pricing.outputPerMTok),
+      currency: text(pricing.currency, 8).toUpperCase(),
+    };
     out.hudMode = HUD_MODES.includes(raw.hudMode) ? raw.hudMode : DEFAULTS.hudMode;
     out.feedsOpen = raw.feedsOpen === true;
     out.cosmeticEnabled = raw.cosmeticEnabled !== false;
@@ -660,6 +781,11 @@
     const mediaAlt = text(raw.mediaAlt, 1200);
     const id = text(raw.id, 250);
     const author = text(raw.author, 120);
+    // Display label and stable identity are separate. Adapters fill authorId
+    // only from a canonical profile link inside the post; otherwise the label
+    // stays display-only and never becomes a saved exception on the sites
+    // where two accounts can share the same name.
+    const authorId = text(raw.authorId, 120);
     // Verified evidence is established by the adapter only. A legacy boolean
     // sponsored flag is not evidence; it is downgraded to ambiguous so that
     // old cached or crafted payloads cannot trigger a local collapse.
@@ -673,6 +799,8 @@
       site,
       id: id || String(site) + ':anonymous',
       author,
+      authorId,
+      authorNameOnly: !authorId && !!author && AUTHOR_NAME_ONLY_SITES.includes(site),
       text: textValue,
       mediaAlt,
       quotedText: quoted,
@@ -723,6 +851,13 @@
       questions.custom = {
         type: 'noul',
         instructions: SHARED_INSTRUCTION + 'Does this post meet the user\'s following exclusion criterion? ' + s.customInstruction,
+      };
+    }
+    const topics = activeTopics(s, record && record.site);
+    if (topics.length > 0) {
+      questions.topic = {
+        type: 'noul',
+        instructions: SHARED_INSTRUCTION + 'Chance this post is substantially about any of the user\'s muted topics: ' + topics.map((topic) => topic.label).join(' | ') + '. A passing mention, a quoted claim or criticism of the topic does not count.',
       };
     }
     return {
@@ -811,7 +946,13 @@
       return decision;
     }
 
-    if (record && record.author && s.allowedAuthors.includes(authorKey(record.site, record.author))) {
+    // Author lists are keyed by a stable identity. A display name that is not
+    // tied to a canonical profile link (authorNameOnly) never matches a saved
+    // exception, so two accounts sharing a name cannot inherit one another.
+    const identityName = record ? (record.authorId || record.author) : '';
+    const identityKey = record && identityName && !record.authorNameOnly ? authorKey(record.site, identityName) : '';
+
+    if (identityKey && s.allowedAuthors.includes(identityKey)) {
       decision.reason = 'Author is on your allowlist';
       decision.rule = 'author_allowlisted';
       decision.source = 'allowlist';
@@ -829,7 +970,7 @@
     // sponsored marker. It is deterministic, costs no provider request and
     // stays fully reversible from settings. An allowlisted author is checked
     // first, and "Keep this post" still overrides a mute for one post.
-    if (record && record.author && s.blockedAuthors.includes(authorKey(record.site, record.author))) {
+    if (identityKey && s.blockedAuthors.includes(identityKey)) {
       decision.action = 'collapse';
       decision.reason = 'You muted this author';
       decision.rule = 'author_muted';
@@ -861,6 +1002,20 @@
       decision.rule = 'insufficient_evidence';
       decision.source = 'unclassified';
       return decision;
+    }
+
+    // An explicit, time-boxed topic mute outranks every semantic category. It
+    // is decided before protection so the user's own instruction wins, but a
+    // kept post (checked above) still overrides it. Sub-threshold or uncertain
+    // matches stay visible: the model answers "substantially about", and a
+    // passing mention does not count.
+    if (activeTopics(s, record && record.site).length > 0 && hits(scores, s, 'topic')) {
+      decision.action = s.categories.topic.mode === 'dim' ? 'dim' : 'collapse';
+      decision.reason = 'Matches one of your muted topics';
+      decision.rule = 'topic_muted';
+      decision.source = 'topic';
+      decision.category = 'topic';
+      return observe(decision, s);
     }
 
     const useful = finite(scores.useful) || 0;
@@ -1018,6 +1173,7 @@
       namespace: 'feedgate:decision-cache',
       model: s.model,
       custom: s.customInstruction,
+      topics: activeTopics(s, record && record.site).map((topic) => topic.id + ':' + topic.label + ':' + topic.until).join('|'),
       item: record && typeof record.kind === 'string' ? record.kind : 'post',
       state: inferenceState(record),
     });
@@ -1086,6 +1242,8 @@
     RULE_LIMIT: 'The cosmetic filter limit was reached.',
     RULE_NOT_FOUND: 'That cosmetic filter no longer exists.',
     RECOVERY_ACTIVE: 'Filtering is paused for this site.',
+    TOPIC_LIMIT: 'The muted-topic limit was reached.',
+    TOPIC_NOT_FOUND: 'That muted topic no longer exists.',
     INTERNAL_ERROR: 'An internal error occurred.',
   };
 
@@ -1120,6 +1278,12 @@
     COSMETIC_SOURCES,
     SELECTOR_SUBSET_VERSION,
     COSMETIC_RULES_MAX,
+    TOPICS_MAX,
+    TOPIC_LABEL_MAX,
+    TOPIC_SCOPES,
+    THRIFT_DELAY_MIN,
+    THRIFT_DELAY_MAX,
+    AUTHOR_NAME_ONLY_SITES,
     SITE_DEFS,
     SIGNALS,
     CATEGORIES,
@@ -1142,6 +1306,11 @@
     originsForSite,
     isPrivateRoute,
     authorKey,
+    sanitizeTopics,
+    activeTopics,
+    normalizeText,
+    tokenSignature,
+    tokenSimilarity,
     sanitizeSettings,
     redact,
     sanitizeRecord,

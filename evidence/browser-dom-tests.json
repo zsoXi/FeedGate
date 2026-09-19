@@ -5,308 +5,333 @@
     {
       "name": "local sponsored collapse, explanation and trusted Show click",
       "status": "PASS",
-      "seconds": 1.907
+      "seconds": 1.873
     },
     {
       "name": "mock semantic scores cause collapse/dim; useful post remains visible",
       "status": "PASS",
-      "seconds": 0.176
+      "seconds": 0.19
     },
     {
       "name": "MutationObserver detects appended feed posts",
       "status": "PASS",
-      "seconds": 0.255
+      "seconds": 0.293
     },
     {
       "name": "recycled node ignores old in-flight spam result",
       "status": "PASS",
-      "seconds": 0.778
+      "seconds": 0.803
     },
     {
       "name": "recycled previously hidden node restores before reclassification",
       "status": "PASS",
-      "seconds": 0.287
+      "seconds": 0.277
     },
     {
       "name": "HTTP-error fixture fails open without a resubmission loop",
       "status": "PASS",
-      "seconds": 0.807
+      "seconds": 0.823
     },
     {
       "name": "observe mode preserves even explicitly sponsored content",
       "status": "PASS",
-      "seconds": 0.307
+      "seconds": 0.301
     },
     {
       "name": "author allowlist restores both semantic and local ad decisions",
       "status": "PASS",
-      "seconds": 0.211
+      "seconds": 0.235
     },
     {
       "name": "inputs, editors, hidden text and dialog posts are not extracted",
       "status": "PASS",
-      "seconds": 0.191
+      "seconds": 0.189
     },
     {
       "name": "SPA navigation to messages disables observation and extraction",
       "status": "PASS",
-      "seconds": 1.024
+      "seconds": 1.04
     },
     {
       "name": "an active cosmetic rule collapses a sidebar reversibly with an explicit reason",
       "status": "PASS",
-      "seconds": 0.212
+      "seconds": 0.232
     },
     {
       "name": "a cosmetic rule wins over pending inference and restores when the selector stops matching",
       "status": "PASS",
-      "seconds": 0.681
+      "seconds": 0.666
     },
     {
       "name": "element picker previews before commit, saves one scoped rule and undo restores it",
       "status": "PASS",
-      "seconds": 0.389
+      "seconds": 0.437
     },
     {
       "name": "restoring preserves original inline styles and accessibility attributes",
       "status": "PASS",
-      "seconds": 0.198
+      "seconds": 0.212
     },
     {
       "name": "re-injection does not duplicate observers or model calls",
       "status": "PASS",
-      "seconds": 0.338
+      "seconds": 0.352
     },
     {
       "name": "Reddit/LinkedIn/Facebook/Instagram adapter fixtures extract expected posts",
       "status": "PASS",
-      "seconds": 0.497
+      "seconds": 0.329
     },
     {
       "name": "back-forward-cache lifecycle refreshes observers on pageshow",
       "status": "PASS",
-      "seconds": 0.311
+      "seconds": 0.281
     },
     {
       "name": "options UI renders, clears key input and saves preferences through mocked messaging",
       "status": "PASS",
-      "seconds": 1.376
+      "seconds": 1.21
     },
     {
       "name": "test-feed UI supports Show all, Rescan and new posts without live inference",
       "status": "PASS",
-      "seconds": 0.56
+      "seconds": 0.494
     },
     {
       "name": "toolbar popup renders and controls pause through mocked Chrome APIs",
       "status": "PASS",
-      "seconds": 0.226
+      "seconds": 0.245
     },
     {
       "name": "2.1 protects useful promotion and reports progress in the on-page HUD",
       "status": "PASS",
-      "seconds": 0.34
+      "seconds": 0.338
     },
     {
       "name": "an opened X profile dims ordinary semantic noise instead of collapsing it",
       "status": "PASS",
-      "seconds": 0.2
+      "seconds": 0.211
     },
     {
       "name": "quoted text stays separate, main author stays correct and Show more is not clicked",
       "status": "PASS",
-      "seconds": 0.089
+      "seconds": 0.083
     },
     {
       "name": "Keep this post survives a rescan without allowlisting the author",
       "status": "PASS",
-      "seconds": 0.596
+      "seconds": 0.593
     },
     {
       "name": "Alt Shift F reversibly reveals and reapplies filtering",
       "status": "PASS",
-      "seconds": 0.282
+      "seconds": 0.274
     },
     {
       "name": "Connect and start saves key, verifies provider and enables X without bridge messages",
       "status": "PASS",
-      "seconds": 0.305
+      "seconds": 0.281
     },
     {
       "name": "denied setup permissions prevent key saving and network test",
       "status": "PASS",
-      "seconds": 0.227
+      "seconds": 0.225
     },
     {
       "name": "presets apply and diagnostic JSON export is constructed through the UI",
       "status": "PASS",
-      "seconds": 0.441
+      "seconds": 0.44
     },
     {
       "name": "settings and policy pages fit a narrow 390px viewport",
       "status": "PASS",
-      "seconds": 0.184
+      "seconds": 0.17
     },
     {
       "name": "display names containing Ad or Sponsored are not platform ad markers",
       "status": "PASS",
-      "seconds": 0.085
+      "seconds": 0.076
     },
     {
       "name": "a sponsored marker inside a quoted post does not label the outer post as an ad",
       "status": "PASS",
-      "seconds": 0.083
+      "seconds": 0.09
     },
     {
       "name": "AD01/AD02: tracking wrappers, video and quoted media never verify an outer ad",
       "status": "PASS",
-      "seconds": 0.351
+      "seconds": 0.338
     },
     {
       "name": "AD04: only the post that owns the marker is affected",
       "status": "PASS",
-      "seconds": 0.073
+      "seconds": 0.088
     },
     {
       "name": "AD05/AD09: words, links, alt text and unsupported labels are not standalone markers",
       "status": "PASS",
-      "seconds": 0.089
+      "seconds": 0.078
     },
     {
       "name": "AD06: hidden templates and menu-only labels are not rendered evidence",
       "status": "PASS",
-      "seconds": 0.083
+      "seconds": 0.074
     },
     {
       "name": "AD08: only documented true forms verify; false and unknown stay unverified",
       "status": "PASS",
-      "seconds": 0.091
+      "seconds": 0.076
     },
     {
       "name": "AD10: a rendered marker outside the viewport is still rendered evidence",
       "status": "PASS",
-      "seconds": 0.09
+      "seconds": 0.089
     },
     {
       "name": "AD11: a local ad action cannot survive the marker disappearing",
       "status": "PASS",
-      "seconds": 0.301
+      "seconds": 0.304
     },
     {
       "name": "AD12: switching local ad filtering off restores collapsed content",
       "status": "PASS",
-      "seconds": 0.198
+      "seconds": 0.193
     },
     {
       "name": "AD13: FeedGate UI mutations never trigger new classifications",
       "status": "PASS",
-      "seconds": 0.852
+      "seconds": 0.787
     },
     {
       "name": "AD14: Reddit uses its own platform rules, not borrowed X heuristics",
       "status": "PASS",
-      "seconds": 0.089
+      "seconds": 0.083
     },
     {
       "name": "EXT01: a Reddit title published twice in the DOM is extracted once",
       "status": "PASS",
-      "seconds": 0.089
+      "seconds": 0.078
     },
     {
       "name": "EXT03: media-only and title-only posts keep documented limitations",
       "status": "PASS",
-      "seconds": 0.095
+      "seconds": 0.082
     },
     {
       "name": "EXT04: FeedGate UI text never enters the inference payload",
       "status": "PASS",
-      "seconds": 0.126
+      "seconds": 0.078
     },
     {
       "name": "EXT05: repeated extraction of an unchanged post is stable",
       "status": "PASS",
-      "seconds": 0.101
+      "seconds": 0.076
     },
     {
       "name": "a content script from an older release refuses to filter and asks for a reload",
       "status": "PASS",
-      "seconds": 0.434
+      "seconds": 0.403
     },
     {
       "name": "UI01/UI02/UI03: compact pill, expanded controls and genuinely hidden status",
       "status": "PASS",
-      "seconds": 0.488
+      "seconds": 0.396
     },
     {
       "name": "UI04/UI10: hidden status never returns on its own and filtering continues",
       "status": "PASS",
-      "seconds": 0.351
+      "seconds": 0.346
     },
     {
       "name": "UI05/UI06: an explicit later change reopens exactly one status host",
       "status": "PASS",
-      "seconds": 0.176
+      "seconds": 0.191
     },
     {
       "name": "PICK01/PICK02: a primary content root is rejected before anything is saved",
       "status": "PASS",
-      "seconds": 0.262
+      "seconds": 0.27
     },
     {
       "name": "PICK05: FeedGate UI cannot be picked into a hiding rule",
       "status": "PASS",
-      "seconds": 0.416
+      "seconds": 0.406
     },
     {
       "name": "PICK03: an aggregate match set that would hide most of the page is rejected",
       "status": "PASS",
-      "seconds": 0.222
+      "seconds": 0.224
     },
     {
       "name": "PICK04: a tall legitimate card is flagged by geometry, not rejected",
       "status": "PASS",
-      "seconds": 0.345
+      "seconds": 0.38
     },
     {
       "name": "PICK13: a previously safe selector that now matches a container is quarantined before applying",
       "status": "PASS",
-      "seconds": 0.193
+      "seconds": 0.192
     },
     {
       "name": "PICK18/PICK19: rule and model ownership stay separate on one element",
       "status": "PASS",
-      "seconds": 0.612
+      "seconds": 0.61
     },
     {
       "name": "LOOP04: the bounded circuit breaker contains a runaway self-write storm",
       "status": "PASS",
-      "seconds": 0.191
+      "seconds": 0.212
     },
     {
       "name": "UI06/LOOP06: re-injection keeps exactly one controller and one status host",
       "status": "PASS",
-      "seconds": 0.413
+      "seconds": 0.432
     },
     {
       "name": "WYK01/WYK02/WYK07/WYK11: Wykop link and entry fixtures stay separate, Polish text intact and the Poleca note is not a verified ad",
       "status": "PASS",
-      "seconds": 0.125
+      "seconds": 0.151
     },
     {
       "name": "WYK09: an unverified Wykop placement is never labelled a platform ad and auth routes stay private",
       "status": "PASS",
-      "seconds": 0.092
+      "seconds": 0.106
     },
     {
       "name": "MUTE01: muting an author hides their posts locally with no extra provider request and unmuting restores them",
       "status": "PASS",
-      "seconds": 0.309
+      "seconds": 0.333
     },
     {
       "name": "PANEL01: the status panel mutes and allows an author by clicking a post, with preview and Undo",
       "status": "PASS",
-      "seconds": 0.521
+      "seconds": 0.595
+    },
+    {
+      "name": "UPDATE01: the Updates panel compares running and on-disk builds and prepares a sealed key backup",
+      "status": "PASS",
+      "seconds": 0.413
+    },
+    {
+      "name": "TOPIC01: the status panel mutes a topic with scope and duration, then hides matching posts",
+      "status": "PASS",
+      "seconds": 0.504
+    },
+    {
+      "name": "GROUP01: repeated posts fold behind a group bar and expand on demand",
+      "status": "PASS",
+      "seconds": 0.401
+    },
+    {
+      "name": "USAGE01: the API usage panel shows daily counters and cost only from configured rates",
+      "status": "PASS",
+      "seconds": 4.161
+    },
+    {
+      "name": "THRIFT01: thrift mode defers analysis while scrolling and runs after scrolling settles",
+      "status": "PASS",
+      "seconds": 2.316
     }
   ],
-  "passed": 61
+  "passed": 66
 }

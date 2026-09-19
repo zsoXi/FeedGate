@@ -27,6 +27,46 @@
   function privateElement(el) {
     return !!el.closest('[contenteditable],[role="dialog"],[data-testid="DMDrawer"],[data-testid="DmActivityViewport"],.msg-overlay-conversation-bubble,[aria-label="Chat"],[aria-label="Messenger"]');
   }
+  // Stable, canonical account identity taken from profile links already present in the post.
+  // Sites that only expose a display name return '' and are reported as name-only records;
+  // they never match author lists, so two accounts sharing a name are not conflated.
+  const PROFILE_SEGMENTS=new Set(['p','reel','reels','explore','stories','accounts','posts','photo','photos','watch','groups','permalink.php','profile.php','feed','update','video','videos','stories']);
+  function canonicalSlug(pathname) {
+    const seg=(pathname||'').split('/').filter(Boolean);
+    if (!seg.length) return '';
+    const last=seg[seg.length-1]||''; const value=seg.length>1?last:seg[0];
+    if (!value || PROFILE_SEGMENTS.has(value.toLowerCase())) return '';
+    if (!/^[a-zA-Z0-9._-]{2,80}$/.test(value)) return '';
+    return value;
+  }
+  function stableAuthorId(el, site) {
+    try {
+      if (site==='linkedin') {
+        const a=el.querySelector('a[href*="/in/"], a[href*="/company/"]');
+        if (!a) return '';
+        const p=new URL(a.getAttribute('href'),location.href).pathname;
+        const kind=/\/company\//.test(p)?'company':'in';
+        const slug=canonicalSlug(p.replace(/\/(in|company)\//,'/'));
+        return slug?kind+':'+slug:'';
+      }
+      if (site==='facebook') {
+        const byId=el.querySelector('a[href*="profile.php?id="]');
+        if (byId) {
+          const id=new URL(byId.getAttribute('href'),location.href).searchParams.get('id');
+          if (id && /^[0-9]{5,30}$/.test(id)) return 'profile:'+id;
+        }
+        const a=el.querySelector('h2 a[href], h3 a[href], h4 a[href], header a[href]');
+        const slug=a?canonicalSlug(new URL(a.getAttribute('href'),location.href).pathname):'';
+        return slug?'user:'+slug:'';
+      }
+      if (site==='instagram') {
+        const a=el.querySelector('header a[href]');
+        const slug=a?canonicalSlug(new URL(a.getAttribute('href'),location.href).pathname):'';
+        return slug?'user:'+slug:'';
+      }
+    } catch {}
+    return '';
+  }
   function collect(root,site) {
     const spec=SPECS[site];
     if (!spec || !root?.querySelectorAll) return [];
@@ -230,6 +270,7 @@
     if (site==='reddit' && authorElement) {
       try {const p=new URL(authorElement.getAttribute('href'),location.href).pathname.match(/\/user\/([^/]+)/);if(p)author='u/'+p[1];} catch {}
     }
+    const authorId=['linkedin','facebook','instagram'].includes(site)?stableAuthorId(el,site):'';
     const mediaAlt=[...el.querySelectorAll('img[alt]')].filter(n=>!n.closest('[data-testid="Tweet-User-Avatar"], header, [role="dialog"]')).slice(0,8).map(n=>C.text(n.alt,250)).filter(t=>t&&!/^(image|avatar|profile photo|profile picture)$/i.test(t)).join('; ');
     const linkDomains=[];
     for (const a of [...el.querySelectorAll('a[href]')].slice(0,30)) {
@@ -239,8 +280,8 @@
     text=C.text(text,6000);
     const adEvidence=detectAdEvidence(el,site);
     // A text-derived local ID handles roots with no stable permalink. It is not sent to TypeSafe.
-    if (!id) id=`text:${C.text(author,80)}:${text.slice(0,160)}:${mediaAlt.slice(0,40)}`;
-    return C.sanitizeRecord({id,author,text,mediaAlt,quotedText,truncated,context:C.pageContext(location.href),adEvidence,linkDomains},site);
+    if (!id) id=`text:${C.text(authorId||author,80)}:${text.slice(0,160)}:${mediaAlt.slice(0,40)}`;
+    return C.sanitizeRecord({id,author,authorId,text,mediaAlt,quotedText,truncated,context:C.pageContext(location.href),adEvidence,linkDomains},site);
   }
   globalThis.FeedGateAdapters=Object.freeze({SPECS,collect,extract,safeText,privateElement,detectAdEvidence});
 })();

@@ -4,7 +4,7 @@ test('worker initialization restricts both storage areas to trusted contexts',as
  const w=await createWorker();assert.deepEqual(w.levels,{session:'TRUSTED_CONTEXTS',local:'TRUSTED_CONTEXTS'});const s=await w.ok({type:'FG_STATUS'});assert.equal(s.keyReady,false);assert.equal(s.settings.consent,false);assert.deepEqual(s.settings.sites,[]);
 });
 test('web content cannot read status/secrets or write credentials/settings',async()=>{
- const w=await createWorker();await w.enable();for(const type of ['FG_STATUS','FG_SET_KEY','FG_UNLOCK','FG_PATCH_SETTINGS','FG_EXPORT_SETTINGS']){const r=await w.send({type,key:'dummy-overwrite-key'},sender);assert.equal(r.ok,false);assert.equal(r.error.code,'FORBIDDEN');}const r=await w.ok({type:'FG_GET_CONFIG'},sender);assert.ok(!JSON.stringify(r).includes('dummy-worker-test-key'));
+ const w=await createWorker();await w.enable();for(const type of ['FG_STATUS','FG_SET_KEY','FG_UNLOCK','FG_PATCH_SETTINGS','FG_EXPORT_SETTINGS','FG_EXPORT_VAULT','FG_IMPORT_VAULT','FG_UPDATE_INFO']){const r=await w.send({type,key:'dummy-overwrite-key'},sender);assert.equal(r.ok,false);assert.equal(r.error.code,'FORBIDDEN');}const r=await w.ok({type:'FG_GET_CONFIG'},sender);assert.ok(!JSON.stringify(r).includes('dummy-worker-test-key'));
 });
 test('foreign extensions and subframes cannot use inference proxy',async()=>{
  const w=await createWorker();await w.enable();for(const s of [{...sender,id:'b'.repeat(32)},{...sender,frameId:1},{...sender,url:'https://x.com.evil.test/home'}])assert.equal((await w.send({type:'FG_CLASSIFY',record:post()},s)).ok,false);assert.equal(w.calls.length,0);
@@ -61,7 +61,7 @@ test('browser-restart simulation retains only encrypted vault, not a usable key'
  const w=await createWorker();await w.ok({type:'FG_SET_KEY',key:'dummy-encrypted-key',remember:true,passphrase:'long protected passphrase'});const restarted=await createWorker({local:w.local,session:{}});const status=await restarted.ok({type:'FG_STATUS'});assert.equal(status.hasVault,true);assert.equal(status.keyReady,false);
 });
 test('worker-restart simulation restores session key and cached results',async()=>{
- const w=await createWorker();await w.enable();await w.classify();await sleep(120);assert.equal(w.session.runtimeState.version,5);const next=await createWorker({local:w.local,session:w.session});assert.equal((await next.ok({type:'FG_STATUS'})).keyReady,true);assert.equal((await next.classify()).cached,true);assert.equal(next.calls.length,0);
+ const w=await createWorker();await w.enable();await w.classify();await sleep(120);assert.equal(w.session.runtimeState.version,6);const next=await createWorker({local:w.local,session:w.session});assert.equal((await next.ok({type:'FG_STATUS'})).keyReady,true);assert.equal((await next.classify()).cached,true);assert.equal(next.calls.length,0);
 });
 test('settings export never contains key/vault; import requires fresh permissions and consent',async()=>{
  const w=await createWorker();await w.enable();const data=await w.ok({type:'FG_EXPORT_SETTINGS'});assert.equal(data.settings.consent,false);assert.deepEqual(data.settings.sites,[]);assert.ok(!JSON.stringify(data).includes('dummy-worker-test-key'));data.settings.consent=true;data.settings.sites=['x'];await w.ok({type:'FG_IMPORT_SETTINGS',data});const s=await w.ok({type:'FG_STATUS'});assert.equal(s.settings.consent,false);assert.deepEqual(s.settings.sites,[]);
@@ -116,7 +116,7 @@ test('a legacy boolean sponsored flag cannot trigger local hiding and goes throu
  const w=await createWorker();await w.enable();const r=await w.classify({...post('Organic text with a legacy flag'),sponsored:true});assert.equal(r.decision.action,'allow');assert.equal(r.decision.rule,'no_noise_rule_matched');assert.equal(w.calls.length,1);
 });
 test('config responses carry the release version so a stale content script can detect an update',async()=>{
- const w=await createWorker();const cfg=await w.ok({type:'FG_GET_CONFIG'},sender);assert.equal(cfg.appVersion,'3.1.1');
+ const w=await createWorker();const cfg=await w.ok({type:'FG_GET_CONFIG'},sender);assert.equal(cfg.appVersion,'3.3.0');
 });
 test('runtime state written by an older schema is dropped, not replayed',async()=>{
  const legacy={version:3,metrics:{decisions:99},log:[{action:'collapse',reason:'legacy entry'}],cache:[],pageReports:[]};
@@ -125,4 +125,29 @@ test('runtime state written by an older schema is dropped, not replayed',async()
 test('session history is a bounded window while counters keep counting',async()=>{
  const w=await createWorker();await w.enable({concurrency:6,cacheMinutes:0});const total=160;await Promise.all(Array.from({length:total},(_,i)=>w.classify(post('history '+i,'h'+i))));const s=await w.ok({type:'FG_STATUS'});assert.equal(s.metrics.decisions,total);assert.equal(s.log.length,150,'the retained window keeps the newest 150 events');assert.equal(s.log[0].reason,'No noise rule matched');assert.equal(s.metrics.errors,0);
  await sleep(150);assert.equal(w.session.runtimeState.log.length,150);
+});
+test('key backup exports only the sealed vault and restores it on another install',async()=>{
+ const a=await createWorker();
+ assert.equal((await a.send({type:'FG_EXPORT_VAULT'})).error.code,'NO_VAULT');
+ await a.ok({type:'FG_SET_KEY',key:'dummy-backup-key',remember:true,passphrase:'long protected passphrase'});
+ const backup=await a.ok({type:'FG_EXPORT_VAULT'});
+ assert.equal(backup.format,'feedgate-key-backup');assert.equal(backup.version,1);
+ assert.equal(backup.vault.kdf,'PBKDF2-SHA256');assert.equal(backup.vault.iterations,600000);
+ assert.ok(!JSON.stringify(backup).includes('dummy-backup-key'),'the backup never contains the plaintext key');
+ const b=await createWorker();assert.equal((await b.ok({type:'FG_STATUS'})).hasVault,false);
+ assert.equal((await b.send({type:'FG_IMPORT_VAULT',vault:{...backup.vault,ciphertext:'AAAA'}})).error.code,'VAULT_ERROR');
+ await b.ok({type:'FG_IMPORT_VAULT',vault:backup.vault});
+ assert.equal((await b.ok({type:'FG_STATUS'})).hasVault,true);
+ await b.ok({type:'FG_UNLOCK',passphrase:'long protected passphrase'});
+ assert.equal(b.session.apiKey,'dummy-backup-key');
+});
+test('update info compares the running build with the packaged files without a provider call',async()=>{
+ const w=await createWorker({buildRelease:'3.2.1'});
+ const info=await w.ok({type:'FG_UPDATE_INFO'});
+ assert.equal(info.running,'3.3.0');assert.equal(info.onDisk,'3.2.1');assert.equal(info.buildId,'harness-build');assert.equal(info.updateAvailable,true);
+ assert.equal(w.calls.length,0,'the local build check never calls the provider');
+ assert.ok(w.events.buildFetches[0].endsWith('/build.json'));
+ const d=await w.ok({type:'FG_DIAGNOSTICS'});assert.equal(d.update.onDisk,'3.2.1');assert.equal(d.update.updateAvailable,true);
+ const same=await createWorker({buildRelease:'3.3.0'});assert.equal((await same.ok({type:'FG_UPDATE_INFO'})).updateAvailable,false);
+ const missing=await createWorker({buildRelease:null});const m=await missing.ok({type:'FG_UPDATE_INFO'});assert.equal(m.onDisk,null);assert.equal(m.updateAvailable,false);
 });

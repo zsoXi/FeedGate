@@ -1,10 +1,10 @@
-# FeedGate 3.1.1
+# FeedGate 3.3.0
 
 A Chrome extension that uses TypeSafe Jev to reduce feed noise without hiding ordinary organic content. A post being promotional is not treated as a reason to filter it. Filtering is reversible, the rules are explicit, and the API key is entered inside the extension.
 
 **Personal-use preview. No terminal, bridge, pairing code or external server is required.**
 
-![FeedGate 3.1.1 setup interface, captured using a browser test fixture](evidence/options-overview.png)
+![FeedGate 3.3.0 setup interface, captured using a browser test fixture](evidence/options-overview.png)
 
 ## Install the ready-made extension
 
@@ -14,7 +14,26 @@ In FeedGate, enter a direct TypeSafe API key, grant cloud-analysis consent, and 
 
 The ready-made extension does not need Node, Python, npm, a local service, or an installer executable. Chrome 120 or later is declared in the manifest. Managed browsers may prohibit unpacked extensions; do not work around administrator policy.
 
-For a short step-by-step walkthrough, open [START_HERE.html](START_HERE.html), [START_HERE.md](START_HERE.md) or the Polish [START_TUTAJ_PL.md](START_TUTAJ_PL.md). Upgrading from 2.x: read [docs/MIGRATION.md](docs/MIGRATION.md).
+For a short step-by-step walkthrough, open [START_HERE.html](START_HERE.html), [START_HERE.md](START_HERE.md) or the Polish [START_TUTAJ_PL.md](START_TUTAJ_PL.md). Upgrading from 2.x: read [docs/MIGRATION.md](docs/MIGRATION.md); the update workflow is explained in [docs/UPDATES.md](docs/UPDATES.md).
+
+## What changed in 3.3
+
+Version 3.3 adds time-limited topic mutes, conservative duplicate grouping and honest API-usage controls, and fixes three author-list edges. No existing category or threshold changes meaning:
+
+* **Mute topic…** from the status panel: pick a post, edit the topic name, choose the scope (this site or all supported platforms) and 24 hours / 7 days / until removed. Matching is semantic through the same Jev request — a passing mention stays visible, **Keep this post** wins, Undo is offered, and an expired rule stops hiding posts by itself. Manage everything in Settings → Muted topics.
+* **Grouping repeated posts (optional, off by default).** The first copy stays visible; later near-duplicates fold behind a "more similar posts" bar that expands in place. Similarity is computed locally with a bounded per-tab memory, no provider request is spent, and everything returns when you turn it off.
+* **API usage panel and thrift mode.** Review → API usage shows the daily used/remaining budget (reset at 00:00 UTC, shown in local time), attempts, analyses, cache hits, errors, cancellations and tokens; cost appears only from your own configured rates and is labelled an estimate, not a provider bill. Thrift mode waits until a post is visible and scrolling has settled before calling the model; local author, verified-ad and cosmetic rules still act immediately.
+* **Author-list fixes.** Concurrent mute/allow actions can no longer drop one another, Undo restores the exact earlier state and refuses to overwrite a newer decision, and LinkedIn/Facebook/Instagram matching now uses the canonical profile link instead of the display name (name-only posts never match a saved list).
+* **Policy `policy-3.3.0`, rubric `feed-v2.2.0`, settings schema 6, diagnostics schema 8.** New optional features stay off for existing users after migration.
+
+## What changed in 3.2
+
+Version 3.2 makes updates survivable and changes no model, rubric or threshold:
+
+* **A stable extension identity.** The manifest carries a bundled public key, so the extension id no longer depends on the folder path. Load 3.2.0 once and the encrypted vault, settings and local lists survive future in-place updates and folder moves.
+* **Updates panel in Settings (`06 Updates`).** It compares the loaded build with the packaged `build.json` on disk and says when the files in the folder are newer than the running extension, with the in-place steps (copy files over the same folder, Reload from `chrome://extensions`, never Remove) and a button that opens the extensions page.
+* **Sealed key backup.** Export and import move only the encrypted vault blob, never the plaintext key; unlock it with its passphrase on the new install.
+* **Diagnostics schema 7.** Exports gain an `update` section (running, on-disk and build id). One-time note: earlier builds derived the id from the folder, so the first 3.2.0 load starts a new identity — enter the key once more or import a backup, and updates stop bothering you afterwards.
 
 ## What changed in 3.1
 
@@ -91,7 +110,7 @@ X and Reddit are the primary adapters. LinkedIn, Facebook, Instagram and **Wykop
 
 ## Key handling and data
 
-The default key lives in trusted `chrome.storage.session` and is not returned to content scripts. Browser restart, disabling or reloading the extension can clear that session. The optional persistent vault uses AES-256-GCM and PBKDF2-SHA256 with 600,000 iterations, a random 16-byte salt and a random 12-byte nonce. Unlocking requires the user's passphrase after a browser restart. No passphrase is stored.
+The default key lives in trusted `chrome.storage.session` and is not returned to content scripts. Browser restart, disabling or reloading the extension can clear that session. The optional persistent vault uses AES-256-GCM and PBKDF2-SHA256 with 600,000 iterations, a random 16-byte salt and a random 12-byte nonce. Unlocking requires the user's passphrase after a browser restart. No passphrase is stored. A sealed key backup can be exported and imported (ciphertext only) when moving to another install of the same identity; see [docs/UPDATES.md](docs/UPDATES.md).
 
 A password field or an encrypted file is not protection against malware or a compromised extension. Use a dedicated, revocable provider key. Saving a session-only key replaces any previously saved vault. This build does not use `storage.sync`.
 
@@ -99,9 +118,9 @@ Cloud opt-in allows visible extracted post text, visible quote text, accessible 
 
 ## Honest test status
 
-The packaged evidence records **143 passing Node tests**, **61 passing Chromium DOM/UI scenarios**, a **7-check unpacked-extension smoke test** and **8 release integrity checks**. Unit tests execute the actual policy, HTTP client, vault and worker source; worker tests replace Chrome APIs and HTTP with controlled implementations. Browser tests execute the actual DOM and UI code with mocked Chrome messaging, page location and Jev responses. The smoke test loads the real `extension/` folder in a local Chromium profile.
+The packaged evidence records **164 passing Node tests**, **66 passing Chromium DOM/UI scenarios**, an **8-check unpacked-extension smoke test** and **9 release integrity checks**. Unit tests execute the actual policy, HTTP client, vault and worker source; worker tests replace Chrome APIs and HTTP with controlled implementations. Browser tests execute the actual DOM and UI code with mocked Chrome messaging, page location and Jev responses. The smoke test loads the real `extension/` folder in a local Chromium profile.
 
-The suites include the 25 precision-first regression cases, the 2.1.1 ad-evidence contracts, the v3 control/safety cases (HUD modes, recovery without a responsive content script, permission and site states, transactional picker guards, rule management and revisions, loop containment, Wykop fixtures) and the 3.1 author-mute and exception-panel cases, plus three real privacy-safe diagnostic exports used only to replay recorded counts.
+The suites include the 25 precision-first regression cases, the 2.1.1 ad-evidence contracts, the v3 control/safety cases (HUD modes, recovery without a responsive content script, permission and site states, transactional picker guards, rule management and revisions, loop containment, Wykop fixtures), the 3.1 author-mute and exception-panel cases, the 3.2 update and identity cases (stable id from the manifest key, `build.json` comparison, sealed vault-backup validation and round trip, the Updates panel), the 3.3 cases (atomic author-list updates, exact-state Undo including stale conflicts, stable author identity, topic mute with expiry and accidental-mention handling, duplicate grouping, thrift deferral and the usage counters), plus three real privacy-safe diagnostic exports used only to replay recorded counts.
 
 **No real TypeSafe key was used for this release and no signed-in feed was accessed or measured.** The unpacked extension was loaded from `extension/` in a local Chromium profile by the smoke test, but managed installation remains blocked in the build environment, so live-provider classification accuracy stays unmeasured. No administrator policies were changed. These are implementation regression tests, not a measured improvement in live classification accuracy or an independent security audit.
 

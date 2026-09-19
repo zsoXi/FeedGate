@@ -1,4 +1,4 @@
-# FeedGate 3.1.1: start here
+# FeedGate 3.3.0: start here
 
 **This release has no terminal, no local bridge and no pairing code.** Do not run any file from version 0.1. You need Chrome and your own direct TypeSafe key.
 
@@ -52,7 +52,7 @@ Upgrading from 2.x? Your key, allowlist, saved post choices and cosmetic rules a
 
 There is a small FeedGate pill with status and counters at the bottom left of the page. Clicking it expands the panel (with minimize and close), and the popup can reopen it when it is hidden.
 
-Go to **Diagnostics → Export diagnostics**. This produces a `feedgate-3.1.1-diagnostics-....json` file that you can pass on for review. It contains no API key, vault, post text, author names, full page URLs, raw cosmetic selectors or the text of your own rule.
+Go to **Diagnostics → Export diagnostics**. This produces a `feedgate-3.3.0-diagnostics-....json` file that you can pass on for review. It contains no API key, vault, post text, author names, full page URLs, raw cosmetic selectors or the text of your own rule.
 
 | Status | Meaning |
 | --- | --- |
@@ -67,7 +67,7 @@ Changing thresholds uses existing scores and recalculates decisions. **You do no
 
 ## What is verified
 
-143 Node tests, 61 Chromium DOM/UI scenarios, a 7-check unpacked-extension smoke test and 8 release integrity checks passed. Jev responses and browser interfaces were replaced by controlled test implementations; the smoke test loaded the real extension folder in a local Chromium profile. Your key was not used, no test was run on the current, signed-in X and no live Wykop page was accessed by the suites. Managed installation remains blocked in the build environment; its limits were not bypassed.
+164 Node tests, 66 Chromium DOM/UI scenarios, an 8-check unpacked-extension smoke test and 9 release integrity checks passed. Jev responses and browser interfaces were replaced by controlled test implementations; the smoke test loaded the real extension folder in a local Chromium profile. Your key was not used, no test was run on the current, signed-in X and no live Wykop page was accessed by the suites. Managed installation remains blocked in the build environment; its limits were not bypassed.
 
 This is a package ready for you to test, not a certificate of flawlessness. The model can still misjudge a specific post. **Open live test feed** contains fictional examples, but once key and consent are enabled it uses the real API, not fake percentages.
 

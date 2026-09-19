@@ -1,6 +1,6 @@
 # FeedGate 3.0.0 policy
 
-FeedGate 3.1.1 keeps the 2.1.1 semantic policy unchanged. What changed in 3.0.0
+FeedGate 3.3.0 keeps the 2.1.1 semantic policy unchanged. What changed in 3.0.0
 is local control, safety and coverage: the status panel modes, transactional
 picker, managed cosmetic filters with revisioned writes, per-site recovery, loop
 containment and the Wykop beta adapter. No category threshold was lowered, Dim

@@ -47,6 +47,8 @@ async function refresh(){
   $('filtered').textContent=hidden;$('observed').textContent=observed;
   $('pending').textContent=page?.pending?`${page.pending} pending judgment(s)`:'No pending requests';
   $('hud-mode').value=status.settings.hudMode||'compact';
+  const dm=status.metrics||{},dd=status.daily||{requests:0},dlimit=status.settings.dailyLimit||0;
+  $('usage-line').textContent=`${dd.requests||0}/${dlimit} today · ${(dm.requests||0).toLocaleString()} attempts · ${(dm.classified||0).toLocaleString()} classified · ${(dm.cacheHits||0).toLocaleString()} cache hits · ${((dm.inputTokens||0)+(dm.outputTokens||0)).toLocaleString()} tokens`+(status.settings.thrift?' · Thrift mode: waits for a visible, settled post.':'');
   $('pause').textContent=status.settings.enabled?'Pause everywhere':'Resume everywhere';
   const supported=!!site||isDemo();
   for(const id of ['restore','rescan','pick'])$(id).disabled=!supported;

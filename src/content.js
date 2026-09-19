@@ -25,8 +25,10 @@
   const cosmetic={applied:0,restored:0,rejected:0};
   const states=new Map(),roots=new Set();
   let lastError=null;
+let lastScrollAt=Date.now(),thriftTimer=null;
+const groupsExpanded=new Set();
   const INTERNAL_MARKER='feedgate-internal-element';
-  const own=n=>n instanceof Element && (n.matches('feedgate-card,feedgate-status,feedgate-toast,[data-fg-ui]')||!!n.closest('feedgate-card,feedgate-status,feedgate-toast,[data-fg-ui]'));
+  const own=n=>n instanceof Element && (n.matches('feedgate-card,feedgate-status,feedgate-toast,feedgate-group,[data-fg-ui]')||!!n.closest('feedgate-card,feedgate-status,feedgate-toast,feedgate-group,[data-fg-ui]'));
   async function send(type,data={}) {
     const response=await chrome.runtime.sendMessage({type,...data});
     if (!response?.ok) throw new Error(response?.error?.code||'INTERNAL_ERROR');
@@ -75,6 +77,7 @@
       else if(decision.action==='dim')action='dim';
     }
     if(state.cosmetic?.size&&Date.now()>=cosmeticPause)action='collapse';
+    if(action==='allow'&&state.groupHidden&&settings.grouping)action='collapse';
     return action;
   }
   function applyAction(state,action) {
@@ -141,7 +144,7 @@
       state:pageState(),hudMode:settings.hudMode,hudPresent:!!hud,controllerCount:1,
       cosmeticApplied:cosmetic.applied,cosmeticRestored:cosmetic.restored,cosmeticRejected:cosmetic.rejected,
       breakerActivations:breakerTrips,scansCoalesced,ignoredSelfMutations,noopApplications,
-      cosmeticHidden,recoveryPaused,heartbeatAt:Date.now()};
+      cosmeticHidden,grouped:[...states.values()].filter(s=>s.groupHidden).length,deferred:[...states.values()].filter(s=>s.deferred).length,recoveryPaused,heartbeatAt:Date.now()};
   }
   function hudLabel(s) {
     const labels={ready:settings.mode==='observe'?'Observe only':'Running',paused:'Paused',locked:'Key locked: open settings',
@@ -170,14 +173,14 @@
     if(settings.hudMode==='compact'&&s.state!=='recovery') {
       hudRoot.textContent='';
       const pill=make('button',`● FeedGate · ${label} · ${s.collapsed+s.dimmed+(s.cosmeticHidden||0)} filtered`,'pill');
-      pill.title='FeedGate 3.1.1 status. Open the panel.';
+      pill.title='FeedGate 3.3.0 status. Open the panel.';
       pill.addEventListener('click',ev=>{if(ev.isTrusted)persistHudMode('expanded');});
       hudRoot.append(pill);
       return;
     }
     hudRoot.textContent='';
     const panel=make('div',undefined,'panel'),header=make('header');
-    const title=make('strong','FeedGate 3.1.1');
+    const title=make('strong','FeedGate 3.3.0');
     const minimize=make('button','–');minimize.title='Minimize to a small status pill';
     const close=make('button','×');close.title='Hide status. Filtering continues.';
     minimize.addEventListener('click',ev=>{if(ev.isTrusted)persistHudMode('compact');});
@@ -204,13 +207,15 @@
       });
       const pick=make('button','Pick element');
       pick.addEventListener('click',ev=>{if(ev.isTrusted)startPicker();});
+      const topicPick=make('button','Mute topic…');topicPick.title='Click a post on the page to mute its topic for a chosen time.';
+      topicPick.addEventListener('click',ev=>{if(ev.isTrusted)startTopicPicker();});
       const mutePick=make('button','Mute author…');mutePick.title='Click a post on the page to hide everything from its author.';
       mutePick.addEventListener('click',ev=>{if(ev.isTrusted)startAuthorPicker('mute');});
       const allowPick=make('button','Allow author…');allowPick.title='Click a post on the page to keep everything from its author visible.';
       allowPick.addEventListener('click',ev=>{if(ev.isTrusted)startAuthorPicker('allow');});
       const open=make('button','Settings');
       open.addEventListener('click',ev=>{if(ev.isTrusted)send('FG_OPEN_SETTINGS_FROM_PAGE').catch(()=>{});});
-      actions.append(showAll,pause,pick,mutePick,allowPick,open);
+      actions.append(showAll,pause,pick,topicPick,mutePick,allowPick,open);
     }
     panel.append(actions);
     panel.append(make('div','Hiding this panel does not pause filtering.','hint'));
@@ -227,12 +232,14 @@
   function removeCard(state) {
     state.placeholder?.remove();state.placeholder=null;state.cardSignature=null;
   }
-  function cardNote(decision,cosmeticOwned) {
+  function cardNote(decision,cosmeticOwned,groupHidden) {
     if(cosmeticOwned)return 'User cosmetic rule: Hidden by your cosmetic filter';
+    if(groupHidden)return 'Similar content: grouped with an earlier post';
     if(settings.mode==='observe'&&decision.wouldAction)return `Observe Only: Would ${decision.wouldAction==='collapse'?'hide':'dim'}; content left unchanged`;
     if(decision.source==='cosmetic')return 'User cosmetic rule: Hidden by your cosmetic filter';
     if(decision.source==='local')return 'Verified platform placement: Platform-labelled ad';
     if(decision.source==='author')return 'Your mute list: Hidden by your request';
+    if(decision.source==='topic')return 'Your muted topic: '+decision.reason;
     const label=C.CATEGORIES?.[decision.category]?.label||(decision.rule==='manipulative_bait'?'Manipulative engagement bait':'Filtered by policy');
     return 'Semantic filter: '+label;
   }
@@ -242,7 +249,7 @@
     const cosmeticOwned=action!=='allow'&&(state.cosmetic?.size||0)>0;
     const show=action!=='allow'||observeNote;
     if(!show||!state.el.isConnected){removeCard(state);return;}
-    const signature=`${action}|${decision.source}|${decision.rule}|${decision.category}|${observeNote?'o':''}|${state.cosmetic?.size||0}|${state.revealed?'r':''}|${cosmeticOwned?'c':''}`;
+    const signature=`${action}|${decision.source}|${decision.rule}|${decision.category}|${observeNote?'o':''}|${state.cosmetic?.size||0}|${state.revealed?'r':''}|${cosmeticOwned?'c':''}${state.groupHidden?'g':''}`;
     if(state.cardSignature===signature&&state.placeholder?.isConnected)return;
     removeCard(state);
     const el=state.el;
@@ -252,7 +259,7 @@
     const style=make('style');
     style.textContent=`:host{all:initial;display:block;color-scheme:light dark}*{box-sizing:border-box}.card{margin:7px 0;padding:11px 14px;border:1px solid #b8c5b7;border-left:3px solid #6f8e60;border-radius:7px;background:#f1f3ed;color:#20291f;font:12px/1.5 system-ui,sans-serif}.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.mark{font-weight:800;letter-spacing:.04em}.note{flex:1;min-width:120px;color:#50604c}button{font:inherit;font-weight:650;color:#223020;background:#fff;border:1px solid #c6cec1;border-radius:5px;padding:4px 9px;cursor:pointer}button:hover{background:#e2ebd9}button:focus-visible{outline:2px solid #40712b;outline-offset:2px}.details{margin-top:9px;border-top:1px solid #d2dbcb;padding-top:8px}.details[hidden]{display:none}.score{display:flex;gap:8px;justify-content:space-between}.small{font-size:11px;color:#596b52;margin-top:6px}@media(prefers-color-scheme:dark){.card{background:#18211b;color:#e5eddc;border-color:#425040}.note,.small{color:#abbda2}button{background:#263327;color:#e4efd9;border-color:#455a43}button:hover{background:#354833}}`;
     const card=make('div',undefined,'card'),row=make('div',undefined,'row');
-    row.append(make('span','FeedGate','mark'),make('span',cardNote(decision,cosmeticOwned),'note'));
+    row.append(make('span','FeedGate','mark'),make('span',cardNote(decision,cosmeticOwned,state.groupHidden),'note'));
     const showBtn=make('button','Show'),why=make('button','Why?');
     const details=make('div',undefined,'details');details.hidden=true;
     details.append(make('div',decision.reason||'Filtered.'));
@@ -279,17 +286,24 @@
     showBtn.addEventListener('click',ev=>{if(!ev.isTrusted)return;state.revealed=true;applyAction(state,'allow');removeCard(state);report();});
     why.addEventListener('click',ev=>{if(!ev.isTrusted)return;details.hidden=!details.hidden;});
     row.append(showBtn,why);
-    if(state.record?.author&&!demo&&!cosmeticOwned&&decision.source!=='cosmetic'){
+    if(state.record?.author&&!demo&&!cosmeticOwned&&decision.source!=='cosmetic'&&!state.record.authorNameOnly){
+      const identity=state.record.authorId||state.record.author;
       const allow=make('button','Allow author');
       allow.addEventListener('click',async ev=>{
         if(!ev.isTrusted)return;allow.disabled=true;
-        try{await send('FG_ALLOW_AUTHOR',{author:state.record.author});showToast('Author allowed on this site. Their posts stay visible here.');}
+        try{
+          const result=await send('FG_ALLOW_AUTHOR',{author:identity});
+          showToast('Author allowed on this site. Their posts stay visible here.',{authorUndo:{author:identity,previous:result?.previous,applied:result?.applied}});
+        }
         catch(error){details.hidden=false;details.append(make('div',C.userError(error).message));allow.disabled=false;}
       });row.append(allow);
       const mute=make('button','Mute author');
       mute.addEventListener('click',async ev=>{
         if(!ev.isTrusted)return;mute.disabled=true;
-        try{await send('FG_MUTE_AUTHOR',{author:state.record.author});showToast('Author muted on this site. This is a local list; manage it in FeedGate settings.');}
+        try{
+          const result=await send('FG_MUTE_AUTHOR',{author:identity});
+          showToast('Author muted on this site. This is a local list; manage it in FeedGate settings.',{authorUndo:{author:identity,previous:result?.previous,applied:result?.applied}});
+        }
         catch(error){details.hidden=false;details.append(make('div',C.userError(error).message));mute.disabled=false;}
       });row.append(mute);
     }
@@ -317,6 +331,8 @@
     render(state,early);
     if(early.source==='allowlist'||early.source==='author'){state.completed=true;report();return;}
     if(!r.text&&!r.mediaAlt&&!r.sponsored){state.completed=true;return;}
+    if(settings.thrift&&!thriftEligible(state)){state.deferred=true;armThrift();report();return;}
+    state.deferred=false;
     state.pending=true;report();
     const token=++state.token,stamp=epoch,snapshot=state.snapshot;
     send('FG_CLASSIFY',{record:r}).then(response=>{
@@ -352,14 +368,14 @@
     const snapshot=JSON.stringify(record);
     if(state&&state.snapshot!==snapshot){
       applyAction(state,'allow');removeCard(state);
-      state.token++;state.record=record;state.snapshot=snapshot;state.pending=false;state.completed=false;state.revealed=false;state.result=null;state.error=null;state.appliedAction=null;
+      state.token++;state.record=record;state.snapshot=snapshot;state.pending=false;state.completed=false;state.revealed=false;state.result=null;state.error=null;state.appliedAction=null;state.deferred=false;state.groupHidden=false;state.seenAt=Date.now();
     }
     if(!state){
       if(states.size>=1500){
         const old=[...states.values()].find(s=>!s.el.isConnected||!nearViewport(s.el));
         if(old){applyAction(old,'allow');removeCard(old);intersection?.unobserve(old.el);states.delete(old.el);}else return;
       }
-      state={el,record,snapshot,token:0,pending:false,completed:false,revealed:false,result:null,visible:nearViewport(el),cosmetic:new Map(),appliedAction:null,decision:null,placeholder:null,original:null,writes:null};
+      state={el,record,snapshot,token:0,pending:false,completed:false,revealed:false,result:null,visible:nearViewport(el),cosmetic:new Map(),appliedAction:null,decision:null,placeholder:null,original:null,writes:null,deferred:false,groupHidden:false,groupBar:null,seenAt:Date.now()};
       states.set(el,state);detectedTotal++;intersection?.observe(el);
     }
     if(cosmeticRules?.length){
@@ -463,6 +479,7 @@
     for(const root of pending)for(const el of A.collect(root,site))ensure(el);
     applyCosmeticRules();
     validateQuarantinedRules();
+    recomputeGroups();
   }
   function schedule(root) {
     if(root?.nodeType===Node.TEXT_NODE)root=root.parentElement;
@@ -475,11 +492,11 @@
     observer?.disconnect();intersection?.disconnect();observer=null;intersection=null;
     if(scanTimer)clearTimeout(scanTimer);scanTimer=null;roots.clear();
     pickerCleanup?.();
-    for(const s of states.values()){s.token++;s.revealed=true;applyAction(s,'allow');removeCard(s);}states.clear();
+    for(const s of states.values()){s.token++;s.revealed=true;applyAction(s,'allow');removeCard(s);}for(const s of states.values()){if(s.groupBar){s.groupBar.remove();s.groupBar=null;}}groupBars.clear();if(thriftTimer){clearTimeout(thriftTimer);thriftTimer=null;}removeEventListener('scroll',onScroll);removeEventListener('visibilitychange',onVisibility);states.clear();
     report();
   }
   function configSignature(s) {
-    return JSON.stringify({enabled:s.enabled,sites:s.sites,mode:s.mode,preset:s.preset,categories:s.categories,cosmeticEnabled:s.cosmeticEnabled,filters:s.cosmeticFilters,recovery:s.recoverySites,consent:s.consent,labelledAds:s.labelledAds,protectUseful:s.protectUseful,profileMode:s.profileMode,customInstruction:s.customInstruction,allowedAuthors:s.allowedAuthors,blockedAuthors:s.blockedAuthors});
+    return JSON.stringify({enabled:s.enabled,sites:s.sites,mode:s.mode,preset:s.preset,categories:s.categories,cosmeticEnabled:s.cosmeticEnabled,filters:s.cosmeticFilters,recovery:s.recoverySites,consent:s.consent,labelledAds:s.labelledAds,protectUseful:s.protectUseful,profileMode:s.profileMode,customInstruction:s.customInstruction,allowedAuthors:s.allowedAuthors,blockedAuthors:s.blockedAuthors,topics:s.topics,grouping:s.grouping,thrift:s.thrift,thriftDelayMs:s.thriftDelayMs});
   }
   let lastSignature='';
   async function refresh(force=false) {
@@ -502,7 +519,7 @@
     report();updateHUD(stats());
     if(!enabled)return;
     intersection=new IntersectionObserver(entries=>{
-      for(const entry of entries){const s=states.get(entry.target);if(s){s.visible=entry.isIntersecting;if(s.visible){if(s.cosmetic?.size)reapply(s);else process(s);}}}
+      for(const entry of entries){const s=states.get(entry.target);if(s){const was=s.visible;s.visible=entry.isIntersecting;if(s.visible){if(!was)s.seenAt=Date.now();if(s.cosmetic?.size)reapply(s);else process(s);}}}
     },{rootMargin:'1000px 0px'});
     observer=new MutationObserver(mutations=>{
       if(!demo&&C.isPrivateRoute(location.href)){enabled=false;stop();return;}
@@ -515,6 +532,9 @@
       }
     });
     observer.observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true});
+    addEventListener('scroll',onScroll,{passive:true});
+    addEventListener('visibilitychange',onVisibility);
+    if(deferredAny())armThrift();
     schedule(document);
   }
   function selectorFor(el) {
@@ -545,7 +565,15 @@
       undo.addEventListener('click',async ev=>{
         if(!ev.isTrusted)return;undo.disabled=true;
         try{
-          if(undoAction.author){
+          if(undoAction.authorUndo){
+            const result=await send('FG_AUTHOR_UNDO',{author:undoAction.authorUndo.author,previous:undoAction.authorUndo.previous,applied:undoAction.authorUndo.applied});
+            showToast(result?.stale?'Undo skipped: a newer decision already changed this author.':'Author list restored to the previous state.');
+            refresh(true);
+          } else if(undoAction.topicId){
+            await send('FG_TOPIC_DELETE',{id:undoAction.topicId});
+            showToast('Muted topic removed.');
+            refresh(true);
+          } else if(undoAction.author){
             await send('FG_FORGET_AUTHOR',{author:undoAction.author});
             showToast('Author removed from your local lists.');
             refresh(true);
@@ -562,6 +590,173 @@
     shadow.append(style,box);document.documentElement.append(toast);
     if(toastTimer)clearTimeout(toastTimer);
     toastTimer=setTimeout(()=>{toast?.remove();toast=null;toastTimer=null;},15000);
+  }
+  function thriftEligible(state){
+    if(document.hidden||!state||!state.el||!state.el.isConnected)return false;
+    const rect=state.el.getBoundingClientRect();
+    if(!(rect.width>0&&rect.bottom>0&&rect.top<innerHeight))return false;
+    const delay=Math.max(C.THRIFT_DELAY_MIN,settings.thriftDelayMs||800);
+    if(Date.now()-(state.seenAt||0)<delay)return false;
+    return Date.now()-lastScrollAt>=delay;
+  }
+  function deferredAny(){for(const s of states.values())if(s.deferred)return true;return false;}
+  function armThrift(){
+    if(thriftTimer||!settings.thrift)return;
+    thriftTimer=setTimeout(()=>{thriftTimer=null;wakeDeferred();},Math.max(120,settings.thriftDelayMs||800));
+  }
+  function wakeDeferred(){
+    if(!enabled)return;
+    let pending=false;
+    for(const s of states.values()){
+      if(!s.deferred)continue;
+      if(thriftEligible(s)){s.deferred=false;process(s);}
+      else pending=true;
+    }
+    if(pending&&!document.hidden)armThrift();
+    report();
+  }
+  function onScroll(){lastScrollAt=Date.now();if(settings.thrift)armThrift();}
+  function onVisibility(){if(!document.hidden){lastScrollAt=Date.now();if(settings.thrift)armThrift();}}
+  function topicExpirySweep(){
+    if(!settings.topics||!settings.topics.length)return;
+    for(const s of states.values()){
+      const d=s.decision;
+      if(!d||d.rule!=='topic_muted'||!s.record)continue;
+      const next=C.decide(s.record,s.result||null,settings);
+      if(next.rule!==d.rule||next.action!==d.action)render(s,next);
+    }
+  }
+  const groupBars=new Set();
+  function clearGroupBars(){
+    for(const bar of groupBars)bar.remove();
+    groupBars.clear();
+    for(const s of states.values())s.groupBar=null;
+  }
+  function groupKeyOf(s){return s.record.site+':'+s.record.id;}
+  function recomputeGroups(){
+    if(!settings.grouping||!enabled||demo){clearGroupBars();for(const s of states.values()){if(s.groupHidden){s.groupHidden=false;reapply(s);}}return;}
+    const cand=[];
+    for(const s of states.values()){
+      if(!s.record||!s.record.text||s.revealed)continue;
+      if(s.decision&&(s.decision.source==='cosmetic'||s.decision.action==='collapse'))continue;
+      const norm=C.normalizeText(s.record.text);
+      const tokens=norm.split(' ').filter(t=>t.length>=3);
+      if(tokens.length<3)continue;
+      cand.push({s,sig:C.tokenSignature(s.record.text),norm,tokens});
+    }
+    const assigned=new Set();
+    const groups=[];
+    for(let i=0;i<cand.length;i++){
+      if(assigned.has(i))continue;
+      assigned.add(i);
+      const base=cand[i];
+      const members=[base.s];
+      for(let j=i+1;j<cand.length;j++){
+        if(assigned.has(j))continue;
+        const other=cand[j];
+        let dup=!!(base.sig&&base.sig===other.sig);
+        if(!dup&&base.tokens.length>=6&&other.tokens.length>=6&&base.norm.length>=40&&other.norm.length>=40&&C.tokenSimilarity(base.norm,other.norm)>=0.85)dup=true;
+        if(dup){assigned.add(j);members.push(other.s);}
+      }
+      if(members.length>1)groups.push({rep:base.s,members:members.slice(1)});
+    }
+    clearGroupBars();
+    const hiddenNow=new Set();
+    for(const g of groups){
+      const key=groupKeyOf(g.rep);
+      const collapsed=!groupsExpanded.has(key);
+      if(collapsed)for(const s of g.members)hiddenNow.add(s);
+      const host=document.createElement('feedgate-group');
+      host.setAttribute('data-fg-ui','');
+      const shadow=host.attachShadow({mode:'open'});
+      const style=document.createElement('style');
+      style.textContent=':host{display:block;margin:6px 0 2px}.box{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px dashed #c8cbc2;border-radius:8px;background:#f7f8f4;color:#39413a;font:12px/1.4 system-ui,sans-serif}.box button{border:1px solid #c8cbc2;background:#fff;border-radius:6px;padding:2px 8px;font:12px system-ui,sans-serif;cursor:pointer}';
+      const box=document.createElement('div');box.className='box';
+      const label=document.createElement('span');
+      label.textContent=g.members.length+(g.members.length===1?' more similar post':' more similar posts');
+      const btn=document.createElement('button');btn.type='button';btn.textContent=collapsed?'Show similar':'Hide similar';
+      btn.addEventListener('click',()=>{if(groupsExpanded.has(key))groupsExpanded.delete(key);else groupsExpanded.add(key);recomputeGroups();});
+      box.append(label,btn);shadow.append(style,box);
+      if(g.rep.el.isConnected){g.rep.groupBar=host;groupBars.add(host);g.rep.el.after(host);}
+    }
+    for(const s of states.values()){
+      const hidden=hiddenNow.has(s);
+      if(s.groupHidden!==hidden){s.groupHidden=hidden;reapply(s);}
+      else if(hidden)reapply(s);
+    }
+  }
+  function startTopicPicker(){
+    if(!enabled||demo||recoveryPaused)return {started:false};
+    if(pickerCleanup)pickerCleanup();
+    const postRoot=(node)=>node&&node.closest?node.closest(A.SPECS[site].posts):null;
+    const bar=document.createElement('div');
+    bar.setAttribute('data-fg-ui','');
+    bar.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:2147483646;background:#1f2933;color:#f5f7fa;font:13px/1.4 system-ui,sans-serif;padding:8px 14px;border-radius:8px;pointer-events:none';
+    bar.textContent='FeedGate: hover a post, click it to mute its topic. Escape cancels.';
+    let hovered=null,outlineEl=null,outlinePrev='',preview=null,cleaned=false,timeout=null;
+    const setOutline=(el)=>{if(outlineEl===el)return;if(outlineEl){outlineEl.style.outline=outlinePrev;outlineEl=null;}if(el){outlinePrev=el.style.outline;el.style.outline='2px solid #df832d';outlineEl=el;}};
+    const cleanup=()=>{if(cleaned)return;cleaned=true;if(outlineEl){outlineEl.style.outline=outlinePrev;outlineEl=null;}if(timeout)clearTimeout(timeout);bar.remove();document.removeEventListener('mousemove',onMove,true);document.removeEventListener('click',onClick,true);document.removeEventListener('keydown',onKey,true);if(preview){preview.remove();preview=null;}pickerCleanup=null;};
+    const onMove=(ev)=>{if(preview)return;const root=postRoot(ev.target);hovered=root;setOutline(root);};
+    const onKey=(ev)=>{if(ev.key==='Escape'){ev.preventDefault();cleanup();}};
+    const showPreview=(root,rec)=>{
+      if(preview)preview.remove();
+      const host=document.createElement('feedgate-topic');
+      host.setAttribute('data-fg-ui','');
+      const shadow=host.attachShadow({mode:'open'});
+      const style=document.createElement('style');
+      style.textContent='.card{position:fixed;right:16px;bottom:18px;width:320px;background:#fff;color:#1f2933;border:1px solid #d3d7cf;border-radius:10px;padding:12px;font:13px/1.45 system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.18)}.card h4{margin:0 0 8px;font-size:13px}.card label{display:block;margin:8px 0 2px;font-weight:600}.card input,.card select{width:100%;padding:5px;border:1px solid #c8cbc2;border-radius:6px;font:13px system-ui,sans-serif;box-sizing:border-box}.card .note{margin-top:8px;color:#5b6259;font-size:12px}.card .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}.card button{padding:5px 12px;border-radius:6px;border:1px solid #c8cbc2;background:#fff;cursor:pointer}.card button.primary{background:#1f6f3f;border-color:#1f6f3f;color:#fff}';
+      const card=document.createElement('div');card.className='card';
+      const h=document.createElement('h4');h.textContent='Mute topic preview: '+location.hostname;
+      const l1=document.createElement('label');l1.textContent='Topic name';
+      const input=document.createElement('input');input.type='text';input.maxLength=80;input.value=(rec.text||'').slice(0,60).trim();
+      const l2=document.createElement('label');l2.textContent='Scope';
+      const scope=document.createElement('select');
+      const o1=document.createElement('option');o1.value='site';o1.textContent='This site only';
+      const o2=document.createElement('option');o2.value='all';o2.textContent='All supported sites';
+      scope.append(o1,o2);
+      const l3=document.createElement('label');l3.textContent='Duration';
+      const dur=document.createElement('select');
+      [['24','24 hours'],['168','7 days'],['0','Until I remove it']].forEach((pair)=>{const o=document.createElement('option');o.value=pair[0];o.textContent=pair[1];dur.append(o);});
+      const note=document.createElement('div');note.className='note';note.textContent='Semantic matching uses the same Jev request as filtering and can increase API usage. A passing mention stays visible.';
+      const row=document.createElement('div');row.className='row';
+      const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';
+      const save=document.createElement('button');save.type='button';save.className='primary';save.textContent='Mute topic';
+      cancel.addEventListener('click',()=>cleanup());
+      save.addEventListener('click',async(ev)=>{
+        if(!ev.isTrusted)return;
+        const label=input.value.trim();
+        if(!label){input.focus();return;}
+        if(!root.isConnected){cleanup();refresh(true);return;}
+        const hours=Number(dur.value);
+        const until=hours>0?Date.now()+hours*3600000:0;
+        const result=await send('FG_TOPIC_ADD',{topic:{label,scope:scope.value,until}});
+        if(result&&result.saved){
+          const tid=result.topic&&result.topic.id;
+          showToast('Topic muted'+(scope.value==='all'?' on all supported sites.':' on this site.')+(hours>0?' It expires later.':' Until you remove it.'),{topicId:tid});
+        }
+        cleanup();refresh(true);
+      });
+      card.append(h,l1,input,l2,scope,l3,dur,note,row);row.append(cancel,save);
+      shadow.append(style,card);document.documentElement.append(host);
+      preview=host;
+    };
+    const onClick=(ev)=>{
+      if(own(ev.target)||(ev.target&&ev.target.closest&&ev.target.closest('[data-fg-ui]')))return;
+      if(!ev.isTrusted)return;
+      const root=postRoot(ev.target)||hovered;
+      ev.preventDefault();ev.stopImmediatePropagation();
+      if(!root){showToast('Click a post itself to mute its topic. Nothing was saved.');return;}
+      const rec=A.extract(root,site);
+      if(!rec||(!rec.text&&!rec.mediaAlt)){showToast('This post has no readable text. Nothing was saved.');return;}
+      showPreview(root,rec);
+    };
+    document.addEventListener('mousemove',onMove,true);
+    document.addEventListener('click',onClick,true);
+    document.addEventListener('keydown',onKey,true);
+    document.documentElement.append(bar);
+    timeout=setTimeout(cleanup,60000);
+    pickerCleanup=cleanup;
+    return {started:true};
   }
   function startPicker() {
     if(!enabled||demo||recoveryPaused)return {started:false};
@@ -689,8 +884,8 @@
         if(!ev.isTrusted)return;confirm.disabled=true;
         if(!root.isConnected){reject('That post was replaced before saving. Nothing was saved.');return;}
         try{
-          await send(allow?'FG_ALLOW_AUTHOR':'FG_MUTE_AUTHOR',{author});
-          showToast(allow?'Author allowed on this site. Their posts stay visible here.':'Author muted on this site. Their posts are hidden from now on. Their posts are never sent to the model again.',{author});
+          const result=await send(allow?'FG_ALLOW_AUTHOR':'FG_MUTE_AUTHOR',{author});
+          showToast(allow?'Author allowed on this site. Their posts stay visible here.':'Author muted on this site. Their posts are hidden from now on. Their posts are never sent to the model again.',{authorUndo:{author,previous:result?.previous,applied:result?.applied}});
           cleanup();refresh(true);
         }catch(error){confirm.disabled=false;showToast(C.userError(error).message);}
       });
@@ -708,7 +903,8 @@
       if(!root){reject('Click a post itself to choose its author. Nothing was saved.');return;}
       const rec=A.extract(root,site);
       if(!rec||!rec.author){reject('This post has no readable author. Nothing was saved.');return;}
-      showPreview(root,rec.author);
+      if(rec.authorNameOnly){reject('This post has no stable profile link, so author actions are unavailable. Nothing was saved.');return;}
+      showPreview(root,rec.authorId||rec.author);
       timeout=setTimeout(cleanup,60000);
     }
     document.addEventListener('mousemove',move,true);document.addEventListener('click',click,true);document.addEventListener('keydown',key,true);pickerCleanup=cleanup;
@@ -726,7 +922,7 @@
   // MutationObserver cannot see history.pushState itself. The route guard also runs before each API call.
   const checkNavigation=()=>{
     if(location.href!==lastURL){lastURL=location.href;refresh();}
-    else if(enabled&&!document.hidden&&++sweepTicks%5===0){schedule(document);report();}
+    else if(enabled&&!document.hidden&&++sweepTicks%5===0){topicExpirySweep();schedule(document);report();}
   };
   let navigationTimer=setInterval(checkNavigation,600);
   addEventListener('pagehide',()=>{enabled=false;stop();hud?.remove();hud=null;hudRoot=null;toast?.remove();toast=null;clearInterval(navigationTimer);});

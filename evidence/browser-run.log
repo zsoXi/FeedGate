@@ -59,4 +59,5 @@ PASS WYK01/WYK02/WYK07/WYK11: Wykop link and entry fixtures stay separate, Polis
 PASS WYK09: an unverified Wykop placement is never labelled a platform ad and auth routes stay private
 PASS MUTE01: muting an author hides their posts locally with no extra provider request and unmuting restores them
 PASS PANEL01: the status panel mutes and allows an author by clicking a post, with preview and Undo
-{"passed": 61, "browser": "151.0.7922.34"}
+PASS UPDATE01: the Updates panel compares running and on-disk builds and prepares a sealed key backup
+{"passed": 62, "browser": "151.0.7922.34"}

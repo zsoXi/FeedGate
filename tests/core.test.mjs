@@ -14,14 +14,14 @@ const adVerified=patch=>C.sanitizeAdEvidence({adapter:'x',status:'verified',mark
 const sanitized=patch=>C.sanitizeRecord(record(patch),'x');
 
 test('release, rubric, detector, extraction, policy and schema versions are separate',()=>{
-  assert.equal(C.VERSION,'3.1.1');
-  assert.equal(C.RUBRIC_VERSION,'feed-v2.1.0');
-  assert.equal(C.POLICY_VERSION,'policy-3.1.0');
+  assert.equal(C.VERSION,'3.3.0');
+  assert.equal(C.RUBRIC_VERSION,'feed-v2.2.0');
+  assert.equal(C.POLICY_VERSION,'policy-3.3.0');
   assert.equal(C.AD_DETECTOR_VERSION,'ad-3.0.0');
-  assert.equal(C.EXTRACTION_VERSION,'extract-3.0.0');
-  assert.equal(C.SETTINGS_VERSION,5);
-  assert.equal(C.RUNTIME_VERSION,5);
-  assert.equal(C.DIAGNOSTICS_VERSION,6);
+  assert.equal(C.EXTRACTION_VERSION,'extract-3.3.0');
+  assert.equal(C.SETTINGS_VERSION,6);
+  assert.equal(C.RUNTIME_VERSION,6);
+  assert.equal(C.DIAGNOSTICS_VERSION,8);
 });
 
 test('host matching rejects lookalikes and accepts subdomains',()=>{
@@ -45,7 +45,7 @@ test('private routes are detected including percent-encoded paths',()=>{
 test('settings sanitization keeps bounds, resets versions and ignores junk keys',()=>{
   const dirty=JSON.parse('{"__proto__":{"polluted":true},"version":2,"consent":"yes","concurrency":99,"dailyLimit":1,"cacheMinutes":-5,"model":"gpt","sites":["x","youtube","x"],"allowedAuthors":["x:allowed","bad key","y:other"],"categories":{"promotion":{"mode":"collapse","threshold":0.1},"risk":{"mode":"nope","threshold":"0.9"}}}');
   const s=C.sanitizeSettings(dirty);
-  assert.equal(s.version,5);
+  assert.equal(s.version,6);
   assert.equal(s.consent,false);
   assert.equal(s.concurrency,12);
   assert.equal(s.dailyLimit,10);
@@ -53,7 +53,7 @@ test('settings sanitization keeps bounds, resets versions and ignores junk keys'
   assert.equal(s.model,'jev-latest');
   assert.deepEqual(s.sites,['x']);
   assert.deepEqual(s.allowedAuthors,['x:allowed','y:other']);
-  assert.equal(Object.keys(s.categories).length,6);
+  assert.equal(Object.keys(s.categories).length,7);
   assert.equal(s.categories.risk.mode,'collapse');
   assert.equal(s.categories.risk.threshold,0.94);
   assert.equal(s.categories.unwantedAd.threshold,0.85);
@@ -69,7 +69,7 @@ test('legacy settings migrate without mapping old promotion thresholds onto unwa
     protectUseful:true,profileMode:'normal',concurrency:4,dailyLimit:120,cacheMinutes:60,customInstruction:'no memes',cosmeticRules:'x.com##.ad',
     allowedAuthors:['x:friend'],categories:{promotion:{mode:'collapse',threshold:0.55},spam:{mode:'collapse',threshold:0.6},bait:{mode:'collapse',threshold:0.7}}};
   const s=C.migrateSettings(legacy);
-  assert.equal(s.version,5);
+  assert.equal(s.version,6);
   assert.equal(s.consent,true);
   assert.deepEqual(s.sites,['x']);
   assert.deepEqual(s.allowedAuthors,['x:friend']);
@@ -327,7 +327,7 @@ test('muted and allowed author lists stay bounded and validated',()=>{
   const many=settings({blockedAuthors:Array.from({length:600},(_,i)=>'x:name'+i)});
   assert.equal(many.blockedAuthors.length,500);
   const migrated=C.migrateSettings({version:4,consent:true,sites:['x'],allowedAuthors:['x:@friend'],cosmeticFilters:{version:3,revision:2,rules:[]}});
-  assert.equal(migrated.version,5);
+  assert.equal(migrated.version,6);
   assert.deepEqual(migrated.blockedAuthors,[]);
   assert.deepEqual(migrated.allowedAuthors,['x:@friend']);
   assert.equal(migrated.cosmeticFilters.revision,2,'v4 settings keep their cosmetic rules on upgrade');
@@ -435,4 +435,21 @@ test('vault seals and opens with a strong passphrase only',async()=>{
   await assert.rejects(()=>V.open(vault,'wrong password'),(e)=>e.message==='VAULT_ERROR');
   await assert.rejects(()=>V.open({...vault,iterations:1000},'long protected passphrase'),(e)=>e.message==='VAULT_ERROR');
   await assert.rejects(()=>V.seal('dummy-encrypted-key','short'),(e)=>e.message==='PASSPHRASE');
+});
+
+test('vault validate accepts only complete sealed backups',async()=>{
+  const vault=await V.seal('dummy-encrypted-key','long protected passphrase');
+  const copy=V.validate(vault);
+  assert.deepEqual(copy,vault);
+  assert.notEqual(copy,vault,'a normalized clone is returned');
+  assert.equal(await V.open(copy,'long protected passphrase'),'dummy-encrypted-key');
+  for(const bad of [
+    {...vault,version:2},
+    {...vault,kdf:'PLAIN'},
+    {...vault,iterations:1},
+    {...vault,salt:'AAAA'},
+    {...vault,iv:'AAAA'},
+    {...vault,ciphertext:'AAAA'},
+    {...vault,ciphertext:'!'+vault.ciphertext},
+  ])assert.throws(()=>V.validate(bad),(e)=>e.message==='VAULT_ERROR');
 });

@@ -1,24 +1,25 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FeedGate 3.1.1 · Control room</title><link rel="stylesheet" href="ui.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FeedGate 3.3.0 · Control room</title><link rel="stylesheet" href="ui.css"></head>
 <body>
 <div class="app">
 <aside class="sidebar">
   <div class="wordmark"><img class="brand-icon" src="icons/48.png" alt="">FeedGate</div>
-  <div class="eyebrow">Your feed, on your terms</div><div class="version">3.1.1 / safe controls preview</div>
+  <div class="eyebrow">Your feed, on your terms</div><div class="version">3.3.0 / safe controls preview</div>
   <nav class="nav" aria-label="Settings">
     <button data-page="overview" class="active"><span>01</span>Overview</button>
     <button data-page="policy"><span>02</span>Filter policy</button>
     <button data-page="connection"><span>03</span>API &amp; privacy</button>
     <button data-page="review"><span>04</span>Diagnostics</button>
     <button data-page="rules"><span>05</span>Local controls</button>
+    <button data-page="updates"><span>06</span>Updates</button>
   </nav>
   <div class="sidebar-bottom"><b>Your decisions stay reversible.</b><p>Jev estimates content features. It does not prove bot identity, originality or truth.</p><button id="open-demo">Open live test feed</button><p class="fine">Fictional posts. Actual API calls when enabled.</p></div>
 </aside>
 <main class="main">
-  <header class="topline"><div><div class="eyebrow">Chrome / TypeSafe Jev</div><strong>FeedGate 3.1.1</strong></div><div class="top-actions"><span id="key-badge" class="badge warn">Checking key</span><button id="global-toggle" class="small-btn">Pause filtering</button></div></header>
+  <header class="topline"><div><div class="eyebrow">Chrome / TypeSafe Jev</div><strong>FeedGate 3.3.0</strong></div><div class="top-actions"><span id="key-badge" class="badge warn">Checking key</span><button id="global-toggle" class="small-btn">Pause filtering</button></div></header>
   <div id="last-error" class="note warning hidden" role="status"></div>
-  <div id="upgrade-banner" class="note hidden" role="status"><p><b>FeedGate 3.1.1 adds Wykop and safer cosmetics.</b> Your earlier settings were kept. One-time choice: <button id="upgrade-all" class="small-btn">Select all six supported feeds</button> <button id="upgrade-dismiss" class="small-btn">Keep my current feeds</button></p></div>
+  <div id="upgrade-banner" class="note hidden" role="status"><p><b>FeedGate now supports Wykop and safer cosmetics.</b> Your earlier settings were kept. One-time choice: <button id="upgrade-all" class="small-btn">Select all six supported feeds</button> <button id="upgrade-dismiss" class="small-btn">Keep my current feeds</button></p></div>
   <section id="overview" class="page active">
     <div class="intro"><div class="eyebrow">A better filter starts with better rules</div><h1>Useful posts stay.</h1><p>Live Jev judgments help reduce spam while preserving useful projects, experiments and explanations. You can inspect or reverse every filtered post.</p></div>
     <div class="metrics">
@@ -55,6 +56,9 @@
         <div class="tri"><label class="field"><span>Application mode</span><select id="application-mode"><option value="filter">Apply filtering</option><option value="observe">Observe only</option></select></label><label class="field"><span>Opened profiles</span><select id="profile-mode"><option value="soft">Gentle: dim semantic noise</option><option value="normal">Use normal filtering</option></select></label><label class="check"><input id="protect-useful" type="checkbox"><span>Protect substantive information and concrete contributions</span></label></div>
         <label class="check"><input id="labelled-ads" type="checkbox"><span>Collapse platform-labelled ads locally only with verified evidence. Author and per-post exceptions still win.</span></label>
         <label class="field"><span>Status panel on enabled pages</span><select id="hud-mode"><option value="compact">Compact pill</option><option value="expanded">Expanded panel</option><option value="hidden">Hidden (filtering continues)</option></select></label>
+        <label class="check"><input id="grouping" type="checkbox"><span>Group repeated posts. The first copy stays visible; later near-duplicates fold behind a “more similar posts” control. Nothing is deleted and each folded copy can still be read.</span></label>
+        <label class="check"><input id="thrift" type="checkbox"><span>Thrift mode. Cloud analysis starts only when a post is actually visible and you briefly stop scrolling. Local author, verified-ad and cosmetic rules still act immediately.</span></label>
+        <label class="field"><span>Thrift pause in ms</span><input id="thrift-delay" type="number" min="300" max="3000" step="50"></label>
         <p class="fine">Hiding the status panel never pauses filtering. Pausing keeps your chosen panel setting. Gentler profiles do not exempt your own exclusion rule or concrete fraud-like solicitation. Truncated semantic content is normally dimmed rather than collapsed.</p>
       </div>
       <div class="panel"><h2>Noise rules</h2><div id="categories"></div><div class="separator"></div><div class="row spread"><h2>My exception rule (optional)</h2><span id="custom-status" class="badge">Not active</span></div><label class="field"><span>Plain-language description of what you do not want to see</span><textarea id="custom-instruction" maxlength="700" rows="3" placeholder="Example: empty requests to comment a keyword to receive a generic document."></textarea></label><output id="custom-count" class="fine">0 / 700 characters sent as an extra question</output><p class="fine">This is a hint for the model, not a guaranteed filter: Jev can still ignore it, and it never hides a platform-labelled ad on its own. While the text is not empty it is sent with every cloud request as an extra question, even when “Your exclusion rule” is Off — that costs tokens. Turn the rule On below to let a match actually dim or collapse. Clear the text to stop sending it. Never put secrets in this field.</p></div>
@@ -78,6 +82,7 @@
     <div class="metrics"><div class="metric"><div class="eyebrow">Provider attempts</div><strong data-stat="requests">0</strong></div><div class="metric"><div class="eyebrow">Input tokens</div><strong data-stat="inputTokens">0</strong></div><div class="metric"><div class="eyebrow">Cache hits</div><strong data-stat="cacheHits">0</strong></div><div class="metric"><div class="eyebrow">Last latency / ms</div><strong data-stat="latency">n/a</strong></div></div>
     <div class="panel"><h2>Current page adapters</h2><p class="fine">Counts are for connected post elements, not lifetime unique posts. Reports older than one day are omitted from export. An empty list does not prove that no renderer is running.</p><div id="page-reports"></div></div>
     <div class="panel"><h2>Cosmetic actions</h2><p class="fine">Local cosmetic work is counted separately from semantic decisions. Safety rejections and breaker activations mean FeedGate refused to hide something, not that it hid a post.</p><div id="cosmetic-stats" class="fine"></div></div>
+    <div class="panel"><div class="row spread"><h2>API usage</h2><span id="usage-badge" class="badge">—</span></div><div id="usage-stats" class="fine"></div><div id="usage-cost" class="fine" style="margin-top:6px"></div><div class="row" style="margin-top:10px"><label class="field"><span>Input tokens rate / 1M</span><input id="pricing-input" type="number" step="0.0001" min="0"></label><label class="field"><span>Output tokens rate / 1M</span><input id="pricing-output" type="number" step="0.0001" min="0"></label><label class="field"><span>Currency</span><input id="pricing-currency" type="text" maxlength="8" placeholder="USD"></label><button id="save-pricing" class="small-btn">Save rates</button></div><p class="fine">Counters describe local usage, not a provider bill. Provider attempts include failed and cancelled requests that the provider may still bill. The daily limit resets at 00:00 UTC, shown in your local time. Money is shown only from your own rates; leave the rates empty to skip cost estimates.</p></div>
     <div class="panel"><div class="review-head"><div><h2>Recent decisions</h2><p class="fine">Author labels are local only and excluded from diagnostics. Raw post text is never stored in this log.</p></div></div><div id="log"></div></div>
   </section>
   <section id="rules" class="page">
@@ -89,7 +94,18 @@
       <div class="panel"><h2>Recovery</h2><p class="fine">Restore persists a pause for one site first, then asks its open tabs to remove visible effects. Pending work is cancelled; other sites are untouched. If a page cannot respond, it stays paused and you can reload it paused.</p><div id="recovery-list"></div><div id="recovery-status" class="statusline" role="status"></div></div>
       <div class="panel"><h2>Allowed authors</h2><p class="fine">These local exceptions override semantic and labelled-ad post filtering, but not your cosmetic rules.</p><div id="allowlist"></div></div>
       <div class="panel"><h2>Muted authors</h2><p class="fine">One click hides every post from an author on this site. This is a deterministic local list: no model request is used, “Keep this post” still wins for a specific post, and your cosmetic rules are unaffected. Muting and allowing are mutually exclusive for the same author.</p><div id="mute-list"></div></div>
+      <div class="panel"><h2>Muted topics</h2><p class="fine">Temporary or permanent topic mutes. Matching uses the same Jev request as filtering and can increase API usage. A passing mention or a quoted claim stays visible; “Keep this post” wins for a specific post; expired topics stop hiding posts automatically.</p><div id="topic-list"></div></div>
       <div class="panel"><h2>Saved post choices</h2><p class="fine">“Keep this post” remembers a hash of the specific visible post, not a training label for the author. Edited content is evaluated again. Up to 2,000 choices stay on this device.</p><button id="reset-feedback">Reset saved post choices</button></div>
+    </div></div>
+  </section>
+  <section id="updates" class="page">
+    <div class="intro"><div class="eyebrow">Same folder, same identity</div><h1>Update without starting over.</h1><p>FeedGate keeps a fixed extension identity, so your vault, settings and allowlists stay attached when you replace the files in the same folder and press Reload. Nothing downloads automatically: you decide when to update.</p></div>
+    <div class="panel"><div class="row spread"><h2>Loaded build</h2><span id="update-badge" class="badge">—</span></div><div id="update-info" class="fine"></div><div class="row" style="margin-top:12px"><button id="update-check" class="primary">Check files on disk</button><button id="open-extensions">Open chrome://extensions</button></div><p class="fine">A check reads the packaged build.json from this folder and compares it with the running manifest. It makes no network request.</p><div id="update-status" class="statusline" role="status"></div></div>
+    <div class="columns"><div>
+      <div class="panel"><h2>How to update in place</h2><ol class="fine"><li>Download the new release and unpack it.</li><li>Copy the new <code>extension/</code> files over the folder Chrome already loads. The same folder keeps the same extension identity.</li><li>Open <code>chrome://extensions</code>, press Reload on FeedGate, then refresh your feed tabs.</li></ol><p class="fine">Never press Remove: removing the extension deletes its local storage, including the encrypted vault. Open tabs show “Extension updated: reload this page” until you refresh them.</p></div>
+    </div><div>
+      <div class="panel"><h2>Key backup (move or restore)</h2><p class="fine">If you move to a different folder or browser profile, export the encrypted vault here and import it after loading FeedGate. The file contains only the sealed vault: it is useless without your passphrase, and the plaintext key is never written to disk.</p><div class="row"><button id="export-vault">Export key backup</button><button id="import-vault">Import key backup</button><input id="import-vault-file" type="file" accept=".json,application/json" hidden></div><div id="vault-status" class="statusline" role="status"></div></div>
+      <div class="panel"><h2>Upgrade note</h2><p class="fine">Builds before 3.2.0 derived the extension identity from the folder path. The first 3.2.0 load uses the fixed identity, so an earlier vault does not carry over automatically: enter the API key once more, or import a backup that was exported under the same identity. After that, updates in place keep everything.</p></div>
     </div></div>
   </section>
 </main></div>

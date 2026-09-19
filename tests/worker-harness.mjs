@@ -26,14 +26,20 @@ export async function createWorker(options={}) {
     action:{async setBadgeText(){},async setBadgeBackgroundColor(){}}
   };
   const fetch=async(url,o)=>{
+    if(String(url).endsWith('build.json')){
+      (events.buildFetches??=[]).push(String(url));
+      const release=options.buildRelease===undefined?'3.3.0':options.buildRelease;
+      if(release===null)return new Response('missing',{status:404});
+      return Response.json({release,buildId:'harness-build',builtAt:'2026-01-01T00:00:00.000Z'});
+    }
     calls.push({url,headers:clone(o.headers),body:JSON.parse(o.body)});fetchActive++;maxActive=Math.max(maxActive,fetchActive);
     try{
       if(delay)await new Promise((resolve,reject)=>{const timer=setTimeout(resolve,delay);o.signal.addEventListener('abort',()=>{clearTimeout(timer);reject(new DOMException('Aborted','AbortError'));},{once:true});});
       if(mode==='network')throw Error('synthetic network failure');
       if(typeof mode==='number')return new Response('untrusted provider text',{status:mode,headers:{'Retry-After':'30'}});
       if(mode==='malformed')return Response.json({invalid:true});
-      const body=JSON.parse(o.body),high=body.state.post_text.includes('SPAM_FIXTURE');
-      return Response.json({model:'jev-fixture-not-live',answers:Object.fromEntries(Object.keys(body.questions).map(k=>[k,{type:'noul',noul:k==='sufficient'?.99:k==='feedSpam'&&high?.99:.01}])),usage:{input_tokens:42,output_tokens:0}});
+      const body=JSON.parse(o.body),high=body.state.post_text.includes('SPAM_FIXTURE'),topicHigh=body.state.post_text.includes('TOPIC_FIXTURE');
+      return Response.json({model:'jev-fixture-not-live',answers:Object.fromEntries(Object.keys(body.questions).map(k=>[k,{type:'noul',noul:k==='sufficient'?.99:k==='feedSpam'&&high?.99:k==='topic'&&topicHigh?.99:.01}])),usage:{input_tokens:42,output_tokens:0}});
     }finally{fetchActive--;}
   };
   const context=vm.createContext({chrome,crypto:webcrypto,TextEncoder,TextDecoder,URL,AbortController,DOMException,Uint8Array,Response,performance,fetch,atob,btoa,console,
@@ -42,7 +48,7 @@ export async function createWorker(options={}) {
   async function send(message,from=trusted){return new Promise(resolve=>chrome.runtime.onMessage.fn(clone(message),clone(from),r=>resolve(clone(r))));}
   async function ok(message,from=trusted){const r=await send(message,from);if(!r.ok)throw new Error(r.error.code);return r.data;}
   await ok({type:'FG_STATUS'});
-  return {send,ok,local,session,levels,calls,registrations,tabs,events,chrome,context,get maxActive(){return maxActive;},setMode(v){mode=v;},setDelay(v){delay=v;},setPermissions(v){options.permissions=v;},
+  return {send,ok,local,session,levels,calls,registrations,tabs,events,chrome,context,get maxActive(){return maxActive;},setMode(v){mode=v;},setDelay(v){delay=v;},setPermissions(v){options.permissions=v;},setBuildRelease(v){options.buildRelease=v;},
     async enable(patch={}){await ok({type:'FG_SET_KEY',key:'dummy-worker-test-key'});await ok({type:'FG_PATCH_SETTINGS',patch:{consent:true,sites:['x'],...patch}});},
     async classify(r=post(),s=sender){return ok({type:'FG_CLASSIFY',record:r},s);}
   };

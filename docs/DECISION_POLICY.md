@@ -1,4 +1,4 @@
-# Decision policy reference (FeedGate 3.1.1)
+# Decision policy reference (FeedGate 3.3.0)
 
 Policy version: `policy-3.1.0`. Semantic rubric: `feed-v2.1.0` (unchanged). Ad detector: `ad-3.0.0`. Extraction: `extract-3.0.0`. This file documents what the code actually
 does, in evaluation order. When wording and code disagree, the code wins.
