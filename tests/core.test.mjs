@@ -10,6 +10,19 @@ const scores=extra=>Object.fromEntries(KEYS.map(k=>[k,k==='sufficient'?0.99:0.01
 const result=extra=>({model:'jev-test-fixture',scores:scores(extra),usage:{input_tokens:1,output_tokens:0},latencyMs:1});
 const settings=patch=>C.sanitizeSettings({...C.DEFAULTS,...patch,categories:{...(patch||{}).categories||{}}});
 const record=patch=>({site:'x',id:'p1',author:'@a',text:'A useful post about testing.',mediaAlt:'',quotedText:'',truncated:false,context:'feed',sponsored:false,linkDomains:[],...patch});
+const adVerified=patch=>C.sanitizeAdEvidence({adapter:'x',status:'verified',markerKind:'x_is_promoted_attribute',selectorId:'x-attr-is-promoted',ownerMatched:true,renderedLabel:null,evidenceKind:'platform_metadata',scope:'outer_post',...patch},'x');
+const sanitized=patch=>C.sanitizeRecord(record(patch),'x');
+
+test('release, rubric, detector, extraction, policy and schema versions are separate',()=>{
+  assert.equal(C.VERSION,'3.0.0');
+  assert.equal(C.RUBRIC_VERSION,'feed-v2.1.0');
+  assert.equal(C.POLICY_VERSION,'policy-2.1.1');
+  assert.equal(C.AD_DETECTOR_VERSION,'ad-3.0.0');
+  assert.equal(C.EXTRACTION_VERSION,'extract-3.0.0');
+  assert.equal(C.SETTINGS_VERSION,4);
+  assert.equal(C.RUNTIME_VERSION,5);
+  assert.equal(C.DIAGNOSTICS_VERSION,5);
+});
 
 test('host matching rejects lookalikes and accepts subdomains',()=>{
   assert.equal(C.siteForHost('x.com'),'x');
@@ -32,7 +45,7 @@ test('private routes are detected including percent-encoded paths',()=>{
 test('settings sanitization keeps bounds, resets versions and ignores junk keys',()=>{
   const dirty=JSON.parse('{"__proto__":{"polluted":true},"version":2,"consent":"yes","concurrency":99,"dailyLimit":1,"cacheMinutes":-5,"model":"gpt","sites":["x","youtube","x"],"allowedAuthors":["x:allowed","bad key","y:other"],"categories":{"promotion":{"mode":"collapse","threshold":0.1},"risk":{"mode":"nope","threshold":"0.9"}}}');
   const s=C.sanitizeSettings(dirty);
-  assert.equal(s.version,3);
+  assert.equal(s.version,4);
   assert.equal(s.consent,false);
   assert.equal(s.concurrency,12);
   assert.equal(s.dailyLimit,10);
@@ -44,6 +57,10 @@ test('settings sanitization keeps bounds, resets versions and ignores junk keys'
   assert.equal(s.categories.risk.mode,'collapse');
   assert.equal(s.categories.risk.threshold,0.94);
   assert.equal(s.categories.unwantedAd.threshold,0.85);
+  assert.equal(s.hudMode,'compact');
+  assert.equal(s.cosmeticEnabled,true);
+  assert.equal(s.cosmeticFilters.rules.length,0);
+  assert.deepEqual(s.revisions,{settings:0,ui:0,cosmetic:0,recovery:0});
   assert.equal(({}).polluted,undefined);
 });
 
@@ -52,12 +69,19 @@ test('legacy settings migrate without mapping old promotion thresholds onto unwa
     protectUseful:true,profileMode:'normal',concurrency:4,dailyLimit:120,cacheMinutes:60,customInstruction:'no memes',cosmeticRules:'x.com##.ad',
     allowedAuthors:['x:friend'],categories:{promotion:{mode:'collapse',threshold:0.55},spam:{mode:'collapse',threshold:0.6},bait:{mode:'collapse',threshold:0.7}}};
   const s=C.migrateSettings(legacy);
-  assert.equal(s.version,3);
+  assert.equal(s.version,4);
   assert.equal(s.consent,true);
   assert.deepEqual(s.sites,['x']);
   assert.deepEqual(s.allowedAuthors,['x:friend']);
   assert.equal(s.customInstruction,'no memes');
-  assert.equal(s.cosmeticRules,'x.com##.ad');
+  assert.equal(s.hudMode,'compact','showStatus true keeps the compact panel');
+  assert.equal(s.cosmeticRules,undefined,'the legacy text field is gone');
+  assert.equal(s.cosmeticFilters.rules.length,1);
+  assert.equal(s.cosmeticFilters.rules[0].host,'x.com');
+  assert.equal(s.cosmeticFilters.rules[0].selector,'.ad');
+  assert.equal(s.cosmeticFilters.rules[0].status,'quarantined','legacy rules must never apply before review');
+  assert.equal(s.cosmeticFilters.rules[0].source,'legacy');
+  assert.equal(s.cosmeticFilters.rules[0].reason,'legacy_unvalidated');
   assert.equal(s.profileMode,'normal');
   assert.equal(s.concurrency,4);
   assert.equal(s.dailyLimit,120);
@@ -80,7 +104,7 @@ test('legacy aggressive and observe presets migrate to their 2.1 equivalents',()
 });
 
 test('record sanitization clamps fields and rejects anonymous empty posts',()=>{
-  const r=C.sanitizeRecord({site:'x',id:'i'.repeat(400),author:'a'.repeat(300),text:'t'.repeat(9000),mediaAlt:'m'.repeat(3000),quotedText:'q'.repeat(4000),truncated:'yes',context:'weird',sponsored:1,linkDomains:['ok.com','bad host','ok.com',...Array(10).fill('x.com')]});
+  const r=C.sanitizeRecord({site:'x',id:'i'.repeat(400),author:'a'.repeat(300),text:'t'.repeat(9000),mediaAlt:'m'.repeat(3000),quotedText:'q'.repeat(4000),truncated:'yes',context:'weird',sponsored:true,linkDomains:['ok.com','bad host','ok.com',...Array(10).fill('x.com')]});
   assert.equal(r.id.length,250);
   assert.equal(r.author.length,120);
   assert.equal(r.text.length,6000);
@@ -89,9 +113,28 @@ test('record sanitization clamps fields and rejects anonymous empty posts',()=>{
   assert.equal(r.truncated,false);
   assert.equal(r.context,'feed');
   assert.equal(r.sponsored,false);
+  assert.equal(r.adEvidence.status,'ambiguous','legacy boolean is never verified');
   assert.deepEqual(r.linkDomains,['ok.com','x.com']);
   assert.equal(C.sanitizeRecord({site:'youtube',text:'hi'}),null);
   assert.equal(C.sanitizeRecord({site:'x',text:'',mediaAlt:'',quotedText:'',sponsored:false}),null);
+});
+
+test('ad evidence stays verified only with ownership, scope and a known marker',()=>{
+  const ok=sanitized({adEvidence:adVerified()});
+  assert.equal(ok.sponsored,true);
+  assert.equal(ok.adEvidence.status,'verified');
+  assert.equal(ok.adEvidence.detectorVersion,'ad-3.0.0');
+  const noOwner=sanitized({adEvidence:adVerified({ownerMatched:false})});
+  assert.equal(noOwner.adEvidence.status,'ambiguous');
+  assert.equal(noOwner.sponsored,false);
+  const quoted=sanitized({adEvidence:adVerified({scope:'quote'})});
+  assert.equal(quoted.adEvidence.status,'ambiguous');
+  const unknownMarker=sanitized({adEvidence:adVerified({markerKind:'x_placement_tracking',evidenceKind:'none'})});
+  assert.equal(unknownMarker.adEvidence.status,'ambiguous');
+  const legacy=sanitized({sponsored:true});
+  assert.equal(legacy.adEvidence.status,'ambiguous');
+  assert.equal(legacy.sponsored,false);
+  assert.equal(C.sanitizeRecord({site:'x',text:'',sponsored:true}),null,'an unverified legacy flag cannot make an empty record usable');
 });
 
 test('request shape uses the 2.1 features with a bounded instruction budget',()=>{
@@ -144,6 +187,51 @@ test('strict response parser rejects malformed answers and accepts valid ones',(
   assert.deepEqual(usage,{input_tokens:0,output_tokens:0});
 });
 
+test('API01: shuffled named answers keep their exact key mapping',()=>{
+  const sentinels={unwantedAd:0.11,feedSpam:0.22,bait:0.33,lowSignal:0.44,useful:0.55,original:0.66,risk:0.77,sufficient:0.88};
+  const keys=Object.keys(sentinels);
+  const shuffled=[...keys].sort(()=>0.5-Math.random());
+  const answers={};
+  for(const key of shuffled)answers[key]={type:'noul',noul:sentinels[key]};
+  const parsed=C.parseResponse({model:'jev-1',answers,usage:{input_tokens:1,output_tokens:0}},KEYS);
+  for(const key of keys)assert.equal(parsed.scores[key],sentinels[key],`${key} must not drift`);
+});
+
+test('API02: malformed probability values fail closed instead of being coerced',()=>{
+  const base=key=>Object.fromEntries(KEYS.map(k=>[k,{type:'noul',noul:0.5}]));
+  const cases=[
+    [{...base(),risk:{type:'noul',noul:Number.NaN}},'NaN'],
+    [{...base(),risk:{type:'noul',noul:Number.POSITIVE_INFINITY}},'Infinity'],
+    [{...base(),risk:{type:'noul',noul:null}},'null'],
+    [{...base(),risk:{type:'noul',noul:'0.9'}},'string coercion'],
+    [{...base(),risk:{type:'noul',noul:-0.01}},'below range'],
+    [{...base(),risk:{type:'noul',noul:1.01}},'above range'],
+    [{...base(),risk:{type:'choice',noul:0.9}},'wrong answer type'],
+    [base(),'missing values stay'],
+    [[...KEYS.map(k=>[k,0.5])],'array instead of object']
+  ];
+  for(const [answers,label] of cases){
+    if(label==='missing values stay'){
+      const trimmed=base();
+      delete trimmed.bait;
+      assert.throws(()=>C.parseResponse({model:'jev-1',answers:trimmed},KEYS),undefined,'a missing key must not be filled with a default');
+      continue;
+    }
+    assert.throws(()=>C.parseResponse({model:'jev-1',answers},KEYS),undefined,label);
+  }
+});
+
+test('API03: exact zeros and ones survive parsing and policy',()=>{
+  const answers=Object.fromEntries(KEYS.map(k=>[k,{type:'noul',noul:k==='risk'||k==='feedSpam'?0:1}]));
+  const parsed=C.parseResponse({model:'jev-1',answers,usage:{input_tokens:0,output_tokens:0}},KEYS);
+  assert.equal(parsed.scores.risk,0);
+  assert.equal(parsed.scores.feedSpam,0);
+  assert.equal(parsed.scores.sufficient,1);
+  assert.equal(parsed.scores.useful,1);
+  const d=C.decide(record({}),parsed,settings());
+  assert.equal(d.action,'allow');
+});
+
 test('decisions fail open when no model judgment is available',()=>{
   const d=C.decide(record({}),null,settings());
   assert.equal(d.action,'allow');
@@ -151,13 +239,20 @@ test('decisions fail open when no model judgment is available',()=>{
   assert.equal(d.rule,'no_model_judgment');
 });
 
-test('platform-labelled ads collapse locally without a model result',()=>{
-  const d=C.decide(record({sponsored:true}),null,settings());
+test('platform-labelled ads collapse locally only with verified evidence',()=>{
+  const d=C.decide(sanitized({adEvidence:adVerified()}),null,settings());
   assert.equal(d.action,'collapse');
   assert.equal(d.source,'local');
   assert.equal(d.rule,'platform_labelled_ad');
-  const off=C.decide(record({sponsored:true}),null,settings({labelledAds:false}));
+  assert.equal(d.category,'unwantedAd');
+  assert.equal(d.adEvidence.markerKind,'x_is_promoted_attribute');
+  const off=C.decide(sanitized({adEvidence:adVerified()}),null,settings({labelledAds:false}));
   assert.equal(off.action,'allow');
+  const legacy=C.decide(record({sponsored:true}),null,settings());
+  assert.equal(legacy.action,'allow','an unverified legacy flag never collapses');
+  assert.equal(legacy.source,'unclassified');
+  const ambiguous=C.decide(sanitized({scoreCraft:true}),null,settings());
+  assert.equal(ambiguous.action,'allow');
 });
 
 test('insufficient evidence keeps the post regardless of other scores',()=>{
@@ -169,10 +264,34 @@ test('insufficient evidence keeps the post regardless of other scores',()=>{
 test('threshold boundaries are exact for every category',()=>{
   assert.equal(C.decide(record({}),result({feedSpam:0.9}),settings()).action,'collapse');
   assert.equal(C.decide(record({}),result({feedSpam:0.899}),settings()).action,'allow');
-  assert.equal(C.decide(record({}),result({unwantedAd:0.99,feedSpam:0.7}),settings()).action,'collapse');
+  const lowAd=C.decide(record({}),result({unwantedAd:0.99,feedSpam:0.7}),settings());
+  assert.equal(lowAd.action,'collapse');
+  assert.equal(lowAd.rule,'unwanted_ad_low_value');
   assert.equal(C.decide(record({}),result({unwantedAd:0.849,feedSpam:0.7}),settings()).action,'allow');
-  assert.equal(C.decide(record({}),result({bait:0.88}),settings()).action,'dim');
+  const bait=C.decide(record({}),result({bait:0.88}),settings());
+  assert.equal(bait.action,'dim');
+  assert.equal(bait.rule,'manipulative_bait');
   assert.equal(C.decide(record({}),result({lowSignal:0.99}),settings()).action,'allow');
+});
+
+test('protection thresholds are inclusive and documented',()=>{
+  const s=settings();
+  const conflicted=scores=>({...scores,feedSpam:0.95});
+  const usefulBoundary=C.decide(record({}),result(conflicted({useful:0.65})),s);
+  assert.equal(usefulBoundary.protectionEligible,true);
+  assert.equal(usefulBoundary.action,'dim');
+  assert.equal(usefulBoundary.rule,'feed_spam_conflict');
+  const usefulBelow=C.decide(record({}),result(conflicted({useful:0.649})),s);
+  assert.equal(usefulBelow.protectionEligible,false);
+  assert.equal(usefulBelow.action,'collapse');
+  const originalBoundary=C.decide(record({}),result(conflicted({original:0.7})),s);
+  assert.equal(originalBoundary.protectionEligible,true);
+  const originalBelow=C.decide(record({}),result(conflicted({original:0.699})),s);
+  assert.equal(originalBelow.protectionEligible,false);
+  const disabled=C.decide(record({}),result({feedSpam:0.95,useful:0.9}),settings({protectUseful:false}));
+  assert.equal(disabled.action,'collapse','protection stays a setting, not a hard lock');
+  assert.equal(disabled.protectionEligible,true);
+  assert.equal(disabled.protected,false);
 });
 
 test('paused, allowlisted and revealed posts bypass every rule',()=>{
@@ -192,14 +311,30 @@ test('observe mode records the intended action without allowing a hide',()=>{
   assert.match(d.reason,/Observe only/);
 });
 
-test('decision exposes rule names and protection flags',()=>{
+test('decision exposes truthful rule names and protection flags',()=>{
   const kept=C.decide(record({}),result({unwantedAd:0.9,useful:0.9}),settings());
   assert.equal(kept.rule,'useful_or_original_protection');
   assert.equal(kept.protected,true);
+  assert.equal(kept.protectionEligible,true);
   assert.equal(kept.usefulPromotion,true);
   const spam=C.decide(record({}),result({feedSpam:0.95}),settings());
   assert.equal(spam.rule,'feed_spam');
   assert.equal(spam.category,'feedSpam');
+  const conflict=C.decide(record({}),result({feedSpam:0.95,useful:0.8}),settings());
+  assert.equal(conflict.rule,'feed_spam_conflict');
+  assert.equal(conflict.conflict,true);
+  assert.equal(conflict.action,'dim');
+  assert.equal(conflict.protected,false);
+  assert.equal(conflict.protectionEligible,true);
+  const r1=C.decide(record({}),result({unwantedAd:0.83,feedSpam:0.83,bait:0.81,lowSignal:0.91,useful:0.28,original:0.26,risk:0.61,sufficient:0.68}),settings());
+  assert.equal(r1.action,'allow');
+  assert.equal(r1.rule,'below_noise_thresholds','elevated but sub-threshold noise is not called promotion alone');
+  assert.equal(r1.source,'policy');
+  assert.equal(r1.protectionEligible,false);
+  const promoAlone=C.decide(record({}),result({unwantedAd:0.65,feedSpam:0.1,bait:0.05,risk:0.02}),settings());
+  assert.equal(promoAlone.action,'allow');
+  assert.equal(promoAlone.rule,'promotion_signal_alone');
+  assert.equal(promoAlone.source,'protection');
 });
 
 test('cache identities ignore author/id/context but include content, model and custom rule',async()=>{
@@ -210,6 +345,11 @@ test('cache identities ignore author/id/context but include content, model and c
   assert.notEqual(a,await C.cacheKey(record({text:'Different text.'}),s));
   assert.notEqual(a,await C.cacheKey(record({}),settings({model:'jev-next'})));
   assert.notEqual(a,await C.cacheKey(record({}),settings({customInstruction:'Exclude memes'})));
+  const promoted=await C.cacheKey(sanitized({adEvidence:adVerified()}),s);
+  assert.notEqual(a,promoted,'verified platform evidence is part of the semantic input');
+  const promotedAgain=await C.cacheKey(sanitized({adEvidence:adVerified()}),s);
+  assert.equal(promoted,promotedAgain);
+  assert.equal(a,await C.cacheKey(record({}),settings({categories:{feedSpam:{mode:'collapse',threshold:0.81}}})),'threshold tweaks reuse cached raw scores');
 });
 
 test('feedback keys are stable per visible post and change on edits',async()=>{

@@ -1,0 +1,136 @@
+{
+  "sources": {
+    "a": "feedgate-2.1-diagnostics-2026-09-18T02-00-13-406Z.json",
+    "b": "feedgate-2.1-diagnostics-2026-09-18T02-01-11-706Z.json",
+    "gapSeconds": 58.3
+  },
+  "versions": {
+    "a": {
+      "ext": "2.1.0",
+      "rubric": "feed-v2.1.0",
+      "schema": 3
+    },
+    "b": {
+      "ext": "2.1.0",
+      "rubric": "feed-v2.1.0",
+      "schema": 3
+    }
+  },
+  "metricsA": {
+    "decisions": 459,
+    "protected": 0,
+    "usefulPromotions": 0,
+    "requests": 189,
+    "classified": 189,
+    "cacheHits": 213,
+    "filterDecisions": 56,
+    "errors": 0,
+    "inputTokens": 151545,
+    "outputTokens": 27027,
+    "lastLatencyMs": 141,
+    "lastModel": "jev-1.13.0",
+    "lastError": null
+  },
+  "metricsB": {
+    "decisions": 586,
+    "protected": 0,
+    "usefulPromotions": 0,
+    "requests": 314,
+    "classified": 314,
+    "cacheHits": 215,
+    "filterDecisions": 58,
+    "errors": 0,
+    "inputTokens": 286609,
+    "outputTokens": 44902,
+    "lastLatencyMs": 333,
+    "lastModel": "jev-1.13.0",
+    "lastError": null
+  },
+  "retention": {
+    "aDecisions": 150,
+    "bDecisions": 150,
+    "aSessionDecisions": 459,
+    "bSessionDecisions": 586
+  },
+  "aWindow": {
+    "retained": 150,
+    "actions": {
+      "allow": 122,
+      "collapse": 28
+    },
+    "rules": {
+      "allow / policy / no_noise_rule_matched": 72,
+      "allow / unclassified / insufficient_evidence": 49,
+      "collapse / local / platform_labelled_ad": 28,
+      "allow / protection / promotion_signal_alone": 1
+    },
+    "localCollapses": 28,
+    "allNonAllowLocal": true,
+    "semanticDimOrCollapse": 0
+  },
+  "bWindow": {
+    "bySite": {
+      "x": 23,
+      "reddit": 127
+    },
+    "xInB": {
+      "retained": 23,
+      "actions": {
+        "allow": 16,
+        "collapse": 7
+      },
+      "rules": {
+        "allow / policy / no_noise_rule_matched": 7,
+        "collapse / local / platform_labelled_ad": 7,
+        "allow / unclassified / insufficient_evidence": 9
+      }
+    },
+    "reddit": {
+      "retained": 127,
+      "actions": {
+        "allow": 125,
+        "dim": 2
+      },
+      "rules": {
+        "allow / unclassified / insufficient_evidence": 41,
+        "allow / policy / no_noise_rule_matched": 79,
+        "allow / protection / promotion_signal_alone": 5,
+        "dim / jev / manipulative_bait": 2
+      },
+      "cached": 2,
+      "uncached": 125,
+      "uncachedLatency": {
+        "min": 137,
+        "median": 200,
+        "max": 758,
+        "count": 125
+      },
+      "errors": {
+        "null": 127
+      }
+    }
+  },
+  "delta": {
+    "decisions": 127,
+    "requests": 125,
+    "classified": 125,
+    "cacheHits": 2,
+    "filterDecisions": 2,
+    "errors": 0,
+    "inputTokens": 135064,
+    "outputTokens": 17875
+  },
+  "inputTokensPerRequest": {
+    "aWholeSession": 801.83,
+    "bWholeSession": 912.77,
+    "redditInterval": 1080.51
+  },
+  "counters": {
+    "aProtected": 0,
+    "bProtected": 0,
+    "aUsefulPromotions": 0,
+    "bUsefulPromotions": 0,
+    "aErrors": 0,
+    "bErrors": 0
+  }
+}

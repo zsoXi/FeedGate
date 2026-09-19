@@ -8,9 +8,9 @@ PASS observe mode preserves even explicitly sponsored content
 PASS author allowlist restores both semantic and local ad decisions
 PASS inputs, editors, hidden text and dialog posts are not extracted
 PASS SPA navigation to messages disables observation and extraction
-PASS domain##selector rule collapses a sidebar reversibly
-PASS manual post filter wins over pending inference and restores after selector stops matching
-PASS element picker trusted click creates a scoped local rule
+PASS an active cosmetic rule collapses a sidebar reversibly with an explicit reason
+PASS a cosmetic rule wins over pending inference and restores when the selector stops matching
+PASS element picker previews before commit, saves one scoped rule and undo restores it
 PASS restoring preserves original inline styles and accessibility attributes
 PASS re-injection does not duplicate observers or model calls
 PASS Reddit/LinkedIn/Facebook/Instagram adapter fixtures extract expected posts
@@ -29,4 +29,32 @@ PASS presets apply and diagnostic JSON export is constructed through the UI
 PASS settings and policy pages fit a narrow 390px viewport
 PASS display names containing Ad or Sponsored are not platform ad markers
 PASS a sponsored marker inside a quoted post does not label the outer post as an ad
-{"passed": 31, "browser": "151.0.7922.34"}
+PASS AD01/AD02: tracking wrappers, video and quoted media never verify an outer ad
+PASS AD04: only the post that owns the marker is affected
+PASS AD05/AD09: words, links, alt text and unsupported labels are not standalone markers
+PASS AD06: hidden templates and menu-only labels are not rendered evidence
+PASS AD08: only documented true forms verify; false and unknown stay unverified
+PASS AD10: a rendered marker outside the viewport is still rendered evidence
+PASS AD11: a local ad action cannot survive the marker disappearing
+PASS AD12: switching local ad filtering off restores collapsed content
+PASS AD13: FeedGate UI mutations never trigger new classifications
+PASS AD14: Reddit uses its own platform rules, not borrowed X heuristics
+PASS EXT01: a Reddit title published twice in the DOM is extracted once
+PASS EXT03: media-only and title-only posts keep documented limitations
+PASS EXT04: FeedGate UI text never enters the inference payload
+PASS EXT05: repeated extraction of an unchanged post is stable
+PASS a content script from an older release refuses to filter and asks for a reload
+PASS UI01/UI02/UI03: compact pill, expanded controls and genuinely hidden status
+PASS UI04/UI10: hidden status never returns on its own and filtering continues
+PASS UI05/UI06: an explicit later change reopens exactly one status host
+PASS PICK01/PICK02: a primary content root is rejected before anything is saved
+PASS PICK05: FeedGate UI cannot be picked into a hiding rule
+PASS PICK03: an aggregate match set that would hide most of the page is rejected
+PASS PICK04: a tall legitimate card is flagged by geometry, not rejected
+PASS PICK13: a previously safe selector that now matches a container is quarantined before applying
+PASS PICK18/PICK19: rule and model ownership stay separate on one element
+PASS LOOP04: the bounded circuit breaker contains a runaway self-write storm
+PASS UI06/LOOP06: re-injection keeps exactly one controller and one status host
+PASS WYK01/WYK02/WYK07/WYK11: Wykop link and entry fixtures stay separate, Polish text intact and the Poleca note is not a verified ad
+PASS WYK09: an unverified Wykop placement is never labelled a platform ad and auth routes stay private
+{"passed": 59, "browser": "151.0.7922.34"}

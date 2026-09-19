@@ -19,6 +19,9 @@ let controllers = new Set();
 let log = [];
 let keptPosts = new Map();
 let pageReports = new Map();
+let cosmeticLog = [];
+let cleanupSites = [];
+let migratedFrom = 0;
 let verifiedAt = 0;
 let metrics = freshMetrics();
 let persistTimer;
@@ -36,28 +39,38 @@ function commitCredential(stamp, fn) {
 }
 const MAX_CACHE = 1600;
 const MAX_QUEUE = 150;
+const MAX_COSMETIC_LOG = 100;
 const emptyDay = () => ({date:new Date().toISOString().slice(0,10),requests:0});
-function freshMetrics() { return {decisions:0,protected:0,usefulPromotions:0,requests:0,classified:0,cacheHits:0,filterDecisions:0,errors:0,inputTokens:0,outputTokens:0,lastLatencyMs:0,lastModel:'',lastError:null}; }
+function freshMetrics() { return {decisions:0,protected:0,usefulPromotions:0,requests:0,classified:0,cacheHits:0,filterDecisions:0,errors:0,cancellations:0,logDropped:0,cosmeticApplied:0,cosmeticRestored:0,cosmeticRejected:0,breakerActivations:0,inputTokens:0,outputTokens:0,lastLatencyMs:0,lastModel:'',lastError:null}; }
 
 const ready = (async () => {
   // Local holds preferences/ciphertext. Session holds the live key, scores and counters.
   // Neither area is exposed to content scripts.
   await chrome.storage.session.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'});
   await chrome.storage.local.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'});
-  const local = await chrome.storage.local.get(['settings','keptPosts']);
+  const local = await chrome.storage.local.get(['settings','keptPosts','cleanup','upgrade']);
   const session = await chrome.storage.session.get(['apiKey','runtimeState']);
+  migratedFrom = C.object(local.settings) ? Math.round(Number(local.settings.version)||0) : 0;
   settings = local.settings ? C.migrateSettings(local.settings) : C.clone(C.DEFAULTS);
+  if (C.object(local.cleanup) && Array.isArray(local.cleanup.sites)) {
+    cleanupSites = local.cleanup.sites.filter((site) => typeof site === 'string' && C.SITE_DEFS[site]).slice(0, 8);
+  }
+  // One-time v3 upgrade notice: never re-offer on later restarts.
+  if (migratedFrom > 0 && migratedFrom < C.SETTINGS_VERSION && !C.object(local.upgrade)) {
+    await chrome.storage.local.set({upgrade:{from:migratedFrom,seenAt:Date.now()}});
+  }
   if(Array.isArray(local.keptPosts)) keptPosts=new Map(local.keptPosts.filter(e=>Array.isArray(e)&&/^[a-f0-9]{64}$/.test(e[0])&&Number.isFinite(e[1])).slice(-2000));
   apiKey = C.validKey(session.apiKey) ? session.apiKey : '';
   const old = session.runtimeState;
   // Cached decisions use the old rubric semantics; a version mismatch drops them.
-  if (C.object(old) && old.version === 3) {
+  if (C.object(old) && old.version === C.RUNTIME_VERSION) {
     if (C.object(old.metrics)) metrics = {...freshMetrics(),...old.metrics};
     if (Array.isArray(old.log)) log = old.log.slice(-150);
     if (Array.isArray(old.cache)) cache = new Map(old.cache.filter(e=>Array.isArray(e)&&typeof e[0]==='string'&&C.object(e[1])&&e[1].expires>Date.now()).slice(-MAX_CACHE));
     cooldownUntil = Number(old.cooldownUntil)||0;
     authRejected = old.authRejected === true;
     verifiedAt=Number(old.verifiedAt)||0;
+    if(Array.isArray(old.cosmeticLog))cosmeticLog=old.cosmeticLog.slice(-MAX_COSMETIC_LOG);
     if(Array.isArray(old.pageReports))pageReports=new Map(old.pageReports.slice(-100));
   }
 })();
@@ -65,9 +78,12 @@ function persistSoon() {
   if (persistTimer) return;
   persistTimer = setTimeout(() => {
     persistTimer = undefined;
-    const runtimeState = {version:3,metrics,log,cache:[...cache.entries()],cooldownUntil,authRejected,verifiedAt,pageReports:[...pageReports]};
+    const runtimeState = {version:C.RUNTIME_VERSION,metrics,log,cosmeticLog,cache:[...cache.entries()],cooldownUntil,authRejected,verifiedAt,pageReports:[...pageReports]};
     chrome.storage.session.set({runtimeState}).catch(() => {});
   },100);
+}
+async function persistCleanup() {
+  await chrome.storage.local.set({cleanup:{sites:cleanupSites,updatedAt:Date.now()}}).catch(()=>{});
 }
 function serializeChange(fn) {
   const task = changeTail.then(fn);
@@ -109,15 +125,28 @@ async function syncScripts() {
     }
   }
 }
-async function saveSettings(patch) {
+async function saveSettings(patch, domain='settings', expect) {
   return serializeChange(async () => {
-    const next = C.sanitizeSettings({...settings,...patch,categories:{...settings.categories,...(C.object(patch.categories)?patch.categories:{})}});
+    const target = C.SETTINGS_DOMAINS.includes(domain) ? domain : 'settings';
+    const current = C.finite(expect);
+    if (current !== null && current !== (settings.revisions[target]||0)) throw new Error('STALE_SETTINGS');
+    const revisions = {...settings.revisions};
+    revisions[target] = (revisions[target]||0)+1;
+    const base = {...settings,...patch,revisions};
+    if (C.object(patch.categories)) base.categories = {...settings.categories,...patch.categories};
+    const next = C.sanitizeSettings(base);
     for (const site of next.sites) {
       if (!await chrome.permissions.contains({origins:C.originsForSite(site)})) throw new Error('FORBIDDEN');
+    }
+    // Sites that just lost selection or access need a cleanup refresh in open tabs.
+    const removed = settings.sites.filter(s=>!next.sites.includes(s));
+    if (removed.length) {
+      cleanupSites = [...new Set([...cleanupSites,...removed])].filter(s=>C.SITE_DEFS[s]).slice(0,8);
     }
     cancelPending();
     await chrome.storage.local.set({settings:next});
     settings = next;
+    if (removed.length) await persistCleanup();
     await broadcast();
     await syncScripts();
     return C.clone(settings);
@@ -126,7 +155,43 @@ async function saveSettings(patch) {
 function publicConfig(site) {
   const value = C.clone(settings);
   value.allowedAuthors = value.allowedAuthors.filter(a=>a.startsWith(site+':'));
-  return {settings:value,keyReady:!!apiKey && !authRejected,revision};
+  // appVersion lets a content script detect a reloaded worker with new schemas.
+  return {settings:value,keyReady:!!apiKey && !authRejected,revision,appVersion:C.VERSION,
+    recoveryPaused:settings.recoverySites.includes(site),cleanupRequired:cleanupSites.includes(site)};
+}
+// Best-effort cleanup message to open supported tabs. Never blocks recovery.
+async function notifySite(site,message,timeoutMs=1500) {
+  let count = 0, acknowledged = false;
+  let tabs = [];
+  try { tabs = await chrome.tabs.query({url:C.originsForSite(site)}); } catch (_) { return {acknowledged,count}; }
+  for (const tab of tabs) {
+    if (typeof tab.id !== 'number' || C.isPrivateRoute(tab.url)) continue;
+    count++;
+    const sent = chrome.tabs.sendMessage(tab.id,message).then(()=>true).catch(()=>false);
+    const timer = new Promise(resolve=>setTimeout(()=>resolve(false),timeoutMs));
+    if (await Promise.race([sent,timer])) acknowledged = true;
+  }
+  return {acknowledged,count};
+}
+async function siteStatuses() {
+  const list = [];
+  for (const id of Object.keys(C.SITE_DEFS)) {
+    const selected = settings.sites.includes(id);
+    let permitted = false;
+    try { permitted = await chrome.permissions.contains({origins:C.originsForSite(id)}); } catch (_) { permitted = false; }
+    const recoveryPaused = settings.recoverySites.includes(id);
+    const cleanup = cleanupSites.includes(id);
+    let reason = 'ready';
+    if (!settings.enabled) reason = 'engine_paused';
+    else if (!selected) reason = 'not_selected';
+    else if (!permitted) reason = 'permission_required';
+    else if (recoveryPaused) reason = 'recovery_pause';
+    else if (cleanup) reason = 'refresh_required';
+    const effective = settings.enabled && selected && permitted && !recoveryPaused && !cleanup;
+    list.push({site:id,label:C.SITE_DEFS[id].label,status:C.SITE_DEFS[id].status||'primary',
+      selected,permitted,recoveryPaused,effective,reason});
+  }
+  return list;
 }
 async function reserveRequest() {
   const task = budgetTail.then(async () => {
@@ -174,11 +239,16 @@ function addLog(record,decision,result,cached=false,error=null) {
   // No post body or full browsing URL is retained. Author names stay local.
   log.push({at:Date.now(),site:record.site,author:record.author,action:decision.action,wouldAction:decision.wouldAction||null,
     reason:decision.reason,source:decision.source,rule:decision.rule||null,scores:result?.scores||null,model:result?.model||null,
-    latencyMs:result?.latencyMs||0,cached,error,category:decision.category||null,protected:decision.protected===true,conflict:decision.conflict===true});
+    latencyMs:result?.latencyMs||0,cached,error,category:decision.category||null,protected:decision.protected===true,conflict:decision.conflict===true,
+    protectionEligible:decision.protectionEligible===true,
+    adEvidence:decision.adEvidence?{status:decision.adEvidence.status,markerKind:decision.adEvidence.markerKind,
+      selectorId:decision.adEvidence.selectorId,ownerMatched:decision.adEvidence.ownerMatched===true,
+      renderedLabel:decision.adEvidence.renderedLabel===true,evidenceKind:decision.adEvidence.evidenceKind,
+      scope:decision.adEvidence.scope}:null});
   metrics.decisions++;
   if(decision.protected)metrics.protected++;
   if(decision.usefulPromotion)metrics.usefulPromotions++;
-  if (log.length>150) log.splice(0,log.length-150);
+  if (log.length>150) {metrics.logDropped += log.length-150;log.splice(0,log.length-150);}
   if (decision.action!=='allow' || decision.wouldAction) metrics.filterDecisions++;
   persistSoon();
 }
@@ -210,6 +280,7 @@ async function makeRemote(record,stamp,validateAgain) {
   } catch (error) {
     if (error.message==='AUTH') authRejected = true;
     if (error.message==='RATE_LIMIT') cooldownUntil = Date.now()+(error.retryAfterMs||30000);
+    if (error.message==='ABORTED') metrics.cancellations++;
     if (error.message!=='ABORTED') {metrics.errors++;metrics.lastError=C.userError(error);}
     persistSoon();
     throw error;
@@ -276,32 +347,59 @@ async function classify(record,sender,trusted) {
     return {decision,result:null,cached:false,error:safe};
   }
 }
+function cosmeticCounts() {
+  const rules = settings.cosmeticFilters.rules;
+  const counts = {total:rules.length,active:0,quarantined:0,disabled:0,deleted:0};
+  for (const rule of rules) counts[rule.status]++;
+  return counts;
+}
 async function status() {
   const stored = await chrome.storage.local.get(['vault','dailyUsage']);
   const today = emptyDay();
   return {settings:C.clone(settings),keyReady:!!apiKey,authRejected,hasVault:!!stored.vault,
     metrics:C.clone(metrics),daily:stored.dailyUsage?.date===today.date?stored.dailyUsage:today,
-    queue:queue.length,active,cached:cache.size,revision,log:C.clone(log).reverse(),cooldownUntil,verifiedAt,keptPosts:keptPosts.size,pages:[...pageReports.values()]};
+    siteStates:await siteStatuses(),cosmetic:{enabled:settings.cosmeticEnabled,...cosmeticCounts()},
+    hudMode:settings.hudMode,feedsOpen:settings.feedsOpen,cleanupSites:[...cleanupSites],
+    migratedFrom,queue:queue.length,active,cached:cache.size,revision,log:C.clone(log).reverse(),cooldownUntil,verifiedAt,keptPosts:keptPosts.size,pages:[...pageReports.values()]};
 }
 async function diagnostics() {
   const s=await status();
   const permissions=await chrome.permissions.getAll();
+  const now=Date.now();
+  const reports=[...pageReports.values()];
+  const lastHeartbeat=reports.reduce((max,p)=>Math.max(max,Number(p.heartbeatAt)||Number(p.updatedAt)||0),0)||null;
   return {
-    format:'feedgate-diagnostics',version:3,extensionVersion:C.VERSION,rubric:C.RUBRIC_VERSION,
+    format:'feedgate-diagnostics',version:C.DIAGNOSTICS_VERSION,extensionVersion:C.VERSION,rubric:C.RUBRIC_VERSION,
     generatedAt:new Date().toISOString(),environment:'chrome-extension',
-    privacy:'No keys, vault ciphertext, post text, author names, post hashes, full URLs, custom rule text or browser history included.',
+    build:{release:C.VERSION,rubric:C.RUBRIC_VERSION,policy:C.POLICY_VERSION,detector:C.AD_DETECTOR_VERSION,
+      extraction:C.EXTRACTION_VERSION,schema:C.DIAGNOSTICS_VERSION},
+    privacy:'No keys, vault ciphertext, post text, author names, post hashes, full URLs, custom rule text, raw cosmetic selectors or browser history included. Cosmetic rules appear as random local rule references only.',
     connection:{transport:'direct TypeSafe HTTPS',model:settings.model,keyReady:s.keyReady,authRejected,verifiedAt,
       hasEncryptedVault:s.hasVault,cooldownUntil},
-    settings:{enabled:settings.enabled,consent:settings.consent,sites:settings.sites,preset:settings.preset,
+    ui:{hudMode:settings.hudMode,feedsOpen:settings.feedsOpen,engineEnabled:settings.enabled,preset:settings.preset,mode:settings.mode},
+    sites:s.siteStates,
+    cosmetic:{enabled:settings.cosmeticEnabled,...cosmeticCounts(),applications:metrics.cosmeticApplied,
+      restorations:metrics.cosmeticRestored,rejections:metrics.cosmeticRejected,breakerActivations:metrics.breakerActivations},
+    renderer:{reportsReceived:reports.length,lastHeartbeat,reportsLastHour:reports.filter(p=>now-(Number(p.updatedAt)||0)<3600000).length,
+      cleanupSites:[...cleanupSites],
+      note:'Absent page reports never prove that no filtering activity happened.'},
+    provider:{requests:metrics.requests,classified:metrics.classified,cacheHits:metrics.cacheHits,
+      cancellations:metrics.cancellations,errors:metrics.errors,
+      unaccounted:Math.max(0,metrics.requests-metrics.classified-metrics.cancellations-metrics.errors),
+      inputTokens:metrics.inputTokens,outputTokens:metrics.outputTokens,lastLatencyMs:metrics.lastLatencyMs,lastModel:metrics.lastModel},
+    logStats:{retained:log.length,capacity:150,dropped:metrics.logDropped},
+    cosmeticEvents:cosmeticLog.slice(-100),
+    settings:{enabled:settings.enabled,consent:settings.consent,sites:settings.sites,hudMode:settings.hudMode,feedsOpen:settings.feedsOpen,
       mode:settings.mode,protectUseful:settings.protectUseful,profileMode:settings.profileMode,labelledAds:settings.labelledAds,
       categories:settings.categories,concurrency:settings.concurrency,dailyLimit:settings.dailyLimit,cacheMinutes:settings.cacheMinutes,
-      hasCustomRule:!!settings.customInstruction,cosmeticRuleCount:C.parseCosmeticRules(settings.cosmeticRules).rules.length,
+      hasCustomRule:!!settings.customInstruction,cosmeticEnabled:settings.cosmeticEnabled,recoverySites:[...settings.recoverySites],
       allowedAuthorCount:settings.allowedAuthors.length,savedPostChoices:keptPosts.size},
     metrics:C.clone(metrics),daily:s.daily,queue:queue.length,active,cached:cache.size,
     permissions:{permissions:permissions.permissions||[],origins:permissions.origins||[]},
-    pages:[...pageReports.values()].filter(p=>Date.now()-p.updatedAt<86400000),
+    pages:reports.filter(p=>now-(Number(p.updatedAt)||0)<86400000),
     decisions:log.slice(-150).map(e=>({at:e.at,site:e.site,action:e.action,wouldAction:e.wouldAction,source:e.source,
       rule:e.rule||null,category:e.category,protected:e.protected,conflict:e.conflict===true,
+      protectionEligible:e.protectionEligible===true,adEvidence:e.adEvidence||null,
       sufficient:C.finite(e.scores?.sufficient),scores:e.scores,model:e.model,latencyMs:e.latencyMs,cached:e.cached,error:e.error?.code||null}))
   };
 }
@@ -320,6 +418,8 @@ async function handle(message,sender) {
   const trusted = C.trustedPage(sender,chrome.runtime.id);
   if (message.type==='FG_GET_CONFIG') {
     const site = trusted ? 'demo' : await validateContentSender(sender,{allowPrivate:true,allowDisabled:true});
+    // A fresh content script means the document was rebuilt after a cleanup request.
+    if (!trusted && cleanupSites.includes(site)) {cleanupSites=cleanupSites.filter(s=>s!==site);await persistCleanup();}
     return publicConfig(site);
   }
   if(message.type==='FG_OPEN_SETTINGS_FROM_PAGE') {
@@ -337,24 +437,29 @@ async function handle(message,sender) {
   if (message.type==='FG_ADD_RULE') {
     const site = await validateContentSender(sender);
     const host = new URL(sender.url).hostname;
-    const selector = C.text(message.selector,400);
-    const line = `${host}##${selector}`;
-    const parsed = C.parseCosmeticRules(line);
-    if (!site || parsed.errors.length || parsed.rules.length!==1) throw new Error('INVALID_RECORD');
-    const lines = settings.cosmeticRules.split('\n');
-    if (!lines.includes(line)) lines.push(line);
-    await saveSettings({cosmeticRules:lines.join('\n')});
-    return {saved:true};
+    const selector = C.text(message.selector,300);
+    if (C.selectorProblem(selector)) throw new Error('UNSAFE_SELECTOR');
+    if (settings.cosmeticFilters.rules.length>=C.COSMETIC_RULES_MAX) throw new Error('RULE_LIMIT');
+    const id = 'r-'+(globalThis.crypto && globalThis.crypto.randomUUID ? globalThis.crypto.randomUUID() : Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10));
+    const now = Date.now();
+    const rule = C.sanitizeCosmeticRule({id,host,selector,status:'active',source:'picker',reason:'user_created',createdAt:now,validatedAt:now});
+    if (!rule) throw new Error('UNSAFE_SELECTOR');
+    const rules = [...settings.cosmeticFilters.rules,rule];
+    const saved = await saveSettings({cosmeticFilters:{...settings.cosmeticFilters,rules}},'cosmetic',message.expect);
+    return {saved:true,rule,revision:saved.revisions.cosmetic};
   }
   if (message.type==='FG_PAGE_STATS') {
     const site=await validateContentSender(sender,{allowPrivate:true,allowDisabled:true});
     const value=C.object(message.stats)?message.stats:{};
     const summary={site,context:C.pageContext(sender.url),updatedAt:Date.now()};
-    for(const name of ['observed','collapsed','dimmed','pending','completed','kept','protected','errors','detectedTotal']) {
+    for(const name of ['observed','collapsed','dimmed','pending','completed','kept','protected','errors','detectedTotal',
+      'cosmeticApplied','cosmeticRestored','cosmeticRejected','breakerActivations','scansCoalesced','ignoredSelfMutations']) {
       summary[name]=C.clamp(Math.floor(Number(value[name])||0),0,1000000);
     }
+    summary.controllerCount=C.clamp(Math.floor(Number(value.controllerCount)||0),0,8);
+    summary.heartbeatAt=Number.isFinite(Number(value.heartbeatAt))&&Number(value.heartbeatAt)>0?Number(value.heartbeatAt):Date.now();
     summary.enabled=value.enabled===true;
-    summary.state=['ready','paused','no-consent','locked','private','site-off','error'].includes(value.state)?value.state:'error';
+    summary.state=['ready','paused','no-consent','locked','private','site-off','error','recovery','stale'].includes(value.state)?value.state:'error';
     summary.error=value.lastError?C.userError(value.lastError.code).code:null;
     pageReports.set(sender.tab.id,summary);
     while(pageReports.size>100)pageReports.delete(pageReports.keys().next().value);
@@ -376,11 +481,70 @@ async function handle(message,sender) {
       return {saved:true};
     });
   }
+  if (message.type==='FG_RECOVER_SITE' || message.type==='FG_RESUME_SITE') {
+    const site = trusted ? message.site : await validateContentSender(sender,{allowPrivate:true,allowDisabled:true});
+    if (!C.SITE_DEFS[site]) throw new Error('INVALID_RECORD');
+    if (message.type==='FG_RECOVER_SITE') {
+      // The pause is persisted in the trusted context before any page cleanup runs.
+      const saved = await saveSettings({recoverySites:[...new Set([...settings.recoverySites,site])]},'recovery',message.expect);
+      const cleanup = await notifySite(site,{type:'FG_RESTORE_ALL'},1500);
+      cosmeticLog.push({at:Date.now(),site,source:'cosmetic',kind:'recovery_pause',ruleRef:null,reason:'user_requested',candidateAction:null,appliedAction:null});
+      while(cosmeticLog.length>MAX_COSMETIC_LOG)cosmeticLog.shift();
+      persistSoon();
+      return {persisted:true,sites:saved.recoverySites,acknowledged:cleanup.acknowledged,tabs:cleanup.count};
+    }
+    const quarantined = settings.cosmeticFilters.rules.filter(r=>r.status==='quarantined'&&C.siteForHost(r.host)===site).length;
+    const saved = await saveSettings({recoverySites:settings.recoverySites.filter(s=>s!==site)},'recovery',message.expect);
+    return {resumed:true,sites:saved.recoverySites,quarantined};
+  }
+  if (message.type==='FG_COSMETIC_EVENT') {
+    const site = await validateContentSender(sender,{allowPrivate:true,allowDisabled:true});
+    if (!['applied','restored','rejected','breaker','undo'].includes(message.kind)) throw new Error('INVALID_RECORD');
+    const ruleRef = typeof message.ruleRef==='string' && /^[a-z0-9][a-z0-9-]{7,47}$/.test(message.ruleRef) ? message.ruleRef : null;
+    const actions = ['collapse','dim','allow'];
+    cosmeticLog.push({at:Date.now(),site,source:'cosmetic',kind:message.kind,ruleRef,
+      reason:C.text(message.reason,80),
+      candidateAction:actions.includes(message.candidateAction)?message.candidateAction:null,
+      appliedAction:actions.includes(message.appliedAction)?message.appliedAction:null});
+    while(cosmeticLog.length>MAX_COSMETIC_LOG)cosmeticLog.shift();
+    if (message.kind==='applied') metrics.cosmeticApplied++;
+    if (message.kind==='restored') metrics.cosmeticRestored++;
+    if (message.kind==='rejected') metrics.cosmeticRejected++;
+    if (message.kind==='breaker') metrics.breakerActivations++;
+    persistSoon();
+    return {recorded:true};
+  }
+  if (message.type==='FG_RULE_REVALIDATE') {
+    // Application-time check from the page that owns the rule: a selector that now
+    // reaches protected content is quarantined before its effect is applied.
+    const site = await validateContentSender(sender,{allowPrivate:true,allowDisabled:true});
+    const host = new URL(sender.url).hostname;
+    const rule = settings.cosmeticFilters.rules.find(r=>r.id===message.id);
+    if (!rule) throw new Error('RULE_NOT_FOUND');
+    if (rule.host!==host && !host.endsWith('.'+rule.host)) throw new Error('FORBIDDEN');
+    if (rule.status==='disabled'||rule.status==='deleted') return {status:rule.status};
+    const matchCount = C.clamp(Math.floor(Number(message.matchCount)||0),0,1000000);
+    const reported = typeof message.reason==='string'?message.reason:'ok';
+    const unsafe = reported==='unsafe_at_application' || C.selectorProblem(rule.selector)!==null;
+    if (unsafe || reported==='no_current_target' || matchCount===0) {
+      const reason = unsafe?'unsafe_at_application':'no_current_target';
+      if (rule.status==='quarantined' && rule.reason===reason) return {status:'quarantined',reason};
+      const rules = settings.cosmeticFilters.rules.map(r=>r.id===rule.id?{...r,status:'quarantined',reason}:r);
+      await saveSettings({cosmeticFilters:{...settings.cosmeticFilters,rules}},'cosmetic',message.expect);
+      return {status:'quarantined',reason};
+    }
+    // A quarantined rule may be promoted again once a real target exists and it
+    // still passes the current safety subset.
+    if (rule.status==='active' && rule.validatedAt) return {status:'active'};
+    const rules = settings.cosmeticFilters.rules.map(r=>r.id===rule.id?{...r,status:'active',validatedAt:Date.now(),reason:'revalidated_with_target'}:r);
+    await saveSettings({cosmeticFilters:{...settings.cosmeticFilters,rules}},'cosmetic',message.expect);
+    return {status:'active',reason:'revalidated_with_target'};
+  }
   if (!trusted) throw new Error('FORBIDDEN');
   switch(message.type) {
     case 'FG_STATUS': return status();
     case 'FG_DIAGNOSTICS': return diagnostics();
-    case 'FG_PATCH_SETTINGS': return {settings:await saveSettings(C.object(message.patch)?message.patch:{})};
+    case 'FG_PATCH_SETTINGS': return {settings:await saveSettings(C.object(message.patch)?message.patch:{},typeof message.domain==='string'?message.domain:'settings',message.expect)};
     case 'FG_SET_KEY': {
       const stamp = ++credentialEpoch;
       const key = typeof message.key==='string'?message.key.trim():'';
@@ -415,6 +579,64 @@ async function handle(message,sender) {
       const result = await enqueue(()=>makeRemote(r,stamp,async()=>{}),stamp);
       return {model:result.model,latencyMs:result.latencyMs,usage:result.usage,scores:result.scores,decision:C.decide(r,result,settings)};
     }
+    case 'FG_RULE_UPDATE': {
+      const rec = settings.cosmeticFilters.rules.find(r=>r.id===message.id);
+      if (!rec) throw new Error('RULE_NOT_FOUND');
+      const patch = C.object(message.patch)?message.patch:{};
+      const next = {...rec};
+      if (typeof patch.selector==='string') {
+        const selector = C.text(patch.selector,300);
+        if (C.selectorProblem(selector)) throw new Error('UNSAFE_SELECTOR');
+        next.selector = selector;
+        next.validatedAt = Date.now();
+      }
+      if (C.COSMETIC_RULE_STATUSES.includes(patch.status) && patch.status!=='deleted') {
+        if (patch.status==='active' && C.selectorProblem(next.selector)) throw new Error('UNSAFE_SELECTOR');
+        next.status = patch.status;
+        if (patch.status==='active') {next.validatedAt=Date.now();next.reason='revalidated_by_user';}
+        if (patch.status==='disabled') next.reason='disabled_by_user';
+        if (patch.status==='quarantined') next.reason='quarantined_by_user';
+      }
+      const rules = settings.cosmeticFilters.rules.map(r=>r.id===rec.id?next:r);
+      await saveSettings({cosmeticFilters:{...settings.cosmeticFilters,rules}},'cosmetic',message.expect);
+      return {saved:true,rule:next};
+    }
+    case 'FG_RULE_DELETE': {
+      const rec = settings.cosmeticFilters.rules.find(r=>r.id===message.id);
+      if (!rec) throw new Error('RULE_NOT_FOUND');
+      // Deletion keeps the record so Undo can restore it after fresh safety checks.
+      const rules = settings.cosmeticFilters.rules.map(r=>r.id===rec.id?{...r,status:'deleted'}:r);
+      await saveSettings({cosmeticFilters:{...settings.cosmeticFilters,rules}},'cosmetic',message.expect);
+      return {deleted:true,rule:rec};
+    }
+    case 'FG_RULE_UNDO': {
+      const rec = settings.cosmeticFilters.rules.find(r=>r.id===message.id);
+      if (!rec || rec.status!=='deleted') throw new Error('RULE_NOT_FOUND');
+      if (C.selectorProblem(rec.selector)) throw new Error('UNSAFE_SELECTOR');
+      const rules = settings.cosmeticFilters.rules.map(r=>r.id===rec.id?{...r,status:'quarantined',reason:'undo_of_deletion'}:r);
+      await saveSettings({cosmeticFilters:{...settings.cosmeticFilters,rules}},'cosmetic',message.expect);
+      return {restored:true,rule:{...rec,status:'quarantined'}};
+    }
+    case 'FG_RULES_DISABLE_ALL': {
+      const rules = settings.cosmeticFilters.rules.map(r=>r.status==='active'?{...r,status:'disabled',reason:'disabled_by_user'}:r);
+      await saveSettings({cosmeticFilters:{...settings.cosmeticFilters,rules}},'cosmetic',message.expect);
+      return {disabled:rules.filter(r=>r.status==='disabled').length};
+    }
+    case 'FG_RULES_DELETE_ALL': {
+      await saveSettings({cosmeticFilters:{...settings.cosmeticFilters,rules:[]}},'cosmetic',message.expect);
+      return {deleted:true};
+    }
+    case 'FG_RELOAD_PAUSED': {
+      if (!Number.isInteger(message.tabId)) throw new Error('FORBIDDEN');
+      const tab = await chrome.tabs.get(message.tabId);
+      const site = C.siteForURL(tab.url);
+      if (!site || C.isPrivateRoute(tab.url)) throw new Error('PRIVATE_ROUTE');
+      if (!settings.recoverySites.includes(site)) {
+        await saveSettings({recoverySites:[...settings.recoverySites,site]},'recovery',message.expect);
+      }
+      await chrome.tabs.reload(message.tabId);
+      return {reloading:true};
+    }
     case 'FG_CLEAR_CACHE': {
       cancelPending();cache.clear();persistSoon();await broadcast();return {cleared:true};
     }
@@ -429,14 +651,19 @@ async function handle(message,sender) {
     case 'FG_EXPORT_SETTINGS': {
       const clean = C.clone(settings);
       // Imported settings cannot silently grant data-sharing consent or site permissions.
+      // Cosmetic rules travel with a user-requested local backup; they never appear in diagnostics.
       clean.consent=false;clean.sites=[];
-      return {format:'feedgate-settings',version:3,settings:clean};
+      return {format:'feedgate-settings',version:C.SETTINGS_VERSION,settings:clean};
     }
     case 'FG_IMPORT_SETTINGS': {
-      if (!C.object(message.data)||message.data.format!=='feedgate-settings'||(message.data.version!==3&&message.data.version!==2)) throw new Error('INVALID_RECORD');
-      // 2.0 exports are migrated safely: thresholds never map promotion onto unwanted advertising.
+      const version = message.data&&C.finite(message.data.version);
+      if (!C.object(message.data)||message.data.format!=='feedgate-settings'||![4,3,2].includes(version===null?NaN:version)) throw new Error('INVALID_RECORD');
+      // Older exports are migrated safely: thresholds never map promotion onto unwanted advertising,
+      // and legacy selector lines arrive quarantined for review.
       const imported=C.migrateSettings(message.data.settings);
       imported.consent=false;imported.sites=[];
+      imported.cosmeticFilters={...imported.cosmeticFilters,rules:imported.cosmeticFilters.rules.map(rule=>
+        rule.validatedAt>0&&!C.selectorProblem(rule.selector)?rule:{...rule,status:'quarantined',reason:'imported_unverified'})};
       return {settings:await saveSettings(imported)};
     }
     case 'FG_OPEN_DEMO': await chrome.tabs.create({url:chrome.runtime.getURL('demo.html')}); return {opened:true};
@@ -458,13 +685,26 @@ chrome.runtime.onInstalled.addListener(details=>{
   ready.then(async()=>{
     await syncScripts();
     if (details.reason==='install') await chrome.runtime.openOptionsPage();
+    // One-time visible v3 upgrade setup; never re-offered on later restarts.
+    if (details.reason==='update') {
+      const stored = await chrome.storage.local.get('upgrade');
+      if (C.object(stored.upgrade)) await chrome.runtime.openOptionsPage();
+    }
   }).catch(()=>{});
 });
 chrome.runtime.onStartup.addListener(()=>{ready.then(syncScripts).catch(()=>{});});
 chrome.permissions.onRemoved.addListener(()=>{
   ready.then(()=>serializeChange(async()=>{
-    const sites=[];
-    for (const site of settings.sites) if (await chrome.permissions.contains({origins:C.originsForSite(site)})) sites.push(site);
+    const sites=[];const removed=[];
+    for (const site of settings.sites) {
+      if (await chrome.permissions.contains({origins:C.originsForSite(site)})) sites.push(site);
+      else removed.push(site);
+    }
+    // A site whose access was revoked may still carry injected effects: mark it for refresh.
+    if (removed.length) {
+      cleanupSites=[...new Set([...cleanupSites,...removed])].filter(s=>C.SITE_DEFS[s]).slice(0,8);
+      await persistCleanup();
+    }
     cancelPending();settings={...settings,sites};
     await chrome.storage.local.set({settings});
     await broadcast();await syncScripts();

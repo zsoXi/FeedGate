@@ -1,0 +1,9 @@
+$ npm run release:check
+-- exit: 0
+
+
+> feedgate@2.1.0 release:check
+> node scripts/release-check.mjs
+
+8 release integrity checks passed; 20 runtime file hashes recorded.
+

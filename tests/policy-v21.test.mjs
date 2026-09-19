@@ -10,6 +10,7 @@ const scores=extra=>Object.fromEntries(KEYS.map(k=>[k,k==='sufficient'?0.99:0.01
 const result=extra=>({model:'jev-test-fixture',scores:scores(extra),usage:{input_tokens:1,output_tokens:0},latencyMs:1});
 const settings=patch=>C.sanitizeSettings({...C.DEFAULTS,...patch,categories:{...(patch||{}).categories||{}}});
 const record=patch=>C.sanitizeRecord({site:'x',id:'p1',author:'@author',text:'Visible post text.',mediaAlt:'',quotedText:'',truncated:false,context:'feed',sponsored:false,linkDomains:[],...patch});
+const adVerified=patch=>C.sanitizeAdEvidence({adapter:'x',status:'verified',markerKind:'x_is_promoted_attribute',selectorId:'x-attr-is-promoted',ownerMatched:true,renderedLabel:null,evidenceKind:'platform_metadata',scope:'outer_post',...patch},'x');
 const judge=(extra,patch,rec)=>C.decide(record(rec||{}),result(extra),settings(patch));
 
 test('1. useful promotional project is kept',()=>{
@@ -73,11 +74,15 @@ test('9. insufficient evidence keeps the post even with high noise signals',()=>
   assert.equal(d.rule,'insufficient_evidence');
 });
 
-test('10. platform-labelled ads collapse locally',()=>{
-  const d=judge({useful:0.9},null,{sponsored:true});
+test('10. platform-labelled ads collapse locally only with verified evidence',()=>{
+  const d=judge({useful:0.9},null,{adEvidence:adVerified()});
   assert.equal(d.action,'collapse');
   assert.equal(d.source,'local');
   assert.equal(d.rule,'platform_labelled_ad');
+  const legacy=judge({useful:0.9},null,{sponsored:true});
+  assert.equal(legacy.action,'allow','an old unverified boolean cannot hide a post');
+  const quoted=judge({useful:0.9},null,{adEvidence:adVerified({scope:'quote',ownerMatched:false})});
+  assert.equal(quoted.action,'allow');
 });
 
 test('11. high useful plus high unwanted-ad signal stays visible',()=>{
@@ -113,9 +118,9 @@ test('15. quoted content remains separated in requests',()=>{
 });
 
 test('16./17. recycled nodes and stale caches cannot reuse superseded judgments at the worker level',async()=>{
-  const stale={version:2,metrics:{requests:99},log:[],cache:[['legacy-key',{expires:Date.now()+600000,result:result({feedSpam:0.99})}]],cooldownUntil:0,authRejected:false,verifiedAt:0,pageReports:[]};
+  const stale={version:3,metrics:{requests:99},log:[],cache:[['legacy-key',{expires:Date.now()+600000,result:result({feedSpam:0.99})}]],cooldownUntil:0,authRejected:false,verifiedAt:0,pageReports:[]};
   const w=await createWorker({session:{apiKey:'dummy-worker-test-key',runtimeState:stale}});
-  assert.equal((await w.ok({type:'FG_STATUS'})).cached,0);
+  assert.equal((await w.ok({type:'FG_STATUS'})).cached,0,'2.1.0 runtime state must not carry into 2.1.1');
   await w.enable();
   const r=await w.classify(post('SPAM_FIXTURE'));
   assert.equal(w.calls.length,1);
@@ -148,7 +153,7 @@ test('21. observe only plans actions without allowing modifications',()=>{
     assert.equal(d.action,'allow');
     assert.ok(['collapse','dim'].includes(d.wouldAction));
   }
-  assert.equal(C.decide(record({sponsored:true}),result({}),s).wouldAction,'collapse');
+  assert.equal(C.decide(record({adEvidence:adVerified()}),result({}),s).wouldAction,'collapse');
 });
 
 test('22. keep-this-post persists as an override after a worker restart',async()=>{
@@ -176,7 +181,7 @@ test('25. legacy worker settings migrate without reusing old thresholds',async()
     allowedAuthors:['x:@friend'],categories:{promotion:{mode:'collapse',threshold:0.5},spam:{mode:'collapse',threshold:0.5},bait:{mode:'off',threshold:0.6}}};
   const w=await createWorker({local:{settings:legacy}});
   const status=await w.ok({type:'FG_STATUS'});
-  assert.equal(status.settings.version,3);
+  assert.equal(status.settings.version,4);
   assert.equal(status.settings.consent,true);
   assert.deepEqual(status.settings.sites,['x']);
   assert.deepEqual(status.settings.allowedAuthors,['x:@friend']);
@@ -219,7 +224,7 @@ test('opened profiles soften semantic collapses but never local or risk rules',(
   assert.match(soft.reason,/opened profile/);
   const spam=judge({risk:0.99},{},{context:'profile'});
   assert.equal(spam.action,'collapse');
-  const ad=judge({},{},{context:'profile',sponsored:true});
+  const ad=judge({},{},{context:'profile',adEvidence:adVerified()});
   assert.equal(ad.action,'collapse');
   const normal=judge({feedSpam:0.99},{profileMode:'normal'},{context:'profile'});
   assert.equal(normal.action,'collapse');
@@ -238,4 +243,59 @@ test('cache context sensitivity survives while decisions stay context-aware',asy
   assert.equal(a,b);
   assert.equal(C.decide(record({context:'profile'}),result({feedSpam:0.99}),s).action,'dim');
   assert.equal(C.decide(record({context:'feed'}),result({feedSpam:0.99}),s).action,'collapse');
+});
+
+/* Appendix B replays: historical behavior recorded from the supplied incident
+   diagnostics. These assert policy reasoning over given scores, not labels for
+   the original, unavailable post texts. */
+test('appendix B replay: R1 and R2 report truthful below-threshold reasons',()=>{
+  const r1=judge({unwantedAd:0.83,feedSpam:0.83,bait:0.81,lowSignal:0.91,useful:0.28,original:0.26,risk:0.61,sufficient:0.68});
+  assert.equal(r1.action,'allow');
+  assert.equal(r1.rule,'below_noise_thresholds');
+  assert.equal(r1.source,'policy');
+  assert.equal(r1.protected,false);
+  assert.equal(r1.protectionEligible,false);
+  const r2=judge({unwantedAd:0.81,feedSpam:0.8,bait:0.77,lowSignal:0.85,useful:0.5,original:0.28,risk:0.72,sufficient:0.7});
+  assert.equal(r2.action,'allow');
+  assert.equal(r2.rule,'below_noise_thresholds');
+});
+
+test('appendix B replay: R3 and R4 report protection eligibility truthfully',()=>{
+  const r3=judge({unwantedAd:0.46,feedSpam:0.82,bait:0.66,lowSignal:0.94,useful:0.67,original:0.37,risk:0.13,sufficient:0.72});
+  assert.equal(r3.action,'allow');
+  assert.equal(r3.rule,'useful_or_original_protection');
+  assert.equal(r3.protectionEligible,true);
+  assert.equal(r3.protected,true);
+  const r4=judge({unwantedAd:0.09,feedSpam:0.31,bait:0.13,lowSignal:0.19,useful:0.62,original:0.72,risk:0.09,sufficient:0.66});
+  assert.equal(r4.action,'allow');
+  assert.equal(r4.rule,'useful_or_original_protection');
+  assert.equal(r4.protectionEligible,true);
+});
+
+test('appendix B replay: R5 and R6 bait dims stay stable',()=>{
+  const r5=judge({unwantedAd:0.14,feedSpam:0.79,bait:0.9,lowSignal:0.85,useful:0.4,original:0.32,risk:0.09,sufficient:0.68});
+  assert.equal(r5.action,'dim');
+  assert.equal(r5.rule,'manipulative_bait');
+  const r6=judge({unwantedAd:0.15,feedSpam:0.78,bait:0.88,lowSignal:0.81,useful:0.44,original:0.38,risk:0.11,sufficient:0.7});
+  assert.equal(r6.action,'dim');
+  assert.equal(r6.rule,'manipulative_bait');
+});
+
+test('raising useful or original never makes a weak noise action harsher',()=>{
+  assert.equal(judge({feedSpam:0.95}).action,'collapse');
+  const withUseful=judge({feedSpam:0.95,useful:0.65});
+  assert.equal(withUseful.action,'dim');
+  assert.equal(withUseful.conflict,true);
+  assert.equal(judge({feedSpam:0.95,original:0.7}).action,'dim');
+});
+
+test('a runtime state written by 2.1.1 restores while older schemas are dropped',async()=>{
+  const w=await createWorker();
+  await w.enable();
+  await w.classify();
+  await sleep(150);
+  const next=await createWorker({local:w.local,session:w.session});
+  const status=await next.ok({type:'FG_STATUS'});
+  assert.equal(status.cached,1);
+  assert.equal(status.metrics.requests,1);
 });

@@ -1,4 +1,4 @@
-# FeedGate 2.1: start here
+# FeedGate 3.0.0: start here
 
 **This release has no terminal, no local bridge and no pairing code.** Do not run any file from version 0.1. You need Chrome and your own direct TypeSafe key.
 
@@ -14,9 +14,9 @@ Open FeedGate from the extension icon and go to **Settings**. In the **Connect o
 
 1. Paste your key into **TypeSafe API key**. Do not paste a Vercel key or an old pairing code.
 2. Tick the consent to send post text to TypeSafe. Feed material may contain sensitive data.
-3. Leave **X / Twitter** selected and click **Connect & start**. Accept the Chrome permission.
+3. Leave **All six supported feeds** selected (or pick a single platform) and click **Connect & start**. Chrome shows one permission prompt for the origins you keep selected.
 
-The button tests the real API with one fictional post, which may generate a cost. Only after a successful response does it enable the selected service. This confirms the connection; it is not proof of classifier quality.
+The button tests the real API with one fictional post, which may generate a cost. Only after a successful response does it enable the selected services. Declining a Chrome prompt is respected: those sites simply stay off, and nothing is silently retried. This confirms the connection; it is not proof of classifier quality.
 
 **Refresh the open X tab.** After removing an older add-on, page modifications made by the previous version may remain. Refreshing clears them.
 
@@ -36,17 +36,23 @@ The starting **Balanced** mode does not hide a post merely because it promotes a
 
 The unwanted-advertising category only acts together with high spam signals and low usefulness. A clearly useful or original post stays visible even when promotional signals are high; only risk, your own exclusion rule or overwhelmingly strong spam evidence override that protection.
 
+Local hiding of a platform-advertised post now requires verified evidence: a rendered or platform-metadata label that belongs to that specific outer post. Words like "sponsored" or "advertisement" inside the post text, the author name, a link, an image description or an accessibility label never trigger it on their own, and a label attached to a quoted or neighbouring card cannot mark the outer post.
+
 On a deliberately opened profile, ordinary semantic spam is by default only dimmed. Platform-labelled ads, your own explicit rule and strong signs of fraudulent solicitation do not get that exception.
 
 **Show** restores a post temporarily. **Why? → Keep this post** stores an exception for that particular visible post. **Allow author** adds the whole profile to the local exception list. There is no automatic account reputation or bot blacklist. **Alt + Shift + F** reveals or refilters the current page.
 
-Upgrading from 2.0? Your key, allowlist, saved post choices and local rules are kept, but old thresholds and cached judgments are deliberately not reused. See [docs/MIGRATION.md](docs/MIGRATION.md).
+The status panel has three modes: a small pill, an expanded panel and fully hidden. **Hiding the panel never pauses filtering**, and the panel never comes back on its own — reopen it from the popup or settings. If a page ever looks wrong, the popup offers **Restore this site** (the pause is saved before any cleanup), **Disable cosmetic filters** (keeps your rules and key) and **Reload this tab with filtering paused**.
+
+Cosmetic hiding is now transactional: **Pick element** shows a preview with the host, the selector and how many elements it would hide before anything is saved. Too-broad targets (page root, navigation, a whole timeline) are refused, and you can Undo a committed rule for 15 seconds or later from **Settings → My cosmetic filters**, where every rule can be enabled, disabled, edited or deleted.
+
+Upgrading from 2.x? Your key, allowlist, saved post choices and cosmetic rules are kept; raw legacy CSS text becomes a quarantined rule that can only activate after a real matching target is seen. See [docs/MIGRATION.md](docs/MIGRATION.md).
 
 ## When something does not work
 
-There is a small FeedGate bar with status and counters at the bottom left of the page. Clicking it opens the settings.
+There is a small FeedGate pill with status and counters at the bottom left of the page. Clicking it expands the panel (with minimize and close), and the popup can reopen it when it is hidden.
 
-Go to **Diagnostics → Export diagnostics**. This produces a `feedgate-2.1-diagnostics-....json` file that you can pass on for review. It contains no API key, vault, post text, author names, full page URLs or the text of your own rule.
+Go to **Diagnostics → Export diagnostics**. This produces a `feedgate-3.0.0-diagnostics-....json` file that you can pass on for review. It contains no API key, vault, post text, author names, full page URLs, raw cosmetic selectors or the text of your own rule.
 
 | Status | Meaning |
 | --- | --- |
@@ -61,7 +67,7 @@ Changing thresholds uses existing scores and recalculates decisions. **You do no
 
 ## What is verified
 
-99 Node tests and 31 Chromium DOM/UI scenarios passed. Jev responses and extension interfaces were replaced by controlled test implementations. Your key was not used and no test was run on the current, signed-in X. The build environment blocks extension installation; its limits were not bypassed.
+139 Node tests, 59 Chromium DOM/UI scenarios, a 7-check unpacked-extension smoke test and 8 release integrity checks passed. Jev responses and browser interfaces were replaced by controlled test implementations; the smoke test loaded the real extension folder in a local Chromium profile. Your key was not used, no test was run on the current, signed-in X and no live Wykop page was accessed by the suites. Managed installation remains blocked in the build environment; its limits were not bypassed.
 
 This is a package ready for you to test, not a certificate of flawlessness. The model can still misjudge a specific post. **Open live test feed** contains fictional examples, but once key and consent are enabled it uses the real API, not fake percentages.
 

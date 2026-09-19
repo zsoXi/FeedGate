@@ -1,0 +1,49 @@
+{
+  "scope": "real unpacked extension load (RUN08)",
+  "state": "PASS",
+  "reason": null,
+  "extensionId": "oabnfnlpcklemhegglgcjemiedplnnkg",
+  "version": "2.1.1",
+  "cards": 1,
+  "optionsVersionLabel": "2.1.1 / precision-first preview",
+  "requests": 13,
+  "localhostHits": [],
+  "consoleErrors": [],
+  "checks": [
+    {
+      "name": "worker reports release version 2.1.1",
+      "ok": true,
+      "detail": "2.1.1"
+    },
+    {
+      "name": "the real content script collapses the promoted demo post locally",
+      "ok": true,
+      "detail": "1 card(s)"
+    },
+    {
+      "name": "the card explains a verified platform label",
+      "ok": true,
+      "detail": ":host{all:initial;display:block;color-scheme:light dark}*{box-sizing:border-box}"
+    },
+    {
+      "name": "options page opens as the real extension page",
+      "ok": true,
+      "detail": "2.1.1 / precision-first preview"
+    },
+    {
+      "name": "no localhost or bridge traffic",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no page errors during the demo run",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no worker errors during the demo run",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {createWorker,post,sender,trusted,sleep} from './worker-harness.mjs';
+import {createWorker,post,sender,trusted,sleep,adEvidenceVerified} from './worker-harness.mjs';
 test('worker initialization restricts both storage areas to trusted contexts',async()=>{
  const w=await createWorker();assert.deepEqual(w.levels,{session:'TRUSTED_CONTEXTS',local:'TRUSTED_CONTEXTS'});const s=await w.ok({type:'FG_STATUS'});assert.equal(s.keyReady,false);assert.equal(s.settings.consent,false);assert.deepEqual(s.settings.sites,[]);
 });
@@ -61,7 +61,7 @@ test('browser-restart simulation retains only encrypted vault, not a usable key'
  const w=await createWorker();await w.ok({type:'FG_SET_KEY',key:'dummy-encrypted-key',remember:true,passphrase:'long protected passphrase'});const restarted=await createWorker({local:w.local,session:{}});const status=await restarted.ok({type:'FG_STATUS'});assert.equal(status.hasVault,true);assert.equal(status.keyReady,false);
 });
 test('worker-restart simulation restores session key and cached results',async()=>{
- const w=await createWorker();await w.enable();await w.classify();await sleep(120);const next=await createWorker({local:w.local,session:w.session});assert.equal((await next.ok({type:'FG_STATUS'})).keyReady,true);assert.equal((await next.classify()).cached,true);assert.equal(next.calls.length,0);
+ const w=await createWorker();await w.enable();await w.classify();await sleep(120);assert.equal(w.session.runtimeState.version,5);const next=await createWorker({local:w.local,session:w.session});assert.equal((await next.ok({type:'FG_STATUS'})).keyReady,true);assert.equal((await next.classify()).cached,true);assert.equal(next.calls.length,0);
 });
 test('settings export never contains key/vault; import requires fresh permissions and consent',async()=>{
  const w=await createWorker();await w.enable();const data=await w.ok({type:'FG_EXPORT_SETTINGS'});assert.equal(data.settings.consent,false);assert.deepEqual(data.settings.sites,[]);assert.ok(!JSON.stringify(data).includes('dummy-worker-test-key'));data.settings.consent=true;data.settings.sites=['x'];await w.ok({type:'FG_IMPORT_SETTINGS',data});const s=await w.ok({type:'FG_STATUS'});assert.equal(s.settings.consent,false);assert.deepEqual(s.settings.sites,[]);
@@ -70,5 +70,27 @@ test('author allowlist restores locally without further model requests',async()=
  const w=await createWorker();await w.enable();await w.ok({type:'FG_ALLOW_AUTHOR',author:'@fixture'},sender);const d=await w.classify(post('SPAM_FIXTURE'));assert.equal(d.decision.source,'allowlist');assert.equal(w.calls.length,0);
 });
 test('element picker may add only a selector for its actual sender host',async()=>{
- const w=await createWorker();await w.enable();await w.ok({type:'FG_ADD_RULE',selector:'.sponsor'},sender);assert.match(w.local.settings.cosmeticRules,/x.com##\.sponsor/);assert.equal((await w.send({type:'FG_ADD_RULE',selector:'body'},sender)).ok,false);
+ const w=await createWorker();await w.enable();
+ const saved=await w.ok({type:'FG_ADD_RULE',selector:'.sponsor'},sender);
+ assert.equal(saved.rule.host,'x.com');assert.equal(saved.rule.selector,'.sponsor');assert.equal(saved.rule.status,'active');assert.equal(saved.rule.source,'picker');
+ assert.equal(w.local.settings.cosmeticFilters.rules.length,1);assert.equal(w.local.settings.cosmeticFilters.rules[0].selector,'.sponsor');
+ assert.equal((await w.send({type:'FG_ADD_RULE',selector:'body'},sender)).ok,false,'a protected root can never become a cosmetic rule');
+ assert.equal((await w.send({type:'FG_ADD_RULE',selector:'div:has(main)'},sender)).ok,false,'the documented selector subset rejects unsupported syntax');
+});
+test('verified platform ad evidence collapses locally without any provider request',async()=>{
+ const w=await createWorker();await w.enable();const r=await w.classify({...post('Sponsored placement fixture'),adEvidence:adEvidenceVerified});assert.equal(r.decision.action,'collapse');assert.equal(r.decision.source,'local');assert.equal(r.decision.rule,'platform_labelled_ad');assert.equal(r.decision.category,'unwantedAd');assert.equal(r.decision.adEvidence.status,'verified');assert.equal(w.calls.length,0);
+});
+test('a legacy boolean sponsored flag cannot trigger local hiding and goes through Jev',async()=>{
+ const w=await createWorker();await w.enable();const r=await w.classify({...post('Organic text with a legacy flag'),sponsored:true});assert.equal(r.decision.action,'allow');assert.equal(r.decision.rule,'no_noise_rule_matched');assert.equal(w.calls.length,1);
+});
+test('config responses carry the release version so a stale content script can detect an update',async()=>{
+ const w=await createWorker();const cfg=await w.ok({type:'FG_GET_CONFIG'},sender);assert.equal(cfg.appVersion,'3.0.0');
+});
+test('runtime state written by an older schema is dropped, not replayed',async()=>{
+ const legacy={version:3,metrics:{decisions:99},log:[{action:'collapse',reason:'legacy entry'}],cache:[],pageReports:[]};
+ const w=await createWorker({session:{apiKey:'dummy-worker-test-key',runtimeState:legacy}});const s=await w.ok({type:'FG_STATUS'});assert.equal(s.metrics.decisions,0);assert.equal(s.log.length,0);
+});
+test('session history is a bounded window while counters keep counting',async()=>{
+ const w=await createWorker();await w.enable({concurrency:6,cacheMinutes:0});const total=160;await Promise.all(Array.from({length:total},(_,i)=>w.classify(post('history '+i,'h'+i))));const s=await w.ok({type:'FG_STATUS'});assert.equal(s.metrics.decisions,total);assert.equal(s.log.length,150,'the retained window keeps the newest 150 events');assert.equal(s.log[0].reason,'No noise rule matched');assert.equal(s.metrics.errors,0);
+ await sleep(150);assert.equal(w.session.runtimeState.log.length,150);
 });

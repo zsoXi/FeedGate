@@ -18,6 +18,10 @@ The cache stores hashes and model feature values, not raw post bodies. Hashes ar
 
 ## Diagnostic export
 
-The diagnostic file contains aggregate settings and stage counters, score/action records and reduced connection state. It omits keys, vault contents, raw post text, names of authors, saved post hashes, full browsing URLs, custom-rule text and CSS selectors. It does reveal which supported platforms were enabled, timing information and numerical classifications. Review it before sharing, especially in a public issue.
+The diagnostic file contains aggregate settings and stage counters, score/action records and reduced connection state. It omits keys, vault contents, raw post text, names of authors, saved post hashes, full browsing URLs, custom-rule text and CSS selectors. Cosmetic activity is reported as enum-only records with opaque local rule references (`ruleRef`), never as selectors; the raw selectors exist only in the rule manager and in your own settings export. The export does reveal which supported platforms were enabled, timing information and numerical classifications. Review it before sharing, especially in a public issue.
 
-The settings export is a different file and can include author exceptions and custom rules. It does not include credentials, vaults or model results. Importing settings never silently grants site access or cloud consent.
+The settings export is a different file and can include author exceptions and your cosmetic rules, including selectors. It does not include credentials, vaults or model results. Importing settings never silently grants site access or cloud consent, and unvalidated cosmetic rules from an import are quarantined instead of applied.
+
+## Wykop (beta)
+
+Wykop support follows the same boundaries as every other site: visible link cards and Mikroblog entries are extracted from the top frame only, replies and comments are excluded by default, and the login and registration routes are treated as private. Wykop's served pages were reviewed unauthenticated on 2026-09-18; no account data, private messages or concealed 18+ content is read, and concealed bodies are reported as truncated rather than fetched or invented.

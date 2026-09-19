@@ -11,4 +11,4 @@ Official documentation reviewed for this build on 2026-09-17:
 * uBlock Origin project, for architectural inspiration and familiar local cosmetic-filter controls: https://github.com/gorhill/uBlock
 * GitHub Actions workflow syntax examples: https://github.com/actions/checkout , https://github.com/actions/setup-node , https://github.com/actions/setup-python
 
-No external benchmark, social-media token-price claim or previous demo's accuracy was used as a measured result for FeedGate 2.1. The classifier rubric and decision thresholds are original operating choices. Documentation availability does not mean a real provider or signed-in-site test was performed.
+No external benchmark, social-media token-price claim or previous demo's accuracy was used as a measured result for FeedGate 3.0. The classifier rubric and decision thresholds are original operating choices; the 3.0.0 work adds local controls and a reviewed Wykop surface without retuning the model. Documentation availability does not mean a real provider or signed-in-site test was performed.

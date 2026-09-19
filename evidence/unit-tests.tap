@@ -1,604 +1,844 @@
 TAP version 13
-# Subtest: host matching rejects lookalikes and accepts subdomains
-ok 1 - host matching rejects lookalikes and accepts subdomains
+# Subtest: release, rubric, detector, extraction, policy and schema versions are separate
+ok 1 - release, rubric, detector, extraction, policy and schema versions are separate
   ---
-  duration_ms: 0.8614
+  duration_ms: 0.9658
+  type: 'test'
+  ...
+# Subtest: host matching rejects lookalikes and accepts subdomains
+ok 2 - host matching rejects lookalikes and accepts subdomains
+  ---
+  duration_ms: 0.2734
   type: 'test'
   ...
 # Subtest: private routes are detected including percent-encoded paths
-ok 2 - private routes are detected including percent-encoded paths
+ok 3 - private routes are detected including percent-encoded paths
   ---
-  duration_ms: 0.5661
+  duration_ms: 0.5959
   type: 'test'
   ...
 # Subtest: settings sanitization keeps bounds, resets versions and ignores junk keys
-ok 3 - settings sanitization keeps bounds, resets versions and ignores junk keys
+ok 4 - settings sanitization keeps bounds, resets versions and ignores junk keys
   ---
-  duration_ms: 0.8737
+  duration_ms: 1.0632
   type: 'test'
   ...
 # Subtest: legacy settings migrate without mapping old promotion thresholds onto unwanted advertising
-ok 4 - legacy settings migrate without mapping old promotion thresholds onto unwanted advertising
+ok 5 - legacy settings migrate without mapping old promotion thresholds onto unwanted advertising
   ---
-  duration_ms: 0.3414
+  duration_ms: 1.0773
   type: 'test'
   ...
 # Subtest: legacy aggressive and observe presets migrate to their 2.1 equivalents
-ok 5 - legacy aggressive and observe presets migrate to their 2.1 equivalents
+ok 6 - legacy aggressive and observe presets migrate to their 2.1 equivalents
   ---
-  duration_ms: 0.1793
+  duration_ms: 0.9925
   type: 'test'
   ...
 # Subtest: record sanitization clamps fields and rejects anonymous empty posts
-ok 6 - record sanitization clamps fields and rejects anonymous empty posts
+ok 7 - record sanitization clamps fields and rejects anonymous empty posts
   ---
-  duration_ms: 0.2596
+  duration_ms: 0.4465
+  type: 'test'
+  ...
+# Subtest: ad evidence stays verified only with ownership, scope and a known marker
+ok 8 - ad evidence stays verified only with ownership, scope and a known marker
+  ---
+  duration_ms: 0.4569
   type: 'test'
   ...
 # Subtest: request shape uses the 2.1 features with a bounded instruction budget
-ok 7 - request shape uses the 2.1 features with a bounded instruction budget
+ok 9 - request shape uses the 2.1 features with a bounded instruction budget
   ---
-  duration_ms: 0.5149
+  duration_ms: 0.979
   type: 'test'
   ...
 # Subtest: quoted content is transmitted separately from the author text
-ok 8 - quoted content is transmitted separately from the author text
+ok 10 - quoted content is transmitted separately from the author text
   ---
-  duration_ms: 0.1687
+  duration_ms: 0.3128
   type: 'test'
   ...
 # Subtest: redaction masks emails, handles, credentials and links
-ok 9 - redaction masks emails, handles, credentials and links
+ok 11 - redaction masks emails, handles, credentials and links
   ---
-  duration_ms: 0.6893
+  duration_ms: 0.1634
   type: 'test'
   ...
 # Subtest: custom instruction adds a ninth question while it is set
-ok 10 - custom instruction adds a ninth question while it is set
+ok 12 - custom instruction adds a ninth question while it is set
   ---
-  duration_ms: 0.2576
+  duration_ms: 0.216
   type: 'test'
   ...
 # Subtest: strict response parser rejects malformed answers and accepts valid ones
-ok 11 - strict response parser rejects malformed answers and accepts valid ones
+ok 13 - strict response parser rejects malformed answers and accepts valid ones
   ---
-  duration_ms: 0.4835
+  duration_ms: 0.5058
+  type: 'test'
+  ...
+# Subtest: API01: shuffled named answers keep their exact key mapping
+ok 14 - API01: shuffled named answers keep their exact key mapping
+  ---
+  duration_ms: 0.1673
+  type: 'test'
+  ...
+# Subtest: API02: malformed probability values fail closed instead of being coerced
+ok 15 - API02: malformed probability values fail closed instead of being coerced
+  ---
+  duration_ms: 0.3232
+  type: 'test'
+  ...
+# Subtest: API03: exact zeros and ones survive parsing and policy
+ok 16 - API03: exact zeros and ones survive parsing and policy
+  ---
+  duration_ms: 0.3437
   type: 'test'
   ...
 # Subtest: decisions fail open when no model judgment is available
-ok 12 - decisions fail open when no model judgment is available
+ok 17 - decisions fail open when no model judgment is available
   ---
-  duration_ms: 0.2457
+  duration_ms: 0.1113
   type: 'test'
   ...
-# Subtest: platform-labelled ads collapse locally without a model result
-ok 13 - platform-labelled ads collapse locally without a model result
+# Subtest: platform-labelled ads collapse locally only with verified evidence
+ok 18 - platform-labelled ads collapse locally only with verified evidence
   ---
-  duration_ms: 0.1459
+  duration_ms: 0.3091
   type: 'test'
   ...
 # Subtest: insufficient evidence keeps the post regardless of other scores
-ok 14 - insufficient evidence keeps the post regardless of other scores
+ok 19 - insufficient evidence keeps the post regardless of other scores
   ---
-  duration_ms: 0.1268
+  duration_ms: 0.1549
   type: 'test'
   ...
 # Subtest: threshold boundaries are exact for every category
-ok 15 - threshold boundaries are exact for every category
+ok 20 - threshold boundaries are exact for every category
   ---
-  duration_ms: 0.2696
+  duration_ms: 0.3728
+  type: 'test'
+  ...
+# Subtest: protection thresholds are inclusive and documented
+ok 21 - protection thresholds are inclusive and documented
+  ---
+  duration_ms: 0.2708
   type: 'test'
   ...
 # Subtest: paused, allowlisted and revealed posts bypass every rule
-ok 16 - paused, allowlisted and revealed posts bypass every rule
+ok 22 - paused, allowlisted and revealed posts bypass every rule
   ---
-  duration_ms: 0.2596
+  duration_ms: 0.1716
   type: 'test'
   ...
 # Subtest: observe mode records the intended action without allowing a hide
-ok 17 - observe mode records the intended action without allowing a hide
+ok 23 - observe mode records the intended action without allowing a hide
   ---
-  duration_ms: 0.135
+  duration_ms: 0.1642
   type: 'test'
   ...
-# Subtest: decision exposes rule names and protection flags
-ok 18 - decision exposes rule names and protection flags
+# Subtest: decision exposes truthful rule names and protection flags
+ok 24 - decision exposes truthful rule names and protection flags
   ---
-  duration_ms: 0.1601
+  duration_ms: 0.2582
   type: 'test'
   ...
 # Subtest: cache identities ignore author/id/context but include content, model and custom rule
-ok 19 - cache identities ignore author/id/context but include content, model and custom rule
+ok 25 - cache identities ignore author/id/context but include content, model and custom rule
   ---
-  duration_ms: 7.8126
+  duration_ms: 12.8946
   type: 'test'
   ...
 # Subtest: feedback keys are stable per visible post and change on edits
-ok 20 - feedback keys are stable per visible post and change on edits
+ok 26 - feedback keys are stable per visible post and change on edits
   ---
-  duration_ms: 0.8573
+  duration_ms: 1.1584
   type: 'test'
   ...
 # Subtest: cosmetic rules accept only safe domain\#\#selector lines
-ok 21 - cosmetic rules accept only safe domain\#\#selector lines
+ok 27 - cosmetic rules accept only safe domain\#\#selector lines
   ---
-  duration_ms: 0.6506
+  duration_ms: 0.3687
   type: 'test'
   ...
 # Subtest: presets change thresholds but never disable protection
-ok 22 - presets change thresholds but never disable protection
+ok 28 - presets change thresholds but never disable protection
   ---
-  duration_ms: 0.1092
+  duration_ms: 0.1509
   type: 'test'
   ...
 # Subtest: page context distinguishes profiles, threads and feeds
-ok 23 - page context distinguishes profiles, threads and feeds
+ok 29 - page context distinguishes profiles, threads and feeds
   ---
-  duration_ms: 0.1869
+  duration_ms: 0.2266
   type: 'test'
   ...
 # Subtest: trusted pages, error codes and key validation stay strict
-ok 24 - trusted pages, error codes and key validation stay strict
+ok 30 - trusted pages, error codes and key validation stay strict
   ---
-  duration_ms: 0.2441
+  duration_ms: 0.3014
   type: 'test'
   ...
 # Subtest: vault seals and opens with a strong passphrase only
-ok 25 - vault seals and opens with a strong passphrase only
+ok 31 - vault seals and opens with a strong passphrase only
   ---
-  duration_ms: 210.5139
+  duration_ms: 244.3268
   type: 'test'
   ...
-# Subtest: direct transport never opens a localhost bridge and sponsored posts cost no API request
-ok 26 - direct transport never opens a localhost bridge and sponsored posts cost no API request
+# Subtest: direct transport never opens a localhost bridge and verified local ads cost no API request
+ok 32 - direct transport never opens a localhost bridge and verified local ads cost no API request
   ---
-  duration_ms: 21.5426
+  duration_ms: 27.657
   type: 'test'
   ...
 # Subtest: diagnostics record rule names but omit secrets, text, author identities, custom rules and post hashes
-ok 27 - diagnostics record rule names but omit secrets, text, author identities, custom rules and post hashes
+ok 33 - diagnostics record rule names but omit secrets, text, author identities, custom rules and post hashes
   ---
-  duration_ms: 5.7455
+  duration_ms: 11.5211
   type: 'test'
   ...
 # Subtest: content script cannot export diagnostics or obtain the key
-ok 28 - content script cannot export diagnostics or obtain the key
+ok 34 - content script cannot export diagnostics or obtain the key
   ---
-  duration_ms: 1.5216
+  duration_ms: 1.5652
   type: 'test'
   ...
 # Subtest: saved keep choice survives worker and browser restart without saving raw content
-ok 29 - saved keep choice survives worker and browser restart without saving raw content
+ok 35 - saved keep choice survives worker and browser restart without saving raw content
   ---
-  duration_ms: 5.7883
+  duration_ms: 6.5694
   type: 'test'
   ...
 # Subtest: resetting saved choices does not destroy the key or reset the API budget
-ok 30 - resetting saved choices does not destroy the key or reset the API budget
+ok 36 - resetting saved choices does not destroy the key or reset the API budget
   ---
-  duration_ms: 2.9149
+  duration_ms: 3.972
   type: 'test'
   ...
 # Subtest: provider verification resets when key changes, not when thresholds change
-ok 31 - provider verification resets when key changes, not when thresholds change
+ok 37 - provider verification resets when key changes, not when thresholds change
   ---
-  duration_ms: 4.7861
+  duration_ms: 3.7742
   type: 'test'
   ...
 # Subtest: worker derives profile context from actual current tab, not submitted record
-ok 32 - worker derives profile context from actual current tab, not submitted record
+ok 38 - worker derives profile context from actual current tab, not submitted record
   ---
-  duration_ms: 2.0323
+  duration_ms: 2.5425
   type: 'test'
   ...
 # Subtest: legacy settings keep safe preferences but never reuse old thresholds
-ok 33 - legacy settings keep safe preferences but never reuse old thresholds
+ok 39 - legacy settings keep safe preferences but never reuse old thresholds
   ---
-  duration_ms: 1.3289
+  duration_ms: 1.8485
   type: 'test'
   ...
-# Subtest: settings export format is explicitly v3, v2 imports migrate and v1 imports are rejected
-ok 34 - settings export format is explicitly v3, v2 imports migrate and v1 imports are rejected
+# Subtest: settings export format is explicitly v4, v3 and v2 imports migrate and v1 imports are rejected
+ok 40 - settings export format is explicitly v4, v3 and v2 imports migrate and v1 imports are rejected
   ---
-  duration_ms: 1.0833
+  duration_ms: 1.2703
   type: 'test'
   ...
 # Subtest: HTTP sends one request to the fixed endpoint; no cookies/referrer or redirects
-ok 35 - HTTP sends one request to the fixed endpoint; no cookies/referrer or redirects
+ok 41 - HTTP sends one request to the fixed endpoint; no cookies/referrer or redirects
   ---
-  duration_ms: 17.078
+  duration_ms: 21.5353
   type: 'test'
   ...
 # Subtest: HTTP 401 is sanitized and not automatically retried
-ok 36 - HTTP 401 is sanitized and not automatically retried
+ok 42 - HTTP 401 is sanitized and not automatically retried
   ---
-  duration_ms: 0.7745
+  duration_ms: 0.8522
   type: 'test'
   ...
 # Subtest: HTTP 403 is sanitized and not automatically retried
-ok 37 - HTTP 403 is sanitized and not automatically retried
+ok 43 - HTTP 403 is sanitized and not automatically retried
   ---
-  duration_ms: 0.2516
+  duration_ms: 0.2714
   type: 'test'
   ...
 # Subtest: HTTP 429 is sanitized and not automatically retried
-ok 38 - HTTP 429 is sanitized and not automatically retried
+ok 44 - HTTP 429 is sanitized and not automatically retried
   ---
-  duration_ms: 0.245
+  duration_ms: 0.2421
   type: 'test'
   ...
 # Subtest: HTTP 529 is sanitized and not automatically retried
-ok 39 - HTTP 529 is sanitized and not automatically retried
+ok 45 - HTTP 529 is sanitized and not automatically retried
   ---
-  duration_ms: 0.1998
+  duration_ms: 0.2324
   type: 'test'
   ...
 # Subtest: HTTP 503 is sanitized and not automatically retried
-ok 40 - HTTP 503 is sanitized and not automatically retried
+ok 46 - HTTP 503 is sanitized and not automatically retried
   ---
-  duration_ms: 0.2169
+  duration_ms: 0.1765
   type: 'test'
   ...
 # Subtest: HTTP 422 is sanitized and not automatically retried
-ok 41 - HTTP 422 is sanitized and not automatically retried
+ok 47 - HTTP 422 is sanitized and not automatically retried
   ---
-  duration_ms: 0.2663
+  duration_ms: 0.3092
   type: 'test'
   ...
 # Subtest: invalid JSON and incomplete responses fail instead of becoming allow scores
-ok 42 - invalid JSON and incomplete responses fail instead of becoming allow scores
+ok 48 - invalid JSON and incomplete responses fail instead of becoming allow scores
   ---
-  duration_ms: 0.5747
+  duration_ms: 0.6046
   type: 'test'
   ...
 # Subtest: oversized response is bounded even without Content-Length
-ok 43 - oversized response is bounded even without Content-Length
+ok 49 - oversized response is bounded even without Content-Length
   ---
-  duration_ms: 0.7123
+  duration_ms: 0.7628
   type: 'test'
   ...
 # Subtest: a pre-aborted request never reaches fetch
-ok 44 - a pre-aborted request never reaches fetch
+ok 50 - a pre-aborted request never reaches fetch
   ---
-  duration_ms: 0.2134
+  duration_ms: 0.2886
   type: 'test'
   ...
 # Subtest: aborting an in-flight request stops the HTTP client
-ok 45 - aborting an in-flight request stops the HTTP client
+ok 51 - aborting an in-flight request stops the HTTP client
   ---
-  duration_ms: 11.8719
+  duration_ms: 12.1792
   type: 'test'
   ...
 # Subtest: network exceptions never leak their raw message
-ok 46 - network exceptions never leak their raw message
+ok 52 - network exceptions never leak their raw message
   ---
-  duration_ms: 0.1818
+  duration_ms: 0.221
+  type: 'test'
+  ...
+# Subtest: incident fixtures retain the reviewed windows and provenance
+ok 53 - incident fixtures retain the reviewed windows and provenance
+  ---
+  duration_ms: 2.7089
+  type: 'test'
+  ...
+# Subtest: first snapshot: every retained filter action came from the local ad path
+ok 54 - first snapshot: every retained filter action came from the local ad path
+  ---
+  duration_ms: 2.1465
+  type: 'test'
+  ...
+# Subtest: later snapshot: the Reddit window matches the reviewed rule counts
+ok 55 - later snapshot: the Reddit window matches the reviewed rule counts
+  ---
+  duration_ms: 1.2289
+  type: 'test'
+  ...
+# Subtest: 2.1.1 snapshot: the picker session left one quarantinable rule and no filter actions
+ok 56 - 2.1.1 snapshot: the picker session left one quarantinable rule and no filter actions
+  ---
+  duration_ms: 0.9819
   type: 'test'
   ...
 # Subtest: 1. useful promotional project is kept
-ok 47 - 1. useful promotional project is kept
+ok 57 - 1. useful promotional project is kept
   ---
-  duration_ms: 1.4074
+  duration_ms: 1.6031
   type: 'test'
   ...
 # Subtest: 2. useful open-source release is kept
-ok 48 - 2. useful open-source release is kept
+ok 58 - 2. useful open-source release is kept
   ---
-  duration_ms: 0.1583
+  duration_ms: 0.2293
   type: 'test'
   ...
 # Subtest: 3. technical benchmark mentioning a product is kept
-ok 49 - 3. technical benchmark mentioning a product is kept
+ok 59 - 3. technical benchmark mentioning a product is kept
   ---
-  duration_ms: 0.1428
+  duration_ms: 0.1848
   type: 'test'
   ...
 # Subtest: 4. business case study is kept
-ok 50 - 4. business case study is kept
+ok 60 - 4. business case study is kept
   ---
-  duration_ms: 0.1112
+  duration_ms: 0.1415
   type: 'test'
   ...
 # Subtest: 5. obvious scam promotion is collapsed
-ok 51 - 5. obvious scam promotion is collapsed
+ok 61 - 5. obvious scam promotion is collapsed
   ---
-  duration_ms: 0.2083
+  duration_ms: 0.2698
   type: 'test'
   ...
 # Subtest: 6. engagement farming with no substance is dimmed or collapsed, never hidden when useful
-ok 52 - 6. engagement farming with no substance is dimmed or collapsed, never hidden when useful
+ok 62 - 6. engagement farming with no substance is dimmed or collapsed, never hidden when useful
   ---
-  duration_ms: 0.2234
+  duration_ms: 0.2814
   type: 'test'
   ...
 # Subtest: 7. substantive question is kept
-ok 53 - 7. substantive question is kept
+ok 63 - 7. substantive question is kept
   ---
-  duration_ms: 0.121
+  duration_ms: 0.1717
   type: 'test'
   ...
 # Subtest: 8. short ambiguous post is kept when evidence is thin
-ok 54 - 8. short ambiguous post is kept when evidence is thin
+ok 64 - 8. short ambiguous post is kept when evidence is thin
   ---
-  duration_ms: 0.1067
+  duration_ms: 0.1382
   type: 'test'
   ...
 # Subtest: 9. insufficient evidence keeps the post even with high noise signals
-ok 55 - 9. insufficient evidence keeps the post even with high noise signals
+ok 65 - 9. insufficient evidence keeps the post even with high noise signals
   ---
-  duration_ms: 0.1167
+  duration_ms: 0.4174
   type: 'test'
   ...
-# Subtest: 10. platform-labelled ads collapse locally
-ok 56 - 10. platform-labelled ads collapse locally
+# Subtest: 10. platform-labelled ads collapse locally only with verified evidence
+ok 66 - 10. platform-labelled ads collapse locally only with verified evidence
   ---
-  duration_ms: 0.1594
+  duration_ms: 1.1257
   type: 'test'
   ...
 # Subtest: 11. high useful plus high unwanted-ad signal stays visible
-ok 57 - 11. high useful plus high unwanted-ad signal stays visible
+ok 67 - 11. high useful plus high unwanted-ad signal stays visible
   ---
-  duration_ms: 0.1232
+  duration_ms: 0.2637
   type: 'test'
   ...
 # Subtest: 12. high original with moderate commercial signal stays visible
-ok 58 - 12. high original with moderate commercial signal stays visible
+ok 68 - 12. high original with moderate commercial signal stays visible
   ---
-  duration_ms: 0.248
+  duration_ms: 0.2302
   type: 'test'
   ...
 # Subtest: 13. high spam with sufficient evidence collapses over strong useful scores
-ok 59 - 13. high spam with sufficient evidence collapses over strong useful scores
+ok 69 - 13. high spam with sufficient evidence collapses over strong useful scores
   ---
-  duration_ms: 0.1512
+  duration_ms: 0.2983
   type: 'test'
   ...
 # Subtest: 14. high bait with high useful signal stays visible
-ok 60 - 14. high bait with high useful signal stays visible
+ok 70 - 14. high bait with high useful signal stays visible
   ---
-  duration_ms: 0.0925
+  duration_ms: 0.2668
   type: 'test'
   ...
 # Subtest: 15. quoted content remains separated in requests
-ok 61 - 15. quoted content remains separated in requests
+ok 71 - 15. quoted content remains separated in requests
   ---
-  duration_ms: 0.3145
+  duration_ms: 0.5337
   type: 'test'
   ...
 # Subtest: 16./17. recycled nodes and stale caches cannot reuse superseded judgments at the worker level
-ok 62 - 16./17. recycled nodes and stale caches cannot reuse superseded judgments at the worker level
+ok 72 - 16./17. recycled nodes and stale caches cannot reuse superseded judgments at the worker level
   ---
-  duration_ms: 27.8018
+  duration_ms: 30.4633
   type: 'test'
   ...
 # Subtest: 18. provider failure keeps the post visible and is recorded
-ok 63 - 18. provider failure keeps the post visible and is recorded
+ok 73 - 18. provider failure keeps the post visible and is recorded
   ---
-  duration_ms: 2.2042
+  duration_ms: 3.0056
   type: 'test'
   ...
 # Subtest: 19./20. authentication and rate-limit failures keep posts visible elsewhere
-ok 64 - 19./20. authentication and rate-limit failures keep posts visible elsewhere
+ok 74 - 19./20. authentication and rate-limit failures keep posts visible elsewhere
   ---
-  duration_ms: 4.9373
+  duration_ms: 6.5924
   type: 'test'
   ...
 # Subtest: 21. observe only plans actions without allowing modifications
-ok 65 - 21. observe only plans actions without allowing modifications
+ok 75 - 21. observe only plans actions without allowing modifications
   ---
-  duration_ms: 0.247
+  duration_ms: 0.4501
   type: 'test'
   ...
 # Subtest: 22. keep-this-post persists as an override after a worker restart
-ok 66 - 22. keep-this-post persists as an override after a worker restart
+ok 76 - 22. keep-this-post persists as an override after a worker restart
   ---
-  duration_ms: 127.7954
+  duration_ms: 131.3583
   type: 'test'
   ...
 # Subtest: 23. allowlisted authors bypass inference entirely
-ok 67 - 23. allowlisted authors bypass inference entirely
+ok 77 - 23. allowlisted authors bypass inference entirely
   ---
-  duration_ms: 1.8057
+  duration_ms: 1.9521
   type: 'test'
   ...
 # Subtest: 25. legacy worker settings migrate without reusing old thresholds
-ok 68 - 25. legacy worker settings migrate without reusing old thresholds
+ok 78 - 25. legacy worker settings migrate without reusing old thresholds
   ---
-  duration_ms: 1.3147
+  duration_ms: 1.9164
   type: 'test'
   ...
 # Subtest: promotion alone is never a hiding rule
-ok 69 - promotion alone is never a hiding rule
+ok 79 - promotion alone is never a hiding rule
   ---
-  duration_ms: 0.0972
+  duration_ms: 0.14
   type: 'test'
   ...
 # Subtest: spam versus usefulness conflicts are dimmed for review
-ok 70 - spam versus usefulness conflicts are dimmed for review
+ok 80 - spam versus usefulness conflicts are dimmed for review
   ---
-  duration_ms: 0.0779
+  duration_ms: 0.1169
   type: 'test'
   ...
 # Subtest: risk outranks usefulness and protection
-ok 71 - risk outranks usefulness and protection
+ok 81 - risk outranks usefulness and protection
   ---
-  duration_ms: 0.0585
+  duration_ms: 0.0868
   type: 'test'
   ...
 # Subtest: custom exclusion stays opt-in and overrides protection when enabled
-ok 72 - custom exclusion stays opt-in and overrides protection when enabled
+ok 82 - custom exclusion stays opt-in and overrides protection when enabled
   ---
-  duration_ms: 0.0974
+  duration_ms: 0.1375
   type: 'test'
   ...
 # Subtest: opened profiles soften semantic collapses but never local or risk rules
-ok 73 - opened profiles soften semantic collapses but never local or risk rules
+ok 83 - opened profiles soften semantic collapses but never local or risk rules
   ---
-  duration_ms: 0.2251
+  duration_ms: 0.2947
   type: 'test'
   ...
 # Subtest: truncated semantic content is dimmed rather than collapsed
-ok 74 - truncated semantic content is dimmed rather than collapsed
+ok 84 - truncated semantic content is dimmed rather than collapsed
   ---
-  duration_ms: 0.0802
+  duration_ms: 0.1042
   type: 'test'
   ...
 # Subtest: cache context sensitivity survives while decisions stay context-aware
-ok 75 - cache context sensitivity survives while decisions stay context-aware
+ok 85 - cache context sensitivity survives while decisions stay context-aware
   ---
-  duration_ms: 1.3215
+  duration_ms: 2.5899
+  type: 'test'
+  ...
+# Subtest: appendix B replay: R1 and R2 report truthful below-threshold reasons
+ok 86 - appendix B replay: R1 and R2 report truthful below-threshold reasons
+  ---
+  duration_ms: 0.2013
+  type: 'test'
+  ...
+# Subtest: appendix B replay: R3 and R4 report protection eligibility truthfully
+ok 87 - appendix B replay: R3 and R4 report protection eligibility truthfully
+  ---
+  duration_ms: 0.1306
+  type: 'test'
+  ...
+# Subtest: appendix B replay: R5 and R6 bait dims stay stable
+ok 88 - appendix B replay: R5 and R6 bait dims stay stable
+  ---
+  duration_ms: 0.1188
+  type: 'test'
+  ...
+# Subtest: raising useful or original never makes a weak noise action harsher
+ok 89 - raising useful or original never makes a weak noise action harsher
+  ---
+  duration_ms: 0.1346
+  type: 'test'
+  ...
+# Subtest: a runtime state written by 2.1.1 restores while older schemas are dropped
+ok 90 - a runtime state written by 2.1.1 restores while older schemas are dropped
+  ---
+  duration_ms: 155.7067
+  type: 'test'
+  ...
+# Subtest: cosmetic selector subset accepts scoped selectors and rejects unsafe syntax or protected roots
+ok 91 - cosmetic selector subset accepts scoped selectors and rejects unsafe syntax or protected roots
+  ---
+  duration_ms: 1.4541
+  type: 'test'
+  ...
+# Subtest: cosmetic rule sanitization pins identity, enums and safety checks
+ok 92 - cosmetic rule sanitization pins identity, enums and safety checks
+  ---
+  duration_ms: 0.558
+  type: 'test'
+  ...
+# Subtest: only active rules matching the host apply, and the master switch stops all of them
+ok 93 - only active rules matching the host apply, and the master switch stops all of them
+  ---
+  duration_ms: 1.492
+  type: 'test'
+  ...
+# Subtest: legacy settings migrate to HUD modes and quarantined cosmetic review
+ok 94 - legacy settings migrate to HUD modes and quarantined cosmetic review
+  ---
+  duration_ms: 0.5845
+  type: 'test'
+  ...
+# Subtest: record kinds and cache identity separate link cards from entries
+ok 95 - record kinds and cache identity separate link cards from entries
+  ---
+  duration_ms: 5.0182
+  type: 'test'
+  ...
+# Subtest: new recovery and rule error codes stay fixed and never echo raw text
+ok 96 - new recovery and rule error codes stay fixed and never echo raw text
+  ---
+  duration_ms: 0.1895
+  type: 'test'
+  ...
+# Subtest: Wykop is a first class beta site with bounded, reviewed boundaries
+ok 97 - Wykop is a first class beta site with bounded, reviewed boundaries
+  ---
+  duration_ms: 0.5183
+  type: 'test'
+  ...
+# Subtest: Wykop ad evidence can never become a verified local collapse
+ok 98 - Wykop ad evidence can never become a verified local collapse
+  ---
+  duration_ms: 0.4148
+  type: 'test'
+  ...
+# Subtest: rule lifecycle: add, edit, disable, delete, undo and revalidate
+ok 99 - rule lifecycle: add, edit, disable, delete, undo and revalidate
+  ---
+  duration_ms: 24.3155
+  type: 'test'
+  ...
+# Subtest: bulk cosmetic controls disable and delete without losing identity
+ok 100 - bulk cosmetic controls disable and delete without losing identity
+  ---
+  duration_ms: 2.9838
+  type: 'test'
+  ...
+# Subtest: stale revisions are rejected instead of overwriting newer settings
+ok 101 - stale revisions are rejected instead of overwriting newer settings
+  ---
+  duration_ms: 1.8021
+  type: 'test'
+  ...
+# Subtest: settings domains keep HUD, cosmetic and recovery revisions independent
+ok 102 - settings domains keep HUD, cosmetic and recovery revisions independent
+  ---
+  duration_ms: 2.6242
+  type: 'test'
+  ...
+# Subtest: recovery latches before cleanup and resume reports quarantined rules
+ok 103 - recovery latches before cleanup and resume reports quarantined rules
+  ---
+  duration_ms: 2.6449
+  type: 'test'
+  ...
+# Subtest: recovery pause is persisted even when a content script never acknowledges
+ok 104 - recovery pause is persisted even when a content script never acknowledges
+  ---
+  duration_ms: 1504.0592
+  type: 'test'
+  ...
+# Subtest: reload with filtering paused refuses private routes and latches first
+ok 105 - reload with filtering paused refuses private routes and latches first
+  ---
+  duration_ms: 2.4278
+  type: 'test'
+  ...
+# Subtest: cosmetic events are counted and reject unknown kinds
+ok 106 - cosmetic events are counted and reject unknown kinds
+  ---
+  duration_ms: 2.4376
+  type: 'test'
+  ...
+# Subtest: site status reports honest reasons, revisions and effective flags
+ok 107 - site status reports honest reasons, revisions and effective flags
+  ---
+  duration_ms: 5.5999
+  type: 'test'
+  ...
+# Subtest: exports are v4 while imports re-quarantine unverified rules and reject v1
+ok 108 - exports are v4 while imports re-quarantine unverified rules and reject v1
+  ---
+  duration_ms: 1.6194
+  type: 'test'
+  ...
+# Subtest: history window reports retained and dropped while counters keep counting
+ok 109 - history window reports retained and dropped while counters keep counting
+  ---
+  duration_ms: 70.9987
+  type: 'test'
+  ...
+# Subtest: a fresh content script hears recovery state and clears the refresh flag once
+ok 110 - a fresh content script hears recovery state and clears the refresh flag once
+  ---
+  duration_ms: 1.4493
   type: 'test'
   ...
 # Subtest: worker initialization restricts both storage areas to trusted contexts
-ok 76 - worker initialization restricts both storage areas to trusted contexts
+ok 111 - worker initialization restricts both storage areas to trusted contexts
   ---
-  duration_ms: 19.7533
+  duration_ms: 19.3774
   type: 'test'
   ...
 # Subtest: web content cannot read status/secrets or write credentials/settings
-ok 77 - web content cannot read status/secrets or write credentials/settings
+ok 112 - web content cannot read status/secrets or write credentials/settings
   ---
-  duration_ms: 3.0875
+  duration_ms: 4.2722
   type: 'test'
   ...
 # Subtest: foreign extensions and subframes cannot use inference proxy
-ok 78 - foreign extensions and subframes cannot use inference proxy
+ok 113 - foreign extensions and subframes cannot use inference proxy
   ---
-  duration_ms: 1.6285
+  duration_ms: 2.3548
   type: 'test'
   ...
 # Subtest: missing opt-in or key does not call API
-ok 79 - missing opt-in or key does not call API
+ok 114 - missing opt-in or key does not call API
   ---
-  duration_ms: 6.6561
+  duration_ms: 7.2831
   type: 'test'
   ...
 # Subtest: site enabling requires granted optional host permission
-ok 80 - site enabling requires granted optional host permission
+ok 115 - site enabling requires granted optional host permission
   ---
-  duration_ms: 1.0387
+  duration_ms: 1.1579
   type: 'test'
   ...
 # Subtest: enabled site registers only isolated, top-frame, local content scripts
-ok 81 - enabled site registers only isolated, top-frame, local content scripts
+ok 116 - enabled site registers only isolated, top-frame, local content scripts
   ---
-  duration_ms: 0.9824
+  duration_ms: 1.4631
   type: 'test'
   ...
 # Subtest: successful inference uses correct API schema and does not retain raw post text
-ok 82 - successful inference uses correct API schema and does not retain raw post text
+ok 117 - successful inference uses correct API schema and does not retain raw post text
   ---
-  duration_ms: 128.0952
+  duration_ms: 136.9629
   type: 'test'
   ...
 # Subtest: simultaneous identical inference is coalesced; later reads use cache
-ok 83 - simultaneous identical inference is coalesced; later reads use cache
+ok 118 - simultaneous identical inference is coalesced; later reads use cache
   ---
-  duration_ms: 44.153
+  duration_ms: 47.5198
   type: 'test'
   ...
 # Subtest: changing policy reuses probabilities, but changing rubric input calls API
-ok 84 - changing policy reuses probabilities, but changing rubric input calls API
+ok 119 - changing policy reuses probabilities, but changing rubric input calls API
   ---
-  duration_ms: 3.2
+  duration_ms: 5.0885
   type: 'test'
   ...
 # Subtest: cache can be disabled for every new observation
-ok 85 - cache can be disabled for every new observation
+ok 120 - cache can be disabled for every new observation
   ---
-  duration_ms: 2.9234
+  duration_ms: 3.3826
   type: 'test'
   ...
 # Subtest: bounded concurrency and atomic daily budget under parallel load
-ok 86 - bounded concurrency and atomic daily budget under parallel load
+ok 121 - bounded concurrency and atomic daily budget under parallel load
   ---
-  duration_ms: 71.3894
+  duration_ms: 88.7612
   type: 'test'
   ...
 # Subtest: 401 marks authentication rejected until key replacement without retry storm
-ok 87 - 401 marks authentication rejected until key replacement without retry storm
+ok 122 - 401 marks authentication rejected until key replacement without retry storm
   ---
-  duration_ms: 4.3818
+  duration_ms: 4.4464
   type: 'test'
   ...
 # Subtest: 429 enters shared cooldown without hiding or automatic retry
-ok 88 - 429 enters shared cooldown without hiding or automatic retry
+ok 123 - 429 enters shared cooldown without hiding or automatic retry
   ---
-  duration_ms: 2.3112
+  duration_ms: 2.7821
   type: 'test'
   ...
 # Subtest: malformed API results fail open and are not cached
-ok 89 - malformed API results fail open and are not cached
+ok 124 - malformed API results fail open and are not cached
   ---
-  duration_ms: 2.4608
+  duration_ms: 4.723
   type: 'test'
   ...
 # Subtest: private route in sender or current tab is blocked before HTTP
-ok 90 - private route in sender or current tab is blocked before HTTP
+ok 125 - private route in sender or current tab is blocked before HTTP
   ---
-  duration_ms: 1.192
+  duration_ms: 1.245
   type: 'test'
   ...
 # Subtest: privacy revocation aborts running requests and leaves semantic content visible
-ok 91 - privacy revocation aborts running requests and leaves semantic content visible
+ok 126 - privacy revocation aborts running requests and leaves semantic content visible
   ---
-  duration_ms: 22.3333
+  duration_ms: 16.591
   type: 'test'
   ...
 # Subtest: lock cancels active and queued work; no key returned in status
-ok 92 - lock cancels active and queued work; no key returned in status
+ok 127 - lock cancels active and queued work; no key returned in status
   ---
-  duration_ms: 15.0661
+  duration_ms: 14.6834
   type: 'test'
   ...
 # Subtest: lock supersedes slow encryption and cannot be undone by its late completion
-ok 93 - lock supersedes slow encryption and cannot be undone by its late completion
+ok 128 - lock supersedes slow encryption and cannot be undone by its late completion
   ---
-  duration_ms: 69.7982
+  duration_ms: 79.2855
   type: 'test'
   ...
 # Subtest: encrypted vault unlock, wrong-pass rejection and forgetting
-ok 94 - encrypted vault unlock, wrong-pass rejection and forgetting
+ok 129 - encrypted vault unlock, wrong-pass rejection and forgetting
   ---
-  duration_ms: 206.66
+  duration_ms: 215.9709
   type: 'test'
   ...
 # Subtest: browser-restart simulation retains only encrypted vault, not a usable key
-ok 95 - browser-restart simulation retains only encrypted vault, not a usable key
+ok 130 - browser-restart simulation retains only encrypted vault, not a usable key
   ---
-  duration_ms: 69.7343
+  duration_ms: 74.1353
   type: 'test'
   ...
 # Subtest: worker-restart simulation restores session key and cached results
-ok 96 - worker-restart simulation restores session key and cached results
+ok 131 - worker-restart simulation restores session key and cached results
   ---
-  duration_ms: 138.9188
+  duration_ms: 126.3953
   type: 'test'
   ...
 # Subtest: settings export never contains key/vault; import requires fresh permissions and consent
-ok 97 - settings export never contains key/vault; import requires fresh permissions and consent
+ok 132 - settings export never contains key/vault; import requires fresh permissions and consent
   ---
-  duration_ms: 1.4301
+  duration_ms: 1.8595
   type: 'test'
   ...
 # Subtest: author allowlist restores locally without further model requests
-ok 98 - author allowlist restores locally without further model requests
+ok 133 - author allowlist restores locally without further model requests
   ---
-  duration_ms: 1.6223
+  duration_ms: 4.2671
   type: 'test'
   ...
 # Subtest: element picker may add only a selector for its actual sender host
-ok 99 - element picker may add only a selector for its actual sender host
+ok 134 - element picker may add only a selector for its actual sender host
   ---
-  duration_ms: 1.5663
+  duration_ms: 2.2036
   type: 'test'
   ...
-1..99
-# tests 99
+# Subtest: verified platform ad evidence collapses locally without any provider request
+ok 135 - verified platform ad evidence collapses locally without any provider request
+  ---
+  duration_ms: 1.9766
+  type: 'test'
+  ...
+# Subtest: a legacy boolean sponsored flag cannot trigger local hiding and goes through Jev
+ok 136 - a legacy boolean sponsored flag cannot trigger local hiding and goes through Jev
+  ---
+  duration_ms: 2.331
+  type: 'test'
+  ...
+# Subtest: config responses carry the release version so a stale content script can detect an update
+ok 137 - config responses carry the release version so a stale content script can detect an update
+  ---
+  duration_ms: 0.935
+  type: 'test'
+  ...
+# Subtest: runtime state written by an older schema is dropped, not replayed
+ok 138 - runtime state written by an older schema is dropped, not replayed
+  ---
+  duration_ms: 0.8078
+  type: 'test'
+  ...
+# Subtest: session history is a bounded window while counters keep counting
+ok 139 - session history is a bounded window while counters keep counting
+  ---
+  duration_ms: 225.8227
+  type: 'test'
+  ...
+1..139
+# tests 139
 # suites 0
-# pass 99
+# pass 139
 # fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 961.5925
+# duration_ms 1813.4132

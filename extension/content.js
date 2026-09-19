@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Original implementation inspired by uBlock Origin's separation of DOM watching,
  * cosmetic filtering and per-site switches. No uBlock code or filter lists are bundled.
+ *
+ * v3 controller: one document generation owns exactly one observer pair, one
+ * cosmetic lifecycle and one HUD host. Status visibility is independent from
+ * filtering: hiding the panel never pauses the engine.
  */
 (() => {
   'use strict';
@@ -12,11 +16,17 @@
   if (!site) return;
   let settings=C.clone(C.DEFAULTS),enabled=false,epoch=0,lastURL=location.href;
   let observer=null,intersection=null,scanTimer=null,configSerial=0;
-  let pickerCleanup=null,reportTimer=null,hud=null,hudText=null,keyReady=false;
-  let detectedTotal=0,sweepTicks=0;
+  let pickerCleanup=null,reportTimer=null,hud=null,hudRoot=null,hudText=null,keyReady=false;
+  let detectedTotal=0,sweepTicks=0,staleVersion=false,recoveryPaused=false,revealAll=false;
+  let pendingCosmeticValidate=new Set(),quarantinedRules=new Set();
+  let scansCoalesced=0,ignoredSelfMutations=0,noopApplications=0,selfWrites=0;
+  let breakerUntil=0,breakerTrips=0,selfWriteWindow=[];
+  let toast=null,toastTimer=null,lastCommittedRule=null;
+  const cosmetic={applied:0,restored:0,rejected:0};
   const states=new Map(),roots=new Set();
   let lastError=null;
-  const own=n=>n instanceof Element && (n.matches('feedgate-card,[data-fg-ui]')||!!n.closest('feedgate-card,[data-fg-ui]'));
+  const INTERNAL_MARKER='feedgate-internal-element';
+  const own=n=>n instanceof Element && (n.matches('feedgate-card,feedgate-status,feedgate-toast,[data-fg-ui]')||!!n.closest('feedgate-card,feedgate-status,feedgate-toast,[data-fg-ui]'));
   async function send(type,data={}) {
     const response=await chrome.runtime.sendMessage({type,...data});
     if (!response?.ok) throw new Error(response?.error?.code||'INTERNAL_ERROR');
@@ -28,24 +38,86 @@
     if (cls) n.className=cls;
     return n;
   }
-  function restore(state) {
-    const el=state.el;
-    if (state.original) {
-      for (const key of ['display','opacity']) {
-        if (state.changed?.[key] && el.style.getPropertyValue(key)===state.changed[key]) {
-          const old=state.original[key];
-          if(old.value)el.style.setProperty(key,old.value,old.priority);else el.style.removeProperty(key);
-        }
-      }
-      if (state.changed?.aria && el.getAttribute('aria-hidden')==='true') {
-        if(state.original.aria===null)el.removeAttribute('aria-hidden');else el.setAttribute('aria-hidden',state.original.aria);
-      }
+  function selfWrite() {
+    const now=Date.now();
+    selfWrites++;
+    selfWriteWindow.push(now);
+    if(selfWriteWindow.length>400)selfWriteWindow=selfWriteWindow.filter(t=>now-t<4000);
+    if(breakerUntil&&now>breakerUntil)breakerUntil=0;
+    if(!breakerUntil&&selfWriteWindow.filter(t=>now-t<2000).length>90){
+      // Bounded circuit breaker: our own writes are not converging. Stop
+      // cosmetic application for this site, keep the engine and recovery reachable.
+      breakerUntil=now+30000;breakerTrips++;
+      cosmeticPause=now+30000;
+      send('FG_COSMETIC_EVENT',{kind:'breaker',ruleRef:null,reason:'self_write_rate',candidateAction:null,appliedAction:null}).catch(()=>{});
+      for(const state of states.values())reapply(state);
+      report();
     }
-    state.placeholder?.remove();state.placeholder=null;state.original=null;state.changed=null;
-    el.removeAttribute('data-fg-action');
+  }
+  let cosmeticPause=0;
+  function restoreProp(el,key,original) {
+    if(original&&original.value)el.style.setProperty(key,original.value,original.priority);
+    else el.style.removeProperty(key);
+  }
+  function ensureOriginal(state) {
+    if(state.original)return;
+    const el=state.el;
+    state.original={display:{value:el.style.getPropertyValue('display'),priority:el.style.getPropertyPriority('display')},opacity:{value:el.style.getPropertyValue('opacity'),priority:el.style.getPropertyPriority('opacity')},aria:el.getAttribute('aria-hidden')};
+    state.writes={display:false,opacity:false,aria:false};
+  }
+  function computeAction(state) {
+    if(state.revealed||revealAll)return 'allow';
+    if(!enabled)return 'allow';
+    let action='allow';
+    const decision=state.decision;
+    if(decision&&decision.source!=='cosmetic'){
+      if(decision.action==='collapse')action='collapse';
+      else if(decision.action==='dim')action='dim';
+    }
+    if(state.cosmetic?.size&&Date.now()>=cosmeticPause)action='collapse';
+    return action;
+  }
+  function applyAction(state,action) {
+    const el=state.el;
+    if(!el.isConnected)return;
+    const previous=state.appliedAction;
+    ensureOriginal(state);
+    if(action==='allow'){
+      if(state.writes.display){restoreProp(el,'display',state.original.display);state.writes.display=false;selfWrite();}
+      if(state.writes.opacity){restoreProp(el,'opacity',state.original.opacity);state.writes.opacity=false;selfWrite();}
+      if(state.writes.aria){if(state.original.aria===null)el.removeAttribute('aria-hidden');else el.setAttribute('aria-hidden',state.original.aria);state.writes.aria=false;selfWrite();}
+      el.removeAttribute('data-fg-action');
+    } else {
+      if(action==='collapse'){
+        if(state.writes.opacity){restoreProp(el,'opacity',state.original.opacity);state.writes.opacity=false;selfWrite();}
+        if(!state.writes.display){el.style.setProperty('display','none','important');state.writes.display=true;selfWrite();}
+        if(!state.writes.aria){el.setAttribute('aria-hidden','true');state.writes.aria=true;selfWrite();}
+      } else {
+        if(state.writes.display){restoreProp(el,'display',state.original.display);state.writes.display=false;selfWrite();}
+        if(!state.writes.opacity){el.style.setProperty('opacity','0.28','important');state.writes.opacity=true;selfWrite();}
+      }
+      el.setAttribute('data-fg-action',action);
+    }
+    if(state.cosmetic?.size&&action!=='allow'&&previous!=='collapse')cosmetic.applied++;
+    if(state.cosmetic?.size&&action==='allow'&&previous&&previous!=='allow')cosmetic.restored++;
+    state.appliedAction=action;
+  }
+  function reapply(state) {
+    const action=computeAction(state);
+    if(action===state.appliedAction){noopApplications++;return;}
+    applyAction(state,action);
+    updateCard(state,action);
+  }
+  function restore(state) {
+    state.revealed=true;
+    applyAction(state,'allow');
+    removeCard(state);
+    state.appliedAction='allow';
   }
   function pageState() {
     if(!demo&&C.isPrivateRoute(location.href))return 'private';
+    if(staleVersion)return 'stale';
+    if(recoveryPaused)return 'recovery';
     if(!settings.enabled)return 'paused';
     if(!demo&&!settings.sites.includes(site))return 'site-off';
     if(!settings.consent)return 'no-consent';
@@ -53,10 +125,11 @@
     return lastError?'error':'ready';
   }
   function stats() {
-    let collapsed=0,dimmed=0,pending=0,observed=0,completed=0,kept=0,protectedCount=0,errors=0;
+    let collapsed=0,dimmed=0,pending=0,observed=0,completed=0,kept=0,protectedCount=0,errors=0,cosmeticHidden=0;
     for(const s of states.values())if(s.el.isConnected){
       if(s.el.getAttribute('data-fg-action')==='collapse')collapsed++;
       if(s.el.getAttribute('data-fg-action')==='dim')dimmed++;
+      if(s.cosmetic?.size)cosmeticHidden++;
       if(s.pending)pending++;
       if(s.record?.text||s.record?.sponsored||s.record?.mediaAlt)observed++;
       if(s.completed)completed++;
@@ -64,24 +137,82 @@
       if(s.decision?.protected)protectedCount++;
       if(s.error)errors++;
     }
-    return {collapsed,dimmed,pending,observed,completed,kept,protected:protectedCount,errors,detectedTotal,enabled,site,lastError,state:pageState()};
+    return {collapsed,dimmed,pending,observed,completed,kept,protected:protectedCount,errors,detectedTotal,enabled,site,lastError,
+      state:pageState(),hudMode:settings.hudMode,hudPresent:!!hud,controllerCount:1,
+      cosmeticApplied:cosmetic.applied,cosmeticRestored:cosmetic.restored,cosmeticRejected:cosmetic.rejected,
+      breakerActivations:breakerTrips,scansCoalesced,ignoredSelfMutations,noopApplications,
+      cosmeticHidden,recoveryPaused,heartbeatAt:Date.now()};
+  }
+  function hudLabel(s) {
+    const labels={ready:settings.mode==='observe'?'Observe only':'Running',paused:'Paused',locked:'Key locked: open settings',
+      'no-consent':'Local ads only: cloud consent off',error:'Check diagnostics',private:'Private route','site-off':'Site off',
+      stale:'Extension updated: reload this page',recovery:'Filtering paused for this site'};
+    return labels[s.state]||'Running';
+  }
+  function persistHudMode(mode) {
+    settings.hudMode=mode;
+    send('FG_PATCH_SETTINGS',{patch:{hudMode:mode},domain:'ui',expect:settings.revisions?.ui}).catch(()=>{});
+    updateHUD(stats());
   }
   function updateHUD(s) {
-    if(demo||!settings.showStatus||s.state==='private'||s.state==='site-off'){hud?.remove();hud=null;return;}
+    if(demo||s.state==='private'||s.state==='site-off'){hud?.remove();hud=null;hudRoot=null;return;}
+    const wantHidden=settings.hudMode==='hidden'&&s.state!=='recovery';
+    if(wantHidden){if(hud){hud.remove();hud=null;hudRoot=null;}return;}
     if(!hud||!hud.isConnected) {
       hud=document.createElement('feedgate-status');hud.setAttribute('data-fg-ui','');
       hud.style.cssText='position:fixed!important;bottom:14px!important;left:14px!important;z-index:2147483646!important;display:block!important';
       const shadow=hud.attachShadow({mode:'open'}),style=make('style');
-      style.textContent=':host{all:initial;color-scheme:dark}button{border:1px solid #344d40;border-radius:9px;background:#17221c;color:#def0dc;box-shadow:0 3px 18px #0003;padding:9px 12px;cursor:pointer;font:12px/1.4 system-ui;max-width:min(390px,85vw);text-align:left}button:focus-visible{outline:2px solid #c6fa8c;outline-offset:3px}strong{color:#ccfa92}span{display:block;color:#acbcad;font-size:11px;margin-top:2px}';
-      const b=make('button');b.type='button';b.title='Open FeedGate settings and diagnostics';
-      const title=make('strong','FeedGate 2.1');hudText=make('span');
-      b.append(title,hudText);b.addEventListener('click',ev=>{if(ev.isTrusted)send('FG_OPEN_SETTINGS_FROM_PAGE').catch(()=>{});});
-      shadow.append(style,b);document.documentElement.append(hud);
+      style.textContent=':host{all:initial;color-scheme:light dark}.pill{border:1px solid #344d40;border-radius:999px;background:#17221c;color:#def0dc;box-shadow:0 3px 18px #0003;padding:6px 11px;cursor:pointer;font:12px/1.4 system-ui}.pill:focus-visible{outline:2px solid #c6fa8c;outline-offset:3px}.panel{border:1px solid #344d40;border-radius:10px;background:#17221c;color:#def0dc;box-shadow:0 4px 22px #0004;padding:10px 12px;font:12px/1.5 system-ui;max-width:min(400px,88vw)}.panel header{display:flex;align-items:center;gap:6px}.panel strong{color:#ccfa92;flex:1}.panel button{font:inherit;color:#def0dc;background:#233227;border:1px solid #3d5745;border-radius:6px;padding:3px 8px;cursor:pointer}.panel button:hover{background:#2f4536}.panel button:focus-visible{outline:2px solid #c6fa8c;outline-offset:2px}.state{margin-top:7px;color:#acbcad}.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.hint{margin-top:7px;color:#8fa08e;font-size:11px}';
+      hudRoot=make('div');shadow.append(style,hudRoot);document.documentElement.append(hud);
     }
-    const labels={ready:settings.mode==='observe'?'Observe only':'Running',paused:'Paused',locked:'Key locked: open settings',
-      'no-consent':'Local ads only: cloud consent off',error:'Check diagnostics',private:'Private route','site-off':'Site off'};
-    hudText.textContent=`${labels[s.state]} · ${s.observed} detected · ${s.collapsed+s.dimmed} filtered · ${s.pending} pending`;
+    const label=hudLabel(s);
+    hudText=`${label} · ${s.observed} detected · ${s.collapsed+s.dimmed+(s.cosmeticHidden||0)} filtered · ${s.pending} pending`;
+    if(settings.hudMode==='compact'&&s.state!=='recovery') {
+      hudRoot.textContent='';
+      const pill=make('button',`● FeedGate · ${label} · ${s.collapsed+s.dimmed+(s.cosmeticHidden||0)} filtered`,'pill');
+      pill.title='FeedGate 3.0.0 status. Open the panel.';
+      pill.addEventListener('click',ev=>{if(ev.isTrusted)persistHudMode('expanded');});
+      hudRoot.append(pill);
+      return;
+    }
+    hudRoot.textContent='';
+    const panel=make('div',undefined,'panel'),header=make('header');
+    const title=make('strong','FeedGate 3.0.0');
+    const minimize=make('button','–');minimize.title='Minimize to a small status pill';
+    const close=make('button','×');close.title='Hide status. Filtering continues.';
+    minimize.addEventListener('click',ev=>{if(ev.isTrusted)persistHudMode('compact');});
+    close.addEventListener('click',ev=>{if(ev.isTrusted)persistHudMode('hidden');});
+    header.append(title,minimize,close);
+    const line=make('div',hudText,'state');
+    panel.append(header,line);
+    const actions=make('div',undefined,'actions');
+    if(s.state==='recovery'){
+      const resume=make('button','Resume this site');
+      resume.addEventListener('click',async ev=>{
+        if(!ev.isTrusted)return;
+        try{await send('FG_RESUME_SITE',{site,expect:settings.revisions?.recovery});}
+        catch(error){showToast(C.userError(error).message);}
+      });
+      actions.append(resume);
+    } else {
+      const showAll=make('button','Show all');
+      showAll.addEventListener('click',ev=>{if(!ev.isTrusted)return;for(const st of states.values()){st.revealed=true;applyAction(st,'allow');}removeCardForAll();report();});
+      const pause=make('button',settings.enabled?'Pause filtering':'Resume filtering');
+      pause.addEventListener('click',ev=>{
+        if(!ev.isTrusted)return;
+        send('FG_PATCH_SETTINGS',{patch:{enabled:!settings.enabled},domain:'settings',expect:settings.revisions?.settings}).catch(error=>showToast(C.userError(error).message));
+      });
+      const pick=make('button','Pick element');
+      pick.addEventListener('click',ev=>{if(ev.isTrusted)startPicker();});
+      const open=make('button','Settings');
+      open.addEventListener('click',ev=>{if(ev.isTrusted)send('FG_OPEN_SETTINGS_FROM_PAGE').catch(()=>{});});
+      actions.append(showAll,pause,pick,open);
+    }
+    panel.append(actions);
+    panel.append(make('div','Hiding this panel does not pause filtering.','hint'));
+    hudRoot.append(panel);
   }
+  function removeCardForAll(){for(const state of states.values())removeCard(state);}
   function report() {
     if(reportTimer)return;
     reportTimer=setTimeout(()=>{
@@ -89,48 +220,61 @@
       if(!demo)send('FG_PAGE_STATS',{stats:s}).catch(()=>{});
     },200);
   }
-  function render(state,decision) {
-    if (!state.el.isConnected) return;
-    restore(state);
-    state.decision=decision;
-    if (state.revealed || !enabled || decision.action==='allow') {report();return;}
+  function removeCard(state) {
+    state.placeholder?.remove();state.placeholder=null;state.cardSignature=null;
+  }
+  function cardNote(decision,cosmeticOwned) {
+    if(cosmeticOwned)return 'User cosmetic rule: Hidden by your cosmetic filter';
+    if(settings.mode==='observe'&&decision.wouldAction)return `Observe Only: Would ${decision.wouldAction==='collapse'?'hide':'dim'}; content left unchanged`;
+    if(decision.source==='cosmetic')return 'User cosmetic rule: Hidden by your cosmetic filter';
+    if(decision.source==='local')return 'Verified platform placement: Platform-labelled ad';
+    const label=C.CATEGORIES?.[decision.category]?.label||(decision.rule==='manipulative_bait'?'Manipulative engagement bait':'Filtered by policy');
+    return 'Semantic filter: '+label;
+  }
+  function updateCard(state,action) {
+    const decision=state.decision||{};
+    const observeNote=settings.mode==='observe'&&decision.wouldAction;
+    const cosmeticOwned=action!=='allow'&&(state.cosmetic?.size||0)>0;
+    const show=action!=='allow'||observeNote;
+    if(!show||!state.el.isConnected){removeCard(state);return;}
+    const signature=`${action}|${decision.source}|${decision.rule}|${decision.category}|${observeNote?'o':''}|${state.cosmetic?.size||0}|${state.revealed?'r':''}|${cosmeticOwned?'c':''}`;
+    if(state.cardSignature===signature&&state.placeholder?.isConnected)return;
+    removeCard(state);
     const el=state.el;
-    state.original={display:{value:el.style.getPropertyValue('display'),priority:el.style.getPropertyPriority('display')},opacity:{value:el.style.getPropertyValue('opacity'),priority:el.style.getPropertyPriority('opacity')},aria:el.getAttribute('aria-hidden')};
-    state.changed={};
-    if(decision.action==='collapse'){
-      el.style.setProperty('display','none','important');state.changed.display='none';
-      el.setAttribute('aria-hidden','true');state.changed.aria=true;
-    }else{el.style.setProperty('opacity','0.28','important');state.changed.opacity='0.28';}
-    el.setAttribute('data-fg-action',decision.action);
     const host=document.createElement('feedgate-card');
     host.setAttribute('data-fg-ui','');host.style.setProperty('display','block','important');
     const shadow=host.attachShadow({mode:'open'});
     const style=make('style');
     style.textContent=`:host{all:initial;display:block;color-scheme:light dark}*{box-sizing:border-box}.card{margin:7px 0;padding:11px 14px;border:1px solid #b8c5b7;border-left:3px solid #6f8e60;border-radius:7px;background:#f1f3ed;color:#20291f;font:12px/1.5 system-ui,sans-serif}.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.mark{font-weight:800;letter-spacing:.04em}.note{flex:1;min-width:120px;color:#50604c}button{font:inherit;font-weight:650;color:#223020;background:#fff;border:1px solid #c6cec1;border-radius:5px;padding:4px 9px;cursor:pointer}button:hover{background:#e2ebd9}button:focus-visible{outline:2px solid #40712b;outline-offset:2px}.details{margin-top:9px;border-top:1px solid #d2dbcb;padding-top:8px}.details[hidden]{display:none}.score{display:flex;gap:8px;justify-content:space-between}.small{font-size:11px;color:#596b52;margin-top:6px}@media(prefers-color-scheme:dark){.card{background:#18211b;color:#e5eddc;border-color:#425040}.note,.small{color:#abbda2}button{background:#263327;color:#e4efd9;border-color:#455a43}button:hover{background:#354833}}`;
     const card=make('div',undefined,'card'),row=make('div',undefined,'row');
-    row.append(make('span','FeedGate','mark'),make('span',decision.action==='collapse'?'Post collapsed':(decision.conflict?'Post dimmed for review':'Post dimmed'),'note'));
-    const show=make('button','Show'),why=make('button','Why?');
+    row.append(make('span','FeedGate','mark'),make('span',cardNote(decision,cosmeticOwned),'note'));
+    const showBtn=make('button','Show'),why=make('button','Why?');
     const details=make('div',undefined,'details');details.hidden=true;
-    details.append(make('div',decision.reason));
+    details.append(make('div',decision.reason||'Filtered.'));
+    if(cosmeticOwned){
+      details.append(make('div','A rule you created with the element picker hides this element. Manage it in FeedGate settings under My cosmetic filters.','small'));
+    }
+    if(decision.adEvidence?.status==='verified')details.append(make('div',`Verified platform ad label (${decision.adEvidence.markerKind||'unknown'}).`,'small'));
+    if(decision.protectionEligible===true&&decision.protected!==true)details.append(make('div','Useful-content signals were present; protection is switched off in settings.','small'));
     if(decision.conflict)details.append(make('div','Useful-content signals were also present, so this post is dimmed for review instead of hidden.','small'));
     if(decision.scores) for(const [key,value] of Object.entries(decision.scores)) {
       const title=C.SIGNALS[key];
       if(!title)continue;
       const item=make('div',undefined,'score');item.append(make('span',title),make('strong',`${Math.round(value*100)}%`));details.append(item);
     }
-    details.append(make('div','Model estimates, not verified facts or bot identity. High information value does not establish truth.','small'));
-    if(state.record&&!state.manualReason) {
+    if(decision.scores)details.append(make('div','Model estimates, not verified facts or bot identity. High information value does not establish truth.','small'));
+    if(state.record&&!cosmeticOwned&&decision.source!=='cosmetic') {
       const keep=make('button','Keep this post');
       keep.addEventListener('click',async ev=>{
         if(!ev.isTrusted)return;keep.disabled=true;
-        try {await send('FG_KEEP_POST',{record:state.record});state.revealed=true;restore(state);report();}
+        try {await send('FG_KEEP_POST',{record:state.record});state.revealed=true;applyAction(state,'allow');removeCard(state);report();}
         catch(error){details.append(make('div',C.userError(error).message));keep.disabled=false;}
       });details.append(keep);
     }
-    show.addEventListener('click',ev=>{if(!ev.isTrusted)return;state.revealed=true;restore(state);report();});
+    showBtn.addEventListener('click',ev=>{if(!ev.isTrusted)return;state.revealed=true;applyAction(state,'allow');removeCard(state);report();});
     why.addEventListener('click',ev=>{if(!ev.isTrusted)return;details.hidden=!details.hidden;});
-    row.append(show,why);
-    if(state.record?.author && !demo){
+    row.append(showBtn,why);
+    if(state.record?.author&&!demo&&!cosmeticOwned&&decision.source!=='cosmetic'){
       const allow=make('button','Allow author');
       allow.addEventListener('click',async ev=>{
         if(!ev.isTrusted)return;allow.disabled=true;
@@ -139,7 +283,7 @@
       });row.append(allow);
     }
     card.append(row,details);shadow.append(style,card);
-    el.before(host);state.placeholder=host;report();
+    el.before(host);state.placeholder=host;state.cardSignature=signature;report();
   }
   function nearViewport(el) {
     const r=el.getBoundingClientRect();
@@ -147,7 +291,13 @@
   }
   function process(state) {
     if(!enabled || state.revealed || state.pending || !state.visible || !state.el.isConnected)return;
-    if(state.manualReason){render(state,{action:settings.mode==='observe'?'allow':'collapse',reason:state.manualReason,source:'cosmetic'});return;}
+    if(state.cosmetic?.size){
+      const action=computeAction(state);
+      applyAction(state,action);
+      updateCard(state,action);
+      report();
+      return;
+    }
     if(state.completed)return;
     const r=state.record;
     if(!r)return;
@@ -173,85 +323,181 @@
       render(state,C.decide(r,null,settings));
     }).finally(()=>{if(stamp===epoch&&token===state.token){state.pending=false;report();}});
   }
-  function ensure(el,manualReason=null,manualSelector=null) {
+  function render(state,decision) {
+    if (!state.el.isConnected) return;
+    state.decision=decision;
+    const action=computeAction(state);
+    applyAction(state,action);
+    updateCard(state,action);
+    report();
+  }
+  function ensure(el,cosmeticRules=null) {
     if(!enabled||!el.isConnected||A.privateElement(el)||own(el))return;
     let record=A.extract(el,site);
-    if(!record && !manualReason)return;
-    if(!record)record={site,id:'local-rule',author:'',text:'',mediaAlt:'',sponsored:false,linkDomains:[]};
-    const snapshot=JSON.stringify(record);
+    if(!record&&!cosmeticRules?.length)return;
+    if(!record)record={site,id:'local-rule',author:'',text:'',mediaAlt:'',quotedText:'',sponsored:false,linkDomains:[],context:'feed',kind:'post',adEvidence:null};
     let state=states.get(el);
+    const snapshot=JSON.stringify(record);
     if(state&&state.snapshot!==snapshot){
-      restore(state);state.token++;state.record=record;state.snapshot=snapshot;state.pending=false;state.completed=false;state.revealed=false;state.result=null;state.error=null;
+      applyAction(state,'allow');removeCard(state);
+      state.token++;state.record=record;state.snapshot=snapshot;state.pending=false;state.completed=false;state.revealed=false;state.result=null;state.error=null;state.appliedAction=null;
     }
     if(!state){
       if(states.size>=1500){
         const old=[...states.values()].find(s=>!s.el.isConnected||!nearViewport(s.el));
-        if(old){restore(old);intersection?.unobserve(old.el);states.delete(old.el);}else return;
+        if(old){applyAction(old,'allow');removeCard(old);intersection?.unobserve(old.el);states.delete(old.el);}else return;
       }
-      state={el,record,snapshot,token:0,pending:false,completed:false,revealed:false,result:null,visible:nearViewport(el),manualReason:null,manualSelector:null};
+      state={el,record,snapshot,token:0,pending:false,completed:false,revealed:false,result:null,visible:nearViewport(el),cosmetic:new Map(),appliedAction:null,decision:null,placeholder:null,original:null,writes:null};
       states.set(el,state);detectedTotal++;intersection?.observe(el);
     }
-    if(manualReason){
-      if(state.manualReason!==manualReason||state.manualSelector!==manualSelector){
-        state.token++;state.pending=false;state.completed=false;
-      }
-      state.manualReason=manualReason;state.manualSelector=manualSelector;state.visible=true;
+    if(cosmeticRules?.length){
+      for(const rule of cosmeticRules)state.cosmetic.set(rule.id,rule);
+      state.visible=true;
+      state.appliedAction=null;
     }
     if(!state.visible&&nearViewport(el))state.visible=true;
     process(state);
+    if(state.cosmetic?.size)validateRuleTargets(state);
+  }
+  function validateRuleTargets(state) {
+    for(const rule of state.cosmetic.values()){
+      if(quarantinedRules.has(rule.id)||pendingCosmeticValidate.has(rule.id))continue;
+      pendingCosmeticValidate.add(rule.id);
+      const count=document.querySelectorAll(rule.selector).length;
+      send('FG_RULE_REVALIDATE',{id:rule.id,matchCount:Math.min(count,10000),reason:'ok',expect:settings.revisions?.cosmetic}).catch(()=>{});
+    }
+  }
+  function structuralReject(el) {
+    if(!(el instanceof Element))return 'not_hideable';
+    if(['HTML','BODY'].includes(el.tagName))return 'document_root';
+    if(el.tagName==='MAIN'||el.matches('main,[role="main"],#app,#root'))return 'primary_content_root';
+    if(el.closest('nav,header,footer'))return 'primary_navigation';
+    if(el.querySelector('nav'))return 'contains_primary_navigation';
+    const root=document.querySelector('main,[role="main"]');
+    if(root&&el.contains(root))return 'contains_primary_content';
+    if(site&&A.SPECS[site]&&el.querySelectorAll(A.SPECS[site].posts).length>2)return 'multiple_items_container';
+    if(el.closest('[contenteditable]')||el.matches('input,textarea,select,[contenteditable]')||el.querySelector('textarea,[contenteditable]'))return 'editor_or_input';
+    if(el.getAttribute('data-fg-ui')!==null||el.closest('[data-fg-ui]'))return 'feedgate_ui';
+    return null;
+  }
+  function impactReject(matches) {
+    const root=document.querySelector('main,[role="main"]');
+    for(const el of matches){
+      const reason=structuralReject(el);
+      if(reason)return reason;
+      if(root&&el.contains(root))return 'contains_primary_content';
+    }
+    if(matches.length>80)return 'match_set_too_large';
+    return null;
+  }
+  function quarantineRule(rule,reason) {
+    quarantinedRules.add(rule.id);
+    for(const state of states.values()){
+      if(state.cosmetic?.delete(rule.id)){reapply(state);}
+    }
+    cosmetic.rejected++;
+    send('FG_RULE_REVALIDATE',{id:rule.id,matchCount:0,reason:reason||'unsafe_at_application',expect:settings.revisions?.cosmetic}).catch(()=>{});
+    send('FG_COSMETIC_EVENT',{kind:'rejected',ruleRef:rule.id,reason:reason||'unsafe_at_application',candidateAction:'collapse',appliedAction:'allow'}).catch(()=>{});
+  }
+  function applyCosmeticRules() {
+    if(demo||!settings.cosmeticEnabled||Date.now()<cosmeticPause)return;
+    const rules=C.activeCosmeticRules(settings,location.hostname);
+    for(const rule of rules){
+      if(quarantinedRules.has(rule.id))continue;
+      let matches=[];
+      try{matches=[...document.querySelectorAll(rule.selector)].slice(0,120);}catch{continue;}
+      if(!matches.length)continue; // no target now: keep the rule for later SPA navigation
+      const reason=impactReject(matches);
+      if(reason){quarantineRule(rule,reason);continue;}
+      for(const el of matches)if(el.isConnected)ensure(el,[rule]);
+    }
+  }
+  function validateQuarantinedRules() {
+    if(demo||!settings?.cosmeticFilters)return;
+    const host=location.hostname;
+    for(const rule of settings.cosmeticFilters.rules){
+      if(rule.status!=='quarantined'||quarantinedRules.has(rule.id))continue;
+      if(!(host===rule.host||host.endsWith('.'+rule.host)))continue;
+      if(pendingCosmeticValidate.has(rule.id)||pendingCosmeticValidate.size>=20)continue;
+      if(C.selectorProblem(rule.selector))continue;
+      let count=0;
+      try{count=Math.min(document.querySelectorAll(rule.selector).length,50);}catch{continue;}
+      if(count<1)continue; // still no real target: stay unverified
+      pendingCosmeticValidate.add(rule.id);
+      send('FG_RULE_REVALIDATE',{id:rule.id,matchCount:count,reason:'ok'})
+        .then((result)=>{if(result?.status==='active')refresh();})
+        .catch(()=>{})
+        .finally(()=>pendingCosmeticValidate.delete(rule.id));
+    }
   }
   function scan() {
     scanTimer=null;
     if(!enabled)return;
     for(const [el,s] of states){
-      if(!el.isConnected){s.token++;restore(s);intersection?.unobserve(el);states.delete(el);continue;}
-      if(s.manualSelector&&!el.matches(s.manualSelector)){
-        s.token++;restore(s);s.manualReason=null;s.manualSelector=null;s.pending=false;s.completed=false;
-        if(el.matches(A.SPECS[site].posts))ensure(el);
-        else{intersection?.unobserve(el);states.delete(el);}
+      if(!el.isConnected){s.token++;applyAction(s,'allow');removeCard(s);intersection?.unobserve(el);states.delete(el);continue;}
+      if(s.cosmetic?.size){
+        const activeIds=new Set(C.activeCosmeticRules(settings,location.hostname).map(r=>r.id));
+        let changed=false;
+        for(const [id,rule] of [...s.cosmetic]){
+          let stillMatches=true;
+          try{stillMatches=el.matches(rule.selector);}catch{stillMatches=false;}
+          if(!activeIds.has(id)||!stillMatches){s.cosmetic.delete(id);changed=true;}
+        }
+        if(changed){if(!s.cosmetic.size&&s.decision?.source!=='cosmetic'&&!s.record?.text&&!s.record?.mediaAlt){intersection?.unobserve(el);states.delete(el);continue;}
+          s.appliedAction=null;reapply(s);}
       }
     }
     const pending=[...roots];roots.clear();
     for(const root of pending)for(const el of A.collect(root,site))ensure(el);
-    if(!demo){
-      for(const rule of C.matchingRules(settings.cosmeticRules,location.hostname)){
-        let matches=[];try{matches=[...document.querySelectorAll(rule.selector)].slice(0,100);}catch{continue;}
-        for(const el of matches){
-          if(['HTML','BODY','MAIN'].includes(el.tagName)||el.contains(document.querySelector('main'))||own(el))continue;
-          ensure(el,`Your local cosmetic rule: ${rule.host}##${rule.selector}`,rule.selector);
-        }
-      }
-    }
+    applyCosmeticRules();
+    validateQuarantinedRules();
   }
   function schedule(root) {
     if(root?.nodeType===Node.TEXT_NODE)root=root.parentElement;
     if(root&&root.querySelectorAll&&!own(root))roots.add(root);
-    if(!scanTimer)scanTimer=setTimeout(scan,80);
+    if(scanTimer){scansCoalesced++;return;}
+    scanTimer=setTimeout(scan,80);
   }
   function stop() {
     epoch++;
     observer?.disconnect();intersection?.disconnect();observer=null;intersection=null;
     if(scanTimer)clearTimeout(scanTimer);scanTimer=null;roots.clear();
     pickerCleanup?.();
-    for(const s of states.values()){s.token++;restore(s);}states.clear();report();
+    for(const s of states.values()){s.token++;s.revealed=true;applyAction(s,'allow');removeCard(s);}states.clear();
+    report();
   }
-  async function refresh() {
+  function configSignature(s) {
+    return JSON.stringify({enabled:s.enabled,sites:s.sites,mode:s.mode,preset:s.preset,categories:s.categories,cosmeticEnabled:s.cosmeticEnabled,filters:s.cosmeticFilters,recovery:s.recoverySites,consent:s.consent,labelledAds:s.labelledAds,protectUseful:s.protectUseful,profileMode:s.profileMode,customInstruction:s.customInstruction,allowedAuthors:s.allowedAuthors});
+  }
+  let lastSignature='';
+  async function refresh(force=false) {
     const serial=++configSerial;
     let conf;
-    try{conf=await send('FG_GET_CONFIG');}catch(error){enabled=false;stop();lastError=C.userError(error);return;}
+    try{conf=await send('FG_GET_CONFIG');}catch(error){enabled=false;stop();lastError=C.userError(error);updateHUD(stats());return;}
     if(serial!==configSerial)return;
-    enabled=false;stop();settings=C.sanitizeSettings(conf.settings);keyReady=conf.keyReady===true;lastError=null;
-    enabled=settings.enabled && (demo||settings.sites.includes(site)) && (demo||!C.isPrivateRoute(location.href));
-    report();if(!enabled)return;
+    settings=C.sanitizeSettings(conf.settings);keyReady=conf.keyReady===true;
+    const appVersion=typeof conf.appVersion==='string'?conf.appVersion:'';
+    staleVersion=appVersion!==''&&appVersion!==C.VERSION;
+    recoveryPaused=conf.recoveryPaused===true;
+    const signature=configSignature(settings)+'|'+appVersion;
+    if(!force&&signature===lastSignature&&!staleVersion&&!recoveryPaused){
+      updateHUD(stats());
+      return;
+    }
+    lastSignature=signature;
+    enabled=false;stop();lastError=null;
+    enabled=!staleVersion && !recoveryPaused && settings.enabled && (demo||settings.sites.includes(site)) && (demo||!C.isPrivateRoute(location.href));
+    report();updateHUD(stats());
+    if(!enabled)return;
     intersection=new IntersectionObserver(entries=>{
-      for(const entry of entries){const s=states.get(entry.target);if(s){s.visible=entry.isIntersecting;if(s.visible)process(s);}}
+      for(const entry of entries){const s=states.get(entry.target);if(s){s.visible=entry.isIntersecting;if(s.visible){if(s.cosmetic?.size)reapply(s);else process(s);}}}
     },{rootMargin:'1000px 0px'});
     observer=new MutationObserver(mutations=>{
       if(!demo&&C.isPrivateRoute(location.href)){enabled=false;stop();return;}
       for(const m of mutations){
-        if(own(m.target))continue;
-        if(m.type==='attributes' && (['style','aria-hidden'].includes(m.attributeName)||m.attributeName.startsWith('data-fg-')))continue;
-        if(m.type==='childList' && [...m.addedNodes,...m.removedNodes].length && [...m.addedNodes,...m.removedNodes].every(n=>own(n)))continue;
+        if(own(m.target)){ignoredSelfMutations++;continue;}
+        if(m.type==='attributes' && (['style','aria-hidden'].includes(m.attributeName)||m.attributeName.startsWith('data-fg-')||m.attributeName==='outline'))continue;
+        if(m.type==='childList' && [...m.addedNodes,...m.removedNodes].length && [...m.addedNodes,...m.removedNodes].every(n=>own(n))){ignoredSelfMutations++;continue;}
         schedule(m.target);
         for(const node of m.addedNodes||[])if(node.nodeType===Node.ELEMENT_NODE&&!own(node))schedule(node);
       }
@@ -274,24 +520,109 @@
     }
     return parts.join(' > ');
   }
+  function showToast(message,undoRuleId=null) {
+    toast?.remove();
+    toast=document.createElement('feedgate-toast');toast.setAttribute('data-fg-ui','');
+    toast.style.cssText='position:fixed!important;bottom:18px!important;right:18px!important;z-index:2147483647!important;display:block!important';
+    const shadow=toast.attachShadow({mode:'open'});
+    const style=make('style');
+    style.textContent=':host{all:initial;color-scheme:light dark}.box{display:flex;gap:10px;align-items:center;background:#17221c;color:#def0dc;border:1px solid #3d5745;border-radius:9px;box-shadow:0 4px 22px #0004;padding:9px 12px;font:12px/1.4 system-ui;max-width:min(380px,86vw)}button{font:inherit;color:#def0dc;background:#233227;border:1px solid #3d5745;border-radius:6px;padding:3px 8px;cursor:pointer}button:focus-visible{outline:2px solid #c6fa8c;outline-offset:2px}';
+    const box=make('div',undefined,'box');box.append(make('span',message));
+    if(undoRuleId){
+      const undo=make('button','Undo');
+      undo.addEventListener('click',async ev=>{
+        if(!ev.isTrusted)return;undo.disabled=true;
+        try{
+          await send('FG_RULE_DELETE',{id:undoRuleId,expect:settings.revisions?.cosmetic});
+          cosmetic.restored++;
+          send('FG_COSMETIC_EVENT',{kind:'undo',ruleRef:undoRuleId,reason:'user_undo_after_pick',candidateAction:null,appliedAction:'allow'}).catch(()=>{});
+          showToast('Cosmetic rule removed.');
+        }catch(error){showToast(C.userError(error).message);}
+      });
+      box.append(undo);
+    }
+    shadow.append(style,box);document.documentElement.append(toast);
+    if(toastTimer)clearTimeout(toastTimer);
+    toastTimer=setTimeout(()=>{toast?.remove();toast=null;toastTimer=null;},15000);
+  }
   function startPicker() {
-    if(!enabled||demo)return {started:false};
+    if(!enabled||demo||recoveryPaused)return {started:false};
     pickerCleanup?.();
-    const bar=make('div','FeedGate picker: click an element to hide it with a local CSS rule. Escape cancels.');
+    const bar=make('div','FeedGate picker: hover a single element, click to preview a rule. Escape cancels.');
     bar.setAttribute('data-fg-ui','');
     bar.style.cssText='position:fixed;z-index:2147483647;top:12px;left:50%;transform:translateX(-50%);background:#202820;color:#e5ffc8;border:1px solid #9eb886;border-radius:8px;padding:15px 20px;font:14px system-ui;max-width:90vw;pointer-events:none';
     document.documentElement.append(bar);
-    let target=null,outline='',priority='';
-    function undo(){if(target){if(outline)target.style.setProperty('outline',outline,priority);else target.style.removeProperty('outline');target=null;}}
-    function move(ev){if(!ev.isTrusted||own(ev.target))return;undo();target=ev.target;if(!(target instanceof HTMLElement))return;outline=target.style.getPropertyValue('outline');priority=target.style.getPropertyPriority('outline');target.style.setProperty('outline','2px solid #df832d','important');}
-    function cleanup(){undo();bar.remove();document.removeEventListener('mousemove',move,true);document.removeEventListener('click',click,true);document.removeEventListener('keydown',key,true);pickerCleanup=null;}
-    function key(ev){if(ev.key==='Escape')cleanup();}
+    let target=null,outline='',priority='',preview=null,previewTarget=null,timeout=null;
+    function undoOutline(){if(previewTarget){if(outline)previewTarget.style.setProperty('outline',outline,priority);else previewTarget.style.removeProperty('outline');previewTarget=null;}}
+    function clearPreview(){preview?.remove();preview=null;}
+    function cleanup(){undoOutline();clearPreview();bar.remove();document.removeEventListener('mousemove',move,true);document.removeEventListener('click',click,true);document.removeEventListener('keydown',key,true);if(timeout)clearTimeout(timeout);pickerCleanup=null;}
+    function move(ev){
+      if(!ev.isTrusted||own(ev.target)||preview)return;
+      undoOutline();target=ev.target;
+      if(!(target instanceof HTMLElement))return;
+      outline=target.style.getPropertyValue('outline');priority=target.style.getPropertyPriority('outline');
+      target.style.setProperty('outline','2px solid #df832d','important');
+      previewTarget=target;
+    }
+    function key(ev){if(ev.key==='Escape'){cleanup();}}
+    function reject(reason) {
+      showToast(`This element cannot be hidden safely (${reason}). Nothing was saved.`);
+      cleanup();
+    }
+    function showPreview(picked,selector,matches) {
+      clearPreview();
+      const info=make('div',undefined);
+      info.style.cssText='pointer-events:auto;background:#202820;color:#e5ffc8;border:1px solid #9eb886;border-radius:8px;padding:12px 16px;font:13px system-ui;max-width:min(430px,88vw)';
+      const count=matches.length;
+      info.append(make('div',`Rule preview: ${location.hostname}`,undefined));
+      info.append(make('div',`Selector: ${selector}`));
+      info.append(make('div',count===1?'Hides 1 element on this page.':`Hides ${count} matching elements on this page.`));
+      const tall=matches.some(m=>m.getBoundingClientRect().height>innerHeight*1.5);
+      if(tall)info.append(make('div','Note: one match is taller than the viewport. It stays selectable; check the preview.'));
+      const buttons=make('div');buttons.style.cssText='display:flex;gap:8px;margin-top:9px';
+      const create=make('button','Create rule');
+      const cancel=make('button','Cancel');
+      create.addEventListener('click',async ev=>{
+        if(!ev.isTrusted)return;create.disabled=true;
+        // Commit revalidates the current target and the match set before saving.
+        if(!picked.isConnected){reject('target_replaced');return;}
+        if(!picked.matches(selector)){reject('target_replaced');return;}
+        let current=[];try{current=[...document.querySelectorAll(selector)].slice(0,120);}catch{reject('unsupported_syntax');return;}
+        const reason=impactReject(current);
+        if(reason){reject(reason);return;}
+        try{
+          const saved=await send('FG_ADD_RULE',{selector,expect:settings.revisions?.cosmetic});
+          lastCommittedRule=saved.rule;
+          cosmetic.applied++;
+          send('FG_COSMETIC_EVENT',{kind:'applied',ruleRef:saved.rule.id,reason:'user_created',candidateAction:'collapse',appliedAction:'collapse'}).catch(()=>{});
+          showToast('Cosmetic rule created. It stays local to FeedGate.',saved.rule.id);
+          cleanup();refresh();
+        }catch(error){create.disabled=false;showToast(C.userError(error).message);}
+      });
+      cancel.addEventListener('click',ev=>{if(ev.isTrusted){cleanup();}});
+      buttons.append(create,cancel);info.append(buttons);
+      preview=make('div');preview.setAttribute('data-fg-ui','');preview.style.cssText='position:fixed;z-index:2147483647;bottom:18px;left:50%;transform:translateX(-50%);pointer-events:none';
+      preview.append(info);document.documentElement.append(preview);
+    }
     async function click(ev){
-      if(!ev.isTrusted)return;ev.preventDefault();ev.stopImmediatePropagation();
-      const picked=ev.target;cleanup();
-      if(!(picked instanceof HTMLElement)||['HTML','BODY','MAIN'].includes(picked.tagName)||own(picked))return;
+      if(!ev.isTrusted)return;
+      // Our own preview/toast controls keep working while the picker is active.
+      if(own(ev.target)||preview?.contains(ev.target))return;
+      if(preview)return;
+      ev.preventDefault();ev.stopImmediatePropagation();
+      const picked=ev.target;
+      if(!(picked instanceof HTMLElement)){reject('not_hideable');return;}
+      const reason=structuralReject(picked);
+      if(reason){reject(reason);return;}
       const selector=selectorFor(picked);
-      try{await send('FG_ADD_RULE',{selector});}catch(error){lastError=C.userError(error);}
+      const problem=C.selectorProblem(selector);
+      if(problem){reject(problem);return;}
+      let matches=[];try{matches=[...document.querySelectorAll(selector)].slice(0,120);}catch{reject('unsupported_syntax');return;}
+      const aggregate=impactReject(matches);
+      if(aggregate){reject(aggregate);return;}
+      target=picked;
+      showPreview(picked,selector,matches);
+      timeout=setTimeout(cleanup,60000);
     }
     document.addEventListener('mousemove',move,true);document.addEventListener('click',click,true);document.addEventListener('keydown',key,true);pickerCleanup=cleanup;
     return {started:true};
@@ -301,8 +632,8 @@
     if(message.type==='FG_CONFIG_CHANGED'){refresh();respond({ok:true});}
     else if(message.type==='FG_GET_PAGE_STATE')respond(stats());
     else if(message.type==='FG_RESTORE_ALL'){
-      for(const state of states.values()){state.revealed=true;restore(state);}report();respond({restored:true});
-    }else if(message.type==='FG_RESCAN'){refresh();respond({rescanned:true});}
+      for(const state of states.values()){state.revealed=true;applyAction(state,'allow');removeCard(state);}report();respond({restored:true});
+    }else if(message.type==='FG_RESCAN'){refresh(true);respond({rescanned:true});}
     else if(message.type==='FG_PICK_ELEMENT')respond(startPicker());
   });
   // MutationObserver cannot see history.pushState itself. The route guard also runs before each API call.
@@ -311,24 +642,25 @@
     else if(enabled&&!document.hidden&&++sweepTicks%5===0){schedule(document);report();}
   };
   let navigationTimer=setInterval(checkNavigation,600);
-  addEventListener('pagehide',()=>{enabled=false;stop();hud?.remove();hud=null;clearInterval(navigationTimer);});
+  addEventListener('pagehide',()=>{enabled=false;stop();hud?.remove();hud=null;hudRoot=null;toast?.remove();toast=null;clearInterval(navigationTimer);});
   addEventListener('pageshow',event=>{
-    if(event.persisted){clearInterval(navigationTimer);navigationTimer=setInterval(checkNavigation,600);refresh();}
+    if(event.persisted){clearInterval(navigationTimer);navigationTimer=setInterval(checkNavigation,600);refresh(true);}
   });
   // The local demo is an extension page, not a tab content script. Handle its
   // buttons directly instead of using tabs.sendMessage to the same page.
   if(demo)document.addEventListener('click',event=>{
     if(!event.isTrusted)return;
-    if(event.target.closest('#demo-restore')){for(const s of states.values()){s.revealed=true;restore(s);}report();}
-    if(event.target.closest('#demo-rescan'))refresh();
+    if(event.target.closest('#demo-restore')){for(const s of states.values()){s.revealed=true;applyAction(s,'allow');removeCard(s);}report();}
+    if(event.target.closest('#demo-rescan'))refresh(true);
   });
   document.addEventListener('keydown',event=>{
     if(!event.isTrusted||!event.altKey||!event.shiftKey||event.code!=='KeyF')return;
     if(event.target instanceof Element && event.target.closest('input,textarea,select,[contenteditable]'))return;
     event.preventDefault();
     const hasHidden=[...states.values()].some(s=>s.el.getAttribute('data-fg-action'));
-    if(hasHidden){for(const s of states.values()){s.revealed=true;restore(s);}report();}
-    else refresh();
+    if(hasHidden){revealAll=true;for(const s of states.values()){applyAction(s,'allow');removeCard(s);}}
+    else {revealAll=false;for(const s of states.values())reapply(s);refresh(true);}
+    report();
   });
   refresh();
 })();

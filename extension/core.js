@@ -1,9 +1,19 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.1.0';
+  // Separate versions: the release, the semantic rubric, the local ad detector,
+  // the DOM extraction and the policy engine can change independently.
+  const VERSION = '3.0.0';
   const RUBRIC_VERSION = 'feed-v2.1.0';
-  const SETTINGS_VERSION = 3;
+  const POLICY_VERSION = 'policy-2.1.1';
+  const AD_DETECTOR_VERSION = 'ad-3.0.0';
+  const EXTRACTION_VERSION = 'extract-3.0.0';
+  const SETTINGS_VERSION = 4;
+  const RUNTIME_VERSION = 5;
+  const DIAGNOSTICS_VERSION = 5;
+  // The settings schema is split into scoped revisions so an old form cannot
+  // overwrite a newer cosmetic, UI, recovery or site decision.
+  const SETTINGS_DOMAINS = ['settings', 'ui', 'cosmetic', 'recovery'];
 
   const SITE_DEFS = {
     x: {
@@ -34,6 +44,12 @@
       id: 'instagram',
       label: 'Instagram',
       hosts: ['instagram.com', 'www.instagram.com'],
+      status: 'beta',
+    },
+    wykop: {
+      id: 'wykop',
+      label: 'Wykop',
+      hosts: ['wykop.pl', 'www.wykop.pl'],
       status: 'beta',
     },
   };
@@ -98,26 +114,214 @@
     mode: 'filter',
     labelledAds: true,
     model: 'jev-latest',
-    showStatus: true,
     protectUseful: true,
     profileMode: 'soft',
     concurrency: 6,
     dailyLimit: 5000,
     cacheMinutes: 120,
     customInstruction: '',
-    cosmeticRules: '',
     allowedAuthors: [],
     categories: cloneCategories(),
+    // v3 control surfaces. hudMode replaces the old showStatus boolean.
+    hudMode: 'compact',
+    feedsOpen: false,
+    cosmeticEnabled: true,
+    cosmeticFilters: { version: 3, revision: 0, rules: [] },
+    recoverySites: [],
+    revisions: { settings: 0, ui: 0, cosmetic: 0, recovery: 0 },
   };
 
+  const HUD_MODES = ['compact', 'expanded', 'hidden'];
+  const COSMETIC_RULE_STATUSES = ['active', 'quarantined', 'disabled', 'deleted'];
+  const COSMETIC_SOURCES = ['picker', 'legacy', 'import', 'edit'];
+
+  // ---- Cosmetic selector safety ------------------------------------------
+  // Documented supported subset: compound selectors built from a type,
+  // .class, #id and [attr] or [attr="value"] parts, joined by descendant,
+  // child, adjacent or general-sibling combinators. No pseudo-classes, no
+  // :has(), no universal selector, no comma lists, no declarations, no
+  // @import, no scriptlets. Structural DOM checks still run at application
+  // time; this function only rejects syntax and obviously protected targets.
+  const SELECTOR_SUBSET_VERSION = 1;
+  const SELECTOR_MAX = 300;
+  const COSMETIC_RULES_MAX = 200;
+  const PROTECTED_TOKENS = ['html', 'body', 'main', 'nav', 'header', 'footer', 'root', 'app', 'shell', 'layout'];
+  const COMPOUND = /^(?:[.#][a-zA-Z0-9_-]+|\[[a-zA-Z][a-zA-Z0-9_-]*(?:[~^$|*]?=(?:"[^"\\]{0,120}"|'[^'\\]{0,120}'|[a-zA-Z0-9_-]{1,120}))?\]|[a-zA-Z][a-zA-Z0-9_-]*)(?:[.#][a-zA-Z0-9_-]+|\[[a-zA-Z][a-zA-Z0-9_-]*(?:[~^$|*]?=(?:"[^"\\]{0,120}"|'[^'\\]{0,120}'|[a-zA-Z0-9_-]{1,120}))?\])*$/;
+
+  function selectorProblem(selector) {
+    if (typeof selector !== 'string' || !selector.trim()) return 'empty_selector';
+    const value = selector.trim();
+    if (value.length > SELECTOR_MAX) return 'selector_too_long';
+    if (/[():{};@!*<]/.test(value)) return 'unsupported_syntax';
+    if (value.includes(',')) return 'multiple_targets_not_supported';
+    const parts = value.split(/\s*([>+~])\s*|\s+/).filter((part) => part !== undefined && part !== '');
+    for (const part of parts) {
+      if (part === '>' || part === '+' || part === '~') continue;
+      if (!COMPOUND.test(part)) return 'unsupported_syntax';
+      const lower = part.toLowerCase();
+      const typeMatch = /^[a-zA-Z][a-zA-Z0-9_-]*/.exec(lower);
+      if (typeMatch && PROTECTED_TOKENS.includes(typeMatch[0])) return 'protected_target';
+      for (const idMatch of lower.matchAll(/#([a-zA-Z0-9_-]+)/g)) {
+        if (PROTECTED_TOKENS.includes(idMatch[1])) return 'protected_target';
+      }
+      for (const classMatch of lower.matchAll(/\.([a-zA-Z0-9_-]+)/g)) {
+        if (PROTECTED_TOKENS.includes(classMatch[1])) return 'protected_target';
+      }
+      if (/\[role\s*=\s*["']?main["']?\]/.test(lower)) return 'protected_target';
+    }
+    return null;
+  }
+
+  function sanitizeCosmeticRule(value) {
+    const raw = object(value);
+    if (!raw) return null;
+    const host = typeof raw.host === 'string' ? raw.host.toLowerCase().replace(/\.$/, '') : '';
+    if (!siteForHost(host)) return null;
+    const selector = text(raw.selector, SELECTOR_MAX + 1);
+    if (selectorProblem(selector)) return null;
+    const id = typeof raw.id === 'string' && /^[a-z0-9][a-z0-9-]{7,47}$/.test(raw.id) ? raw.id : null;
+    if (!id) return null;
+    const status = COSMETIC_RULE_STATUSES.includes(raw.status) ? raw.status : 'quarantined';
+    const source = COSMETIC_SOURCES.includes(raw.source) ? raw.source : 'import';
+    return {
+      id,
+      host,
+      selector,
+      status,
+      source,
+      reason: text(raw.reason, 80),
+      createdAt: Math.round(clampNumber(raw.createdAt, 0, Number.MAX_SAFE_INTEGER, 0)),
+      validatedAt: Math.round(clampNumber(raw.validatedAt, 0, Number.MAX_SAFE_INTEGER, 0)),
+    };
+  }
+
+  function sanitizeCosmeticFilters(value) {
+    const raw = object(value) || {};
+    const out = { version: 3, revision: Math.round(clampNumber(raw.revision, 0, Number.MAX_SAFE_INTEGER, 0)), rules: [] };
+    const seen = new Set();
+    if (Array.isArray(raw.rules)) {
+      for (const entry of raw.rules.slice(0, COSMETIC_RULES_MAX)) {
+        const rule = sanitizeCosmeticRule(entry);
+        if (!rule || seen.has(rule.id)) continue;
+        seen.add(rule.id);
+        out.rules.push(rule);
+      }
+    }
+    return out;
+  }
+
+  function activeCosmeticRules(settings, host) {
+    const config = settings && object(settings.cosmeticFilters);
+    if (!config || settings.cosmeticEnabled === false) return [];
+    const clean = String(host || '').toLowerCase();
+    return config.rules.filter((rule) => rule.status === 'active' && (clean === rule.host || clean.endsWith('.' + rule.host)));
+  }
+
+  function stableHash(input) {
+    let hash = 0x811c9dc5;
+    const value = String(input);
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash.toString(16).padStart(8, '0');
+  }
+
+  function legacyRuleId(host, selector) {
+    return 'lg-' + stableHash(host + '|' + selector);
+  }
+
   const MIN_EVIDENCE = 0.65;
-  const PROTECT_USEFUL_THRESHOLD = 0.7;
-  const PROTECT_ORIGINAL_THRESHOLD = 0.75;
+  // Protection thresholds are an engineering choice, not a measured truth. They
+  // were lowered in 2.1.1 so that marginally useful content keeps the benefit
+  // of the conflict branch. The sufficiency guard is deliberately unchanged.
+  const PROTECT_USEFUL_THRESHOLD = 0.65;
+  const PROTECT_ORIGINAL_THRESHOLD = 0.7;
   const STRONG_SPAM_THRESHOLD = 0.98;
   const AD_CONFIRM_SPAM = 0.6;
   const AD_VALUE_GAP = 0.45;
   const AD_ORIGINAL_GAP = 0.55;
   const PROMOTION_SIGNAL = 0.6;
+
+  // ---- Platform ad evidence contract -------------------------------------
+  // A local automatic collapse requires status "verified": a reviewed adapter
+  // rule saw a rendered platform label/metadata owned by the current outer post.
+  // "ambiguous" and "none" never justify a local collapse and are never sent to
+  // the model as a sponsored marker. Legacy boolean flags migrate to ambiguous.
+  const AD_STATUSES = ['verified', 'ambiguous', 'none'];
+  const AD_MARKER_KINDS = [
+    'x_is_promoted_attribute',
+    'x_data_promoted_attribute',
+    'x_promoted_indicator',
+    'x_rendered_label',
+    'x_sponsored_label_role',
+    'x_placement_tracking',
+    'reddit_ad_post',
+    'reddit_rendered_label',
+    'demo_data_promoted',
+    'wykop_expired_promotion_note',
+    'wykop_ad_slot',
+    'generic_rendered_label',
+  ];
+  const AD_EVIDENCE_KINDS = ['rendered_label', 'platform_metadata', 'none'];
+  const AD_SCOPES = ['outer_post', 'quote', 'unrelated', 'unknown'];
+  // Only a reviewed rule with an allowlisted selector may claim a verified
+  // rendered label. Arbitrary DOM text or class substrings never qualify.
+  const AD_VERIFIED_MARKERS = [
+    'x_is_promoted_attribute',
+    'x_data_promoted_attribute',
+    'x_promoted_indicator',
+    'x_rendered_label',
+    'x_sponsored_label_role',
+    'reddit_ad_post',
+    'reddit_rendered_label',
+    'demo_data_promoted',
+  ];
+
+  function sanitizeAdEvidence(value, site) {
+    const raw = object(value);
+    if (!raw) return null;
+    const status = AD_STATUSES.includes(raw.status) ? raw.status : 'none';
+    const markerKind = typeof raw.markerKind === 'string' && AD_MARKER_KINDS.includes(raw.markerKind) ? raw.markerKind : null;
+    const scope = AD_SCOPES.includes(raw.scope) ? raw.scope : 'unknown';
+    const evidenceKind = AD_EVIDENCE_KINDS.includes(raw.evidenceKind) ? raw.evidenceKind : 'none';
+    const adapter = typeof raw.adapter === 'string' && (raw.adapter === 'demo' || SITE_DEFS[raw.adapter]) ? raw.adapter : (site || 'unknown');
+    const ownerMatched = raw.ownerMatched === true;
+    const renderedLabel = raw.renderedLabel === true ? true : raw.renderedLabel === false ? false : null;
+    const selectorId = typeof raw.selectorId === 'string' && /^[a-z0-9-]{1,60}$/.test(raw.selectorId) ? raw.selectorId : null;
+    let effective = status;
+    // Defence in depth: a claimed verification without coherent evidence fields
+    // is downgraded instead of trusted.
+    if (effective === 'verified') {
+      const coherent = ownerMatched && scope === 'outer_post' && evidenceKind !== 'none' && markerKind !== null && AD_VERIFIED_MARKERS.includes(markerKind);
+      if (!coherent) effective = 'ambiguous';
+    }
+    return {
+      adapter,
+      detectorVersion: AD_DETECTOR_VERSION,
+      status: effective,
+      markerKind,
+      selectorId,
+      ownerMatched,
+      renderedLabel,
+      evidenceKind: effective === 'verified' ? evidenceKind : evidenceKind === 'none' ? 'none' : evidenceKind,
+      scope,
+    };
+  }
+
+  function noAdEvidence(site) {
+    return {
+      adapter: site || 'unknown',
+      detectorVersion: AD_DETECTOR_VERSION,
+      status: 'none',
+      markerKind: null,
+      selectorId: null,
+      ownerMatched: false,
+      renderedLabel: null,
+      evidenceKind: 'none',
+      scope: 'unknown',
+    };
+  }
 
   function clone(value) {
     if (value === null || typeof value !== 'object') return value;
@@ -240,6 +444,11 @@
     /^\/messaging(\/|$)/i,
     /^\/conversations?(\/|$)/i,
     /^\/oauth(\/|$)/i,
+    // Wykop auth pages observed in the served public navigation. Placeholder
+    // account/editor routes are deliberately not invented here; unverified
+    // routes fall back to normal public handling and fail open.
+    /^\/logowanie(\/|$)/i,
+    /^\/rejestracja(\/|$)/i,
   ];
 
   function isPrivateRoute(url) {
@@ -280,6 +489,10 @@
     if (legacy.version === SETTINGS_VERSION) return sanitizeSettings(legacy);
     const preset = legacy.preset === 'aggressive' || legacy.preset === 'observe' ? legacy.preset : 'balanced';
     const patch = presetPatch(preset);
+    // Legacy cosmetic lines become reversible "Needs review" quarantine
+    // entries. They never apply before a fresh validation, and the original
+    // selector text is preserved instead of deleted.
+    const legacyRules = typeof legacy.cosmeticRules === 'string' ? parseCosmeticRules(legacy.cosmeticRules).rules : [];
     const migrated = {
       version: SETTINGS_VERSION,
       enabled: legacy.enabled !== false,
@@ -289,16 +502,33 @@
       mode: legacy.mode === 'observe' ? 'observe' : 'filter',
       labelledAds: legacy.labelledAds !== false,
       model: legacy.model,
-      showStatus: legacy.showStatus !== false,
       protectUseful: legacy.protectUseful !== false,
       profileMode: legacy.profileMode === 'normal' ? 'normal' : 'soft',
       concurrency: legacy.concurrency,
       dailyLimit: legacy.dailyLimit,
       cacheMinutes: legacy.cacheMinutes,
       customInstruction: legacy.customInstruction,
-      cosmeticRules: legacy.cosmeticRules,
       allowedAuthors: Array.isArray(legacy.allowedAuthors) ? legacy.allowedAuthors : [],
       categories: patch.categories,
+      hudMode: HUD_MODES.includes(legacy.hudMode) ? legacy.hudMode : legacy.showStatus === false ? 'hidden' : 'compact',
+      feedsOpen: legacy.feedsOpen === true,
+      cosmeticEnabled: legacy.cosmeticEnabled !== false,
+      cosmeticFilters: {
+        version: 3,
+        revision: 1,
+        rules: legacyRules.map((rule) => ({
+          id: legacyRuleId(rule.host, rule.selector),
+          host: rule.host,
+          selector: rule.selector,
+          status: 'quarantined',
+          source: 'legacy',
+          reason: 'legacy_unvalidated',
+          createdAt: 0,
+          validatedAt: 0,
+        })),
+      },
+      recoverySites: [],
+      revisions: { settings: 1, ui: 1, cosmetic: 1, recovery: 1 },
     };
     if (legacy.preset === 'custom') {
       migrated.preset = 'balanced';
@@ -315,7 +545,6 @@
     out.enabled = raw.enabled !== false;
     out.consent = raw.consent === true;
     out.labelledAds = raw.labelledAds !== false;
-    out.showStatus = raw.showStatus !== false;
     out.protectUseful = raw.protectUseful !== false;
     out.mode = raw.mode === 'observe' ? 'observe' : 'filter';
     out.preset = ['balanced', 'aggressive', 'observe', 'custom'].includes(raw.preset) ? raw.preset : 'balanced';
@@ -325,7 +554,21 @@
     out.dailyLimit = Math.round(clampNumber(raw.dailyLimit, 10, 100000, DEFAULTS.dailyLimit));
     out.cacheMinutes = Math.round(clampNumber(raw.cacheMinutes, 0, 1440, DEFAULTS.cacheMinutes));
     out.customInstruction = text(raw.customInstruction, 700);
-    out.cosmeticRules = typeof raw.cosmeticRules === 'string' ? raw.cosmeticRules.slice(0, 20000) : '';
+    out.hudMode = HUD_MODES.includes(raw.hudMode) ? raw.hudMode : DEFAULTS.hudMode;
+    out.feedsOpen = raw.feedsOpen === true;
+    out.cosmeticEnabled = raw.cosmeticEnabled !== false;
+    out.cosmeticFilters = sanitizeCosmeticFilters(raw.cosmeticFilters);
+    const revisions = object(raw.revisions) || {};
+    out.revisions = {};
+    for (const domain of SETTINGS_DOMAINS) {
+      out.revisions[domain] = Math.round(clampNumber(revisions[domain], 0, Number.MAX_SAFE_INTEGER, 0));
+    }
+    out.recoverySites = [];
+    if (Array.isArray(raw.recoverySites)) {
+      for (const site of raw.recoverySites.slice(0, 8)) {
+        if (typeof site === 'string' && SITE_DEFS[site] && !out.recoverySites.includes(site)) out.recoverySites.push(site);
+      }
+    }
 
     out.sites = [];
     if (Array.isArray(raw.sites)) {
@@ -393,8 +636,15 @@
     const mediaAlt = text(raw.mediaAlt, 1200);
     const id = text(raw.id, 250);
     const author = text(raw.author, 120);
-    if (!textValue && !quoted && !mediaAlt && raw.sponsored !== true) return null;
+    // Verified evidence is established by the adapter only. A legacy boolean
+    // sponsored flag is not evidence; it is downgraded to ambiguous so that
+    // old cached or crafted payloads cannot trigger a local collapse.
+    const evidence = raw.adEvidence
+      ? sanitizeAdEvidence(raw.adEvidence, site)
+      : Object.assign(noAdEvidence(site), raw.sponsored === true ? { status: 'ambiguous' } : {});
+    if (!textValue && !quoted && !mediaAlt && evidence.status !== 'verified') return null;
     const context = raw.context === 'profile' || raw.context === 'thread' ? raw.context : 'feed';
+    const kind = ['link', 'entry', 'comment', 'post'].includes(raw.kind) ? raw.kind : 'post';
     return {
       site,
       id: id || String(site) + ':anonymous',
@@ -404,7 +654,9 @@
       quotedText: quoted,
       truncated: raw.truncated === true,
       context,
-      sponsored: raw.sponsored === true,
+      kind,
+      sponsored: evidence.status === 'verified',
+      adEvidence: evidence,
       linkDomains: hostnameList(raw.linkDomains),
     };
   }
@@ -549,11 +801,13 @@
       return decision;
     }
 
-    if (s.labelledAds && record && record.sponsored) {
+    if (s.labelledAds && record && record.sponsored === true && record.adEvidence && record.adEvidence.status === 'verified') {
       decision.action = 'collapse';
       decision.reason = 'Platform-labelled ad';
       decision.rule = 'platform_labelled_ad';
       decision.source = 'local';
+      decision.category = 'unwantedAd';
+      decision.adEvidence = record.adEvidence;
       return observe(decision, s);
     }
 
@@ -576,7 +830,11 @@
     const original = finite(scores.original) || 0;
     const feedSpam = finite(scores.feedSpam) || 0;
     const unwantedAd = finite(scores.unwantedAd) || 0;
-    const protectedContent = s.protectUseful && (useful >= PROTECT_USEFUL_THRESHOLD || original >= PROTECT_ORIGINAL_THRESHOLD);
+    // Eligibility and application are reported separately: a post can be
+    // eligible for protection while the user disabled protection use.
+    const protectionEligible = useful >= PROTECT_USEFUL_THRESHOLD || original >= PROTECT_ORIGINAL_THRESHOLD;
+    const protectedContent = s.protectUseful && protectionEligible;
+    decision.protectionEligible = protectionEligible;
 
     if (hits(scores, s, 'risk')) {
       decision.action = 'collapse';
@@ -652,10 +910,21 @@
       return soften(decision, s, record);
     }
 
-    if (unwantedAd >= PROMOTION_SIGNAL) {
+    // Truthful tail reasons: a promotional estimate only explains the outcome
+    // when no other negative estimate was meaningfully elevated. Elevated
+    // below-threshold noise gets its own rule so the log is not misleading.
+    const noiseMax = Math.max(feedSpam, finite(scores.bait) || 0, finite(scores.risk) || 0);
+    if (unwantedAd >= PROMOTION_SIGNAL && noiseMax < PROMOTION_SIGNAL) {
       decision.reason = 'Promotional intent alone is not a hiding rule';
       decision.rule = 'promotion_signal_alone';
       decision.source = 'protection';
+      return decision;
+    }
+
+    if (unwantedAd >= PROMOTION_SIGNAL || noiseMax >= PROMOTION_SIGNAL) {
+      decision.reason = 'No category threshold was met; kept';
+      decision.rule = 'below_noise_thresholds';
+      decision.source = 'policy';
       return decision;
     }
 
@@ -707,9 +976,12 @@
     const s = sanitizeSettings(settings);
     return digest({
       rubric: RUBRIC_VERSION,
+      detector: AD_DETECTOR_VERSION,
+      extraction: EXTRACTION_VERSION,
       namespace: 'feedgate:decision-cache',
       model: s.model,
       custom: s.customInstruction,
+      item: record && typeof record.kind === 'string' ? record.kind : 'post',
       state: inferenceState(record),
     });
   }
@@ -772,6 +1044,11 @@
     VAULT_ERROR: 'The encrypted vault could not be opened.',
     PASSPHRASE: 'The passphrase does not meet requirements.',
     NO_VAULT: 'No encrypted vault is stored.',
+    STALE_SETTINGS: 'These settings were changed elsewhere. Reload and try again.',
+    UNSAFE_SELECTOR: 'That selector is not allowed.',
+    RULE_LIMIT: 'The cosmetic filter limit was reached.',
+    RULE_NOT_FOUND: 'That cosmetic filter no longer exists.',
+    RECOVERY_ACTIVE: 'Filtering is paused for this site.',
     INTERNAL_ERROR: 'An internal error occurred.',
   };
 
@@ -794,7 +1071,18 @@
   globalThis.FeedGateCore = Object.freeze({
     VERSION,
     RUBRIC_VERSION,
+    POLICY_VERSION,
+    AD_DETECTOR_VERSION,
+    EXTRACTION_VERSION,
     SETTINGS_VERSION,
+    RUNTIME_VERSION,
+    DIAGNOSTICS_VERSION,
+    SETTINGS_DOMAINS,
+    HUD_MODES,
+    COSMETIC_RULE_STATUSES,
+    COSMETIC_SOURCES,
+    SELECTOR_SUBSET_VERSION,
+    COSMETIC_RULES_MAX,
     SITE_DEFS,
     SIGNALS,
     CATEGORIES,
@@ -806,6 +1094,7 @@
     feedbackKey,
     cacheKey,
     digest,
+    stableHash,
     clone,
     object,
     finite,
@@ -819,6 +1108,12 @@
     sanitizeSettings,
     redact,
     sanitizeRecord,
+    sanitizeAdEvidence,
+    noAdEvidence,
+    sanitizeCosmeticRule,
+    sanitizeCosmeticFilters,
+    activeCosmeticRules,
+    selectorProblem,
     inferenceState,
     buildRequest,
     parseResponse,

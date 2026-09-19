@@ -8,6 +8,8 @@ Inference is fixed to `https://api.typesafe.ai/v1/systemone`. Keys are not place
 
 Settings and daily budget updates are serialised. Changing credentials, settings or consent invalidates pending inference. Credential epochs prevent a late encryption operation from silently unlocking after a subsequent Lock command. Host permissions are checked again in content-sender validation.
 
+Cosmetic rule writes are accepted only from validated content script senders, only for their own host, only within a documented selector subset, and only with a bounded rule count. Every write carries an expected per-domain revision, so a stale options form or an in-flight picker cannot resurrect a deleted rule or reset an unrelated preference. Recovery pauses are persisted in the trusted worker before any page cleanup is attempted, and cleanup itself is bounded; an unresponsive page is reported honestly rather than assumed clean.
+
 The UI uses textContent rather than rendering post/model values as HTML. Security-sensitive page buttons require trusted clicks. Diagnostics are constructed from explicit fields rather than by serialising all storage.
 
 ## Vault
@@ -26,6 +28,6 @@ The extension does not execute model output, navigate to returned links or send 
 
 DOM selectors and route guards are heuristics. Private groups or sensitive posts can appear in otherwise supported feeds. Consent must be informed and users should disable cloud analysis where disclosure is inappropriate.
 
-The release has not received an independent security audit, a current signed-in-site test, or a native installed-extension run in the build environment. Its managed policy blocks extension installation. No policy was disabled or bypassed. Record manual validation against a clean permitted Chrome profile and a dedicated key before wider distribution.
+The release has not received an independent security audit, a current signed-in-site test, or a managed installation in the build environment; its managed policy blocks extension installation and no policy was disabled or bypassed. The unpacked extension was loaded in a local Chromium profile by the smoke test only. Record manual validation against a clean permitted Chrome profile and a dedicated key before wider distribution.
 
 Never attach API keys, raw private post text or browser profile exports to a public issue. Prefer the built-in diagnostic file. Revoke exposed keys at the provider immediately.

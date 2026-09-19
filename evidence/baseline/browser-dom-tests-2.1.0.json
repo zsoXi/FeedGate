@@ -1,0 +1,162 @@
+{
+  "scope": "Real Chromium DOM; mocked Chrome APIs, page location and Jev responses. No extension installed; no live API or signed-in feeds tested.",
+  "browser": "151.0.7922.34",
+  "results": [
+    {
+      "name": "local sponsored collapse, explanation and trusted Show click",
+      "status": "PASS",
+      "seconds": 1.884
+    },
+    {
+      "name": "mock semantic scores cause collapse/dim; useful post remains visible",
+      "status": "PASS",
+      "seconds": 0.177
+    },
+    {
+      "name": "MutationObserver detects appended feed posts",
+      "status": "PASS",
+      "seconds": 0.271
+    },
+    {
+      "name": "recycled node ignores old in-flight spam result",
+      "status": "PASS",
+      "seconds": 0.806
+    },
+    {
+      "name": "recycled previously hidden node restores before reclassification",
+      "status": "PASS",
+      "seconds": 0.279
+    },
+    {
+      "name": "HTTP-error fixture fails open without a resubmission loop",
+      "status": "PASS",
+      "seconds": 0.791
+    },
+    {
+      "name": "observe mode preserves even explicitly sponsored content",
+      "status": "PASS",
+      "seconds": 0.312
+    },
+    {
+      "name": "author allowlist restores both semantic and local ad decisions",
+      "status": "PASS",
+      "seconds": 0.228
+    },
+    {
+      "name": "inputs, editors, hidden text and dialog posts are not extracted",
+      "status": "PASS",
+      "seconds": 0.183
+    },
+    {
+      "name": "SPA navigation to messages disables observation and extraction",
+      "status": "PASS",
+      "seconds": 1.047
+    },
+    {
+      "name": "domain##selector rule collapses a sidebar reversibly",
+      "status": "PASS",
+      "seconds": 0.225
+    },
+    {
+      "name": "manual post filter wins over pending inference and restores after selector stops matching",
+      "status": "PASS",
+      "seconds": 0.678
+    },
+    {
+      "name": "element picker trusted click creates a scoped local rule",
+      "status": "PASS",
+      "seconds": 0.319
+    },
+    {
+      "name": "restoring preserves original inline styles and accessibility attributes",
+      "status": "PASS",
+      "seconds": 0.199
+    },
+    {
+      "name": "re-injection does not duplicate observers or model calls",
+      "status": "PASS",
+      "seconds": 0.356
+    },
+    {
+      "name": "Reddit/LinkedIn/Facebook/Instagram adapter fixtures extract expected posts",
+      "status": "PASS",
+      "seconds": 0.348
+    },
+    {
+      "name": "back-forward-cache lifecycle refreshes observers on pageshow",
+      "status": "PASS",
+      "seconds": 0.274
+    },
+    {
+      "name": "options UI renders, clears key input and saves preferences through mocked messaging",
+      "status": "PASS",
+      "seconds": 1.173
+    },
+    {
+      "name": "test-feed UI supports Show all, Rescan and new posts without live inference",
+      "status": "PASS",
+      "seconds": 0.484
+    },
+    {
+      "name": "toolbar popup renders and controls pause through mocked Chrome APIs",
+      "status": "PASS",
+      "seconds": 0.186
+    },
+    {
+      "name": "2.1 protects useful promotion and reports progress in the on-page HUD",
+      "status": "PASS",
+      "seconds": 0.327
+    },
+    {
+      "name": "an opened X profile dims ordinary semantic noise instead of collapsing it",
+      "status": "PASS",
+      "seconds": 0.222
+    },
+    {
+      "name": "quoted text stays separate, main author stays correct and Show more is not clicked",
+      "status": "PASS",
+      "seconds": 0.086
+    },
+    {
+      "name": "Keep this post survives a rescan without allowlisting the author",
+      "status": "PASS",
+      "seconds": 0.578
+    },
+    {
+      "name": "Alt Shift F reversibly reveals and reapplies filtering",
+      "status": "PASS",
+      "seconds": 0.296
+    },
+    {
+      "name": "Connect and start saves key, verifies provider and enables X without bridge messages",
+      "status": "PASS",
+      "seconds": 0.267
+    },
+    {
+      "name": "denied setup permissions prevent key saving and network test",
+      "status": "PASS",
+      "seconds": 0.234
+    },
+    {
+      "name": "presets apply and diagnostic JSON export is constructed through the UI",
+      "status": "PASS",
+      "seconds": 0.396
+    },
+    {
+      "name": "settings and policy pages fit a narrow 390px viewport",
+      "status": "PASS",
+      "seconds": 0.166
+    },
+    {
+      "name": "display names containing Ad or Sponsored are not platform ad markers",
+      "status": "PASS",
+      "seconds": 0.078
+    },
+    {
+      "name": "a sponsored marker inside a quoted post does not label the outer post as an ad",
+      "status": "PASS",
+      "seconds": 0.081
+    }
+  ],
+  "passed": 31
+}

@@ -1,0 +1,135 @@
+{
+  "baseline": "2.1.0",
+  "capturedAt": "2026-09-18T02:50:40.957Z",
+  "projectRoot": "D:/FeedGate/FeedGate-2.1.0",
+  "manifest": {
+    "name": "FeedGate 2.1 | TypeSafe filter",
+    "version": "2.1.0"
+  },
+  "core": {
+    "VERSION": "2.1.0",
+    "RUBRIC_VERSION": "feed-v2.1.0",
+    "SETTINGS_VERSION": 3,
+    "exportedKeys": [
+      "CATEGORIES",
+      "DEFAULTS",
+      "MIN_EVIDENCE",
+      "RUBRIC_VERSION",
+      "SETTINGS_VERSION",
+      "SIGNALS",
+      "SITE_DEFS",
+      "VERSION",
+      "authorKey",
+      "buildRequest",
+      "cacheKey",
+      "clamp",
+      "clone",
+      "decide",
+      "digest",
+      "feedbackKey",
+      "finite",
+      "inferenceState",
+      "isPrivateRoute",
+      "matchingRules",
+      "migrateSettings",
+      "object",
+      "originsForSite",
+      "pageContext",
+      "parseCosmeticRules",
+      "parseResponse",
+      "presetPatch",
+      "redact",
+      "sanitizeRecord",
+      "sanitizeSettings",
+      "siteForHost",
+      "siteForURL",
+      "text",
+      "trustedPage",
+      "userError",
+      "validKey"
+    ]
+  },
+  "extensionFileCount": 20,
+  "runtimeHashes": {
+    "LICENSE": {
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    "THIRD_PARTY_NOTICES.md": {
+      "bytes": 2303,
+      "sha256": "1064fc18ead958cb4587b08675f22d2316de12bc7a72e5288a244cb930b5dbc6"
+    },
+    "adapters.js": {
+      "bytes": 7002,
+      "sha256": "af30fd2e17e9cd4f60317583975fe98f245d6d07452706d3dd47afb67f2d6a11"
+    },
+    "background.js": {
+      "bytes": 23751,
+      "sha256": "6284f4b7c2e790ed874da625a90cfa7204534673428df73c70d8ec5748c66534"
+    },
+    "content.js": {
+      "bytes": 20535,
+      "sha256": "f6652bf730ccf7b881cd17efaaa3305e968c3ecd1bb5bce4ec08bcd9f466e817"
+    },
+    "core.js": {
+      "bytes": 28547,
+      "sha256": "2c662cf704c685a04cc1c86b189ef05d11f030d7bdb5d338905ba5e84fd5bd17"
+    },
+    "demo.html": {
+      "bytes": 1406,
+      "sha256": "a4bd7943fcbd77c9184db2c6c8a21021390a68332183b699e8dbc0b665a33648"
+    },
+    "demo.js": {
+      "bytes": 3238,
+      "sha256": "29216b368de663ccd83ec95e67ce57c33a982d44caa6b31b6d9e62760d90fc35"
+    },
+    "icons/128.png": {
+      "bytes": 3499,
+      "sha256": "c07ad7c3aab7a278d3f447d3ad8007970f70a2a31cb539b1715f10e6a07c2f29"
+    },
+    "icons/16.png": {
+      "bytes": 550,
+      "sha256": "abb007d71ed46d938e93301002efda8df9c6c28a6e1a2c945ef258b653ff98da"
+    },
+    "icons/32.png": {
+      "bytes": 961,
+      "sha256": "3a3941d1749311d8e781ccb2587c5c94f78ae8f47ae9a38d539c264a4fc1793d"
+    },
+    "icons/48.png": {
+      "bytes": 1339,
+      "sha256": "6db14ded4690714655ede2c2e8166264bba85a9b944adcde2df8c874b5792196"
+    },
+    "manifest.json": {
+      "bytes": 1577,
+      "sha256": "9b9c844171129135ba21b78c34f427650a45302dc6415e19e0aba028d9768df4"
+    },
+    "options.html": {
+      "bytes": 16584,
+      "sha256": "ed29ae70f82363b93b0772209238f251694e634c55353b6871723f728c93582f"
+    },
+    "options.js": {
+      "bytes": 17685,
+      "sha256": "b3a685357238b24d48b329567e96261ed21025ff282f466816f374baaa430c2e"
+    },
+    "popup.html": {
+      "bytes": 1492,
+      "sha256": "f8dc544e0c3115b2fff19a25f4fa9b2dc7dad760085f81153ccadaf838a4657e"
+    },
+    "popup.js": {
+      "bytes": 3697,
+      "sha256": "6858175d00d17e58061a620e277ba4e5e6697a467a6aa051445fffc732710184"
+    },
+    "typesafe.js": {
+      "bytes": 3182,
+      "sha256": "aa3fdf3a28da3b21dba131f31fc6e44d0c2abb8e80befc8804e95881d656ab6d"
+    },
+    "ui.css": {
+      "bytes": 11350,
+      "sha256": "82b464f6533f99e2ffc4addb296cf0a261bbdd73f2be68158be5db631edb870d"
+    },
+    "vault.js": {
+      "bytes": 2562,
+      "sha256": "502afb18ab32621df36c54762e80c8347f20ca8cee661996d1acc218c6b534e4"
+    }
+  }
+}

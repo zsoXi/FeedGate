@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "FeedGate 2.1 | TypeSafe filter",
+  "name": "FeedGate 3.0.0 | TypeSafe filter",
   "short_name": "FeedGate",
-  "description": "Precision-first Jev feed filtering: a post being promotional is never enough to hide it. Protected useful content, reversible controls, no bridge.",
-  "version": "2.1.0",
+  "description": "Safe-controls Jev feed filtering for X, Reddit, LinkedIn, Facebook, Instagram and Wykop: reversible cosmetics with a transactional picker, per-site recovery, a status panel you can hide, and a precision-first policy.",
+  "version": "3.0.0",
   "minimum_chrome_version": "120",
   "permissions": [
     "storage",
@@ -25,7 +25,9 @@
     "https://facebook.com/*",
     "https://*.facebook.com/*",
     "https://instagram.com/*",
-    "https://*.instagram.com/*"
+    "https://*.instagram.com/*",
+    "https://wykop.pl/*",
+    "https://*.wykop.pl/*"
   ],
   "background": {
     "service_worker": "background.js",

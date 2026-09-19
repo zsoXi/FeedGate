@@ -1,0 +1,141 @@
+{
+  "version": "2.1.1",
+  "createdAt": "2026-09-18T03:18:38.637Z",
+  "scope": "Static packaging integrity only; not native installation, live provider validation or a security audit",
+  "checks": [
+    {
+      "name": "Single 2.1.1 version",
+      "passed": true
+    },
+    {
+      "name": "Manifest V3 and module worker",
+      "passed": true
+    },
+    {
+      "name": "Limited permissions and fixed provider host",
+      "passed": true
+    },
+    {
+      "name": "Manifest assets exist",
+      "passed": true
+    },
+    {
+      "name": "Ready-made assets match current source and static inputs",
+      "passed": true
+    },
+    {
+      "name": "No bridge, executable installer or key file in runtime",
+      "passed": true
+    },
+    {
+      "name": "No localhost transport or dynamic executable source",
+      "passed": true
+    },
+    {
+      "name": "Extension pages reference packaged scripts",
+      "passed": true
+    }
+  ],
+  "runtimeHashes": [
+    {
+      "path": "LICENSE",
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "bytes": 2303,
+      "sha256": "20212000f98e001f148e3becc6d6e1acdefb4cdb7d71034873cbed9ed2c95c9c"
+    },
+    {
+      "path": "adapters.js",
+      "bytes": 11771,
+      "sha256": "8ae86af5db27f80a4b237518c62e26db7bc76740af061579df226daa61f033a0"
+    },
+    {
+      "path": "background.js",
+      "bytes": 24594,
+      "sha256": "00d1d7ad5cd11b223ed9907324e2734e5524bbe360705489d38eb39197fbc8ca"
+    },
+    {
+      "path": "content.js",
+      "bytes": 21237,
+      "sha256": "17f69f22fb15ef7d365b6799a110ece1b8f5acc1413cde7236ba3c9345c92d2e"
+    },
+    {
+      "path": "core.js",
+      "bytes": 34077,
+      "sha256": "7584a980581c284a054f11e246b88a3bb6450083a59fa4d160b4efa55be8b6ea"
+    },
+    {
+      "path": "demo.html",
+      "bytes": 1406,
+      "sha256": "a4bd7943fcbd77c9184db2c6c8a21021390a68332183b699e8dbc0b665a33648"
+    },
+    {
+      "path": "demo.js",
+      "bytes": 3238,
+      "sha256": "29216b368de663ccd83ec95e67ce57c33a982d44caa6b31b6d9e62760d90fc35"
+    },
+    {
+      "path": "icons/128.png",
+      "bytes": 3499,
+      "sha256": "c07ad7c3aab7a278d3f447d3ad8007970f70a2a31cb539b1715f10e6a07c2f29"
+    },
+    {
+      "path": "icons/16.png",
+      "bytes": 550,
+      "sha256": "abb007d71ed46d938e93301002efda8df9c6c28a6e1a2c945ef258b653ff98da"
+    },
+    {
+      "path": "icons/32.png",
+      "bytes": 961,
+      "sha256": "3a3941d1749311d8e781ccb2587c5c94f78ae8f47ae9a38d539c264a4fc1793d"
+    },
+    {
+      "path": "icons/48.png",
+      "bytes": 1339,
+      "sha256": "6db14ded4690714655ede2c2e8166264bba85a9b944adcde2df8c874b5792196"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 1579,
+      "sha256": "ae7d02d954b50c1cb6a19fb3fa26b213a0675670dd18f15387fe6bad80061df9"
+    },
+    {
+      "path": "options.html",
+      "bytes": 16588,
+      "sha256": "52d2f1f7d113c0c9b19d4a443bfd655b9a3e4a01338b2976b061f1b88869da10"
+    },
+    {
+      "path": "options.js",
+      "bytes": 17687,
+      "sha256": "965e07354a038a89aae60464c12e643cf6790298c6e1636b2b632fa31f303617"
+    },
+    {
+      "path": "popup.html",
+      "bytes": 1494,
+      "sha256": "34c86186766a1ee6f143b59794d178c5d0eb524b0a594619f0ebab8495a86864"
+    },
+    {
+      "path": "popup.js",
+      "bytes": 3697,
+      "sha256": "6858175d00d17e58061a620e277ba4e5e6697a467a6aa051445fffc732710184"
+    },
+    {
+      "path": "typesafe.js",
+      "bytes": 3182,
+      "sha256": "aa3fdf3a28da3b21dba131f31fc6e44d0c2abb8e80befc8804e95881d656ab6d"
+    },
+    {
+      "path": "ui.css",
+      "bytes": 11350,
+      "sha256": "82b464f6533f99e2ffc4addb296cf0a261bbdd73f2be68158be5db631edb870d"
+    },
+    {
+      "path": "vault.js",
+      "bytes": 2562,
+      "sha256": "502afb18ab32621df36c54762e80c8347f20ca8cee661996d1acc218c6b534e4"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+$ npm run check
+-- exit: 0
+
+
+> feedgate@2.1.0 check
+> node scripts/check.mjs
+
+JavaScript syntax checks passed.
+

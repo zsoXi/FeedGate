@@ -1,0 +1,237 @@
+{
+  "scope": "Real Chromium DOM; mocked Chrome APIs, page location and Jev responses. No extension installed; no live API or signed-in feeds tested.",
+  "browser": "151.0.7922.34",
+  "results": [
+    {
+      "name": "local sponsored collapse, explanation and trusted Show click",
+      "status": "PASS",
+      "seconds": 0.274
+    },
+    {
+      "name": "mock semantic scores cause collapse/dim; useful post remains visible",
+      "status": "PASS",
+      "seconds": 0.204
+    },
+    {
+      "name": "MutationObserver detects appended feed posts",
+      "status": "PASS",
+      "seconds": 0.274
+    },
+    {
+      "name": "recycled node ignores old in-flight spam result",
+      "status": "PASS",
+      "seconds": 0.813
+    },
+    {
+      "name": "recycled previously hidden node restores before reclassification",
+      "status": "PASS",
+      "seconds": 0.285
+    },
+    {
+      "name": "HTTP-error fixture fails open without a resubmission loop",
+      "status": "PASS",
+      "seconds": 0.807
+    },
+    {
+      "name": "observe mode preserves even explicitly sponsored content",
+      "status": "PASS",
+      "seconds": 0.293
+    },
+    {
+      "name": "author allowlist restores both semantic and local ad decisions",
+      "status": "PASS",
+      "seconds": 0.224
+    },
+    {
+      "name": "inputs, editors, hidden text and dialog posts are not extracted",
+      "status": "PASS",
+      "seconds": 0.178
+    },
+    {
+      "name": "SPA navigation to messages disables observation and extraction",
+      "status": "PASS",
+      "seconds": 1.057
+    },
+    {
+      "name": "domain##selector rule collapses a sidebar reversibly",
+      "status": "PASS",
+      "seconds": 0.228
+    },
+    {
+      "name": "manual post filter wins over pending inference and restores after selector stops matching",
+      "status": "PASS",
+      "seconds": 0.664
+    },
+    {
+      "name": "element picker trusted click creates a scoped local rule",
+      "status": "PASS",
+      "seconds": 0.317
+    },
+    {
+      "name": "restoring preserves original inline styles and accessibility attributes",
+      "status": "PASS",
+      "seconds": 0.201
+    },
+    {
+      "name": "re-injection does not duplicate observers or model calls",
+      "status": "PASS",
+      "seconds": 0.338
+    },
+    {
+      "name": "Reddit/LinkedIn/Facebook/Instagram adapter fixtures extract expected posts",
+      "status": "PASS",
+      "seconds": 0.292
+    },
+    {
+      "name": "back-forward-cache lifecycle refreshes observers on pageshow",
+      "status": "PASS",
+      "seconds": 0.267
+    },
+    {
+      "name": "options UI renders, clears key input and saves preferences through mocked messaging",
+      "status": "PASS",
+      "seconds": 1.154
+    },
+    {
+      "name": "test-feed UI supports Show all, Rescan and new posts without live inference",
+      "status": "PASS",
+      "seconds": 0.466
+    },
+    {
+      "name": "toolbar popup renders and controls pause through mocked Chrome APIs",
+      "status": "PASS",
+      "seconds": 0.207
+    },
+    {
+      "name": "2.1 protects useful promotion and reports progress in the on-page HUD",
+      "status": "PASS",
+      "seconds": 0.325
+    },
+    {
+      "name": "an opened X profile dims ordinary semantic noise instead of collapsing it",
+      "status": "PASS",
+      "seconds": 0.18
+    },
+    {
+      "name": "quoted text stays separate, main author stays correct and Show more is not clicked",
+      "status": "PASS",
+      "seconds": 0.076
+    },
+    {
+      "name": "Keep this post survives a rescan without allowlisting the author",
+      "status": "PASS",
+      "seconds": 0.561
+    },
+    {
+      "name": "Alt Shift F reversibly reveals and reapplies filtering",
+      "status": "PASS",
+      "seconds": 0.263
+    },
+    {
+      "name": "Connect and start saves key, verifies provider and enables X without bridge messages",
+      "status": "PASS",
+      "seconds": 0.264
+    },
+    {
+      "name": "denied setup permissions prevent key saving and network test",
+      "status": "PASS",
+      "seconds": 0.204
+    },
+    {
+      "name": "presets apply and diagnostic JSON export is constructed through the UI",
+      "status": "PASS",
+      "seconds": 0.384
+    },
+    {
+      "name": "settings and policy pages fit a narrow 390px viewport",
+      "status": "PASS",
+      "seconds": 0.178
+    },
+    {
+      "name": "display names containing Ad or Sponsored are not platform ad markers",
+      "status": "PASS",
+      "seconds": 0.074
+    },
+    {
+      "name": "a sponsored marker inside a quoted post does not label the outer post as an ad",
+      "status": "PASS",
+      "seconds": 0.089
+    },
+    {
+      "name": "AD01/AD02: tracking wrappers, video and quoted media never verify an outer ad",
+      "status": "PASS",
+      "seconds": 0.351
+    },
+    {
+      "name": "AD04: only the post that owns the marker is affected",
+      "status": "PASS",
+      "seconds": 0.072
+    },
+    {
+      "name": "AD05/AD09: words, links, alt text and unsupported labels are not standalone markers",
+      "status": "PASS",
+      "seconds": 0.079
+    },
+    {
+      "name": "AD06: hidden templates and menu-only labels are not rendered evidence",
+      "status": "PASS",
+      "seconds": 0.07
+    },
+    {
+      "name": "AD08: only documented true forms verify; false and unknown stay unverified",
+      "status": "PASS",
+      "seconds": 0.073
+    },
+    {
+      "name": "AD10: a rendered marker outside the viewport is still rendered evidence",
+      "status": "PASS",
+      "seconds": 0.072
+    },
+    {
+      "name": "AD11: a local ad action cannot survive the marker disappearing",
+      "status": "PASS",
+      "seconds": 0.285
+    },
+    {
+      "name": "AD12: switching local ad filtering off restores collapsed content",
+      "status": "PASS",
+      "seconds": 0.179
+    },
+    {
+      "name": "AD13: FeedGate UI mutations never trigger new classifications",
+      "status": "PASS",
+      "seconds": 0.787
+    },
+    {
+      "name": "AD14: Reddit uses its own platform rules, not borrowed X heuristics",
+      "status": "PASS",
+      "seconds": 0.079
+    },
+    {
+      "name": "EXT01: a Reddit title published twice in the DOM is extracted once",
+      "status": "PASS",
+      "seconds": 0.079
+    },
+    {
+      "name": "EXT03: media-only and title-only posts keep documented limitations",
+      "status": "PASS",
+      "seconds": 0.081
+    },
+    {
+      "name": "EXT04: FeedGate UI text never enters the inference payload",
+      "status": "PASS",
+      "seconds": 0.077
+    },
+    {
+      "name": "EXT05: repeated extraction of an unchanged post is stable",
+      "status": "PASS",
+      "seconds": 0.078
+    },
+    {
+      "name": "a content script from an older release refuses to filter and asks for a reload",
+      "status": "PASS",
+      "seconds": 0.402
+    }
+  ],
+  "passed": 46
+}
