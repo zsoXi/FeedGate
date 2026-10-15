@@ -27,7 +27,7 @@ never needed at runtime; the update check contacts no server.
    contents. Keeping the same folder path is no longer required for the identity,
    but it keeps things simple.
 3. Open `chrome://extensions` and press **Reload** on FeedGate. **Never press
-   Remove** — that deletes the extension's local data (vault, lists, rules) with no
+   Remove**. That deletes the extension's local data (vault, lists, rules) with no
    recovery short of a settings/key backup.
 4. Open tabs show "Extension updated: reload this page"; press F5 so they run the
    new content script.
@@ -36,12 +36,12 @@ never needed at runtime; the update check contacts no server.
 
 ## The Updates panel (06 Updates)
 
-* **Loaded build** — the release and build id reported by the running manifest.
-* **Files on disk** — the release declared by the packaged `build.json` that
+* **Loaded build**: the release and build id reported by the running manifest.
+* **Files on disk**: the release declared by the packaged `build.json` that
   `npm run build` writes next to the other extension files
   (`{release, buildId, builtAt}`).
 * States: **Up to date**, **Update available** (the folder is newer than the
-  running extension — replace files if needed, then Reload), or **Unknown** (no
+  running extension, replace files if needed, then Reload), or **Unknown** (no
   readable `build.json` in this page context).
 * The check reads one local extension file; it makes no network request.
 * **Open extensions page** opens `chrome://extensions` directly.
@@ -60,7 +60,7 @@ never needed at runtime; the update check contacts no server.
 
 The update flow is unchanged: same folder, Reload, never Remove. Because 3.3.0
 keeps the stable identity introduced in 3.2.0, the vault, settings, author lists
-and topic mutes carry over automatically — no key re-entry. Settings migrate to
+and topic mutes carry over automatically, so no key re-entry. Settings migrate to
 schema 6, and the new optional features (topic mutes, repeat grouping, thrift
 mode) start switched off until you enable them. After the reload, the 06 Updates
 panel reads 3.3.0.
@@ -80,12 +80,12 @@ moves.
 
 ## Troubleshooting
 
-* **"Update available" after copying files** — press Reload on `chrome://extensions`;
+* **"Update available" after copying files**: press Reload on `chrome://extensions`;
   if it persists, verify you copied into the folder that is actually loaded (the
   extensions page shows its path).
-* **"Unknown"** — the page cannot read `build.json` in this context; check from the
+* **"Unknown"**: the page cannot read `build.json` in this context; check from the
   real extension options page.
-* **Two different ids** — one install is pre-3.2.0 and one is 3.2.0+; storage is
+* **Two different ids**: one install is pre-3.2.0 and one is 3.2.0+; storage is
   per id, so set the key up in the one you keep and remove the other after taking a
   settings export.
 * **Never "Remove" as a repair.** See [RECOVERY.md](RECOVERY.md) for the safe

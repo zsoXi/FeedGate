@@ -16,14 +16,14 @@ random local references.
 | `version` | `8`. |
 | `extensionVersion` | Release version (`3.3.0`). |
 | `rubric` / `policy` | `feed-v2.2.0` / `policy-3.3.0` (one optional topic question when a topic is active; 3.1.0's `author_muted` branch and 3.3.0's `topic_muted` branch). |
-| `build` | Fingerprint: `{release, rubric, policy, detector, extraction, schema}` — e.g. `ad-3.0.0`, `extract-3.3.0`. A mismatch between source and shipped files fails the release check. |
+| `build` | Fingerprint: `{release, rubric, policy, detector, extraction, schema}`, e.g. `ad-3.0.0`, `extract-3.3.0`. A mismatch between source and shipped files fails the release check. |
 | `generatedAt` | ISO timestamp. |
 | `environment` | `chrome-extension`. |
 | `privacy` | Plain-language statement of the exclusions, including that raw cosmetic selectors are never exported. |
 
 ## Section: `ui`
 
-`{hudMode, feedsOpen, engineEnabled, preset, mode, grouping, thrift, thriftDelayMs}` — the persisted presentation
+`{hudMode, feedsOpen, engineEnabled, preset, mode, grouping, thrift, thriftDelayMs}`: the persisted presentation
 preference and engine switches. `hudMode` is `compact` | `expanded` | `hidden`. `grouping` and `thrift` are the
 optional 3.3 toggles; `thriftDelayMs` is the visible-and-settled pause in milliseconds.
 
@@ -54,7 +54,7 @@ evaluations. Entries are enum-only:
 
 ## Section: `renderer`
 
-`{reportsReceived, lastHeartbeat, reportsLastHour, cleanupSites, note}` — page-report
+`{reportsReceived, lastHeartbeat, reportsLastHour, cleanupSites, note}`: page-report
 presence and freshness. **An empty page list does not prove that no renderer is running**;
 it means no content script published a report to the trusted side. `cleanupSites` lists
 sites where effects may still exist until the tab reloads.
@@ -73,7 +73,7 @@ keep accumulating after the window fills. `dropped` makes the retention explicit
 
 ## Section: `update`
 
-`{running, onDisk, buildId, updateAvailable, checkedAt}` — the result of the last
+`{running, onDisk, buildId, updateAvailable, checkedAt}`: the result of the last
 on-disk build comparison made from the Updates panel; before any check has run the
 values are `null` with a short `note`. `onDisk` is the release declared by the
 packaged `build.json`; `updateAvailable` is `true` only when it parses as a different
@@ -102,9 +102,9 @@ error}`.
 
 ## Compatibility
 
-- Schema 6 (3.1.0) adds `settings.mutedAuthorCount` (a count only — muted author names never leave local storage) and the `author_muted` rule with the `author` source in decision entries. Nothing else in the envelope changed.
+- Schema 6 (3.1.0) adds `settings.mutedAuthorCount` (a count only, muted author names never leave local storage) and the `author_muted` rule with the `author` source in decision entries. Nothing else in the envelope changed.
 - Schema 7 (3.2.0) adds the `update` section (running build versus the packaged `build.json`); no new personal data is exported.
-- Schema 8 (3.3.0) adds `ui.grouping`, `ui.thrift`, `ui.thriftDelayMs` and `settings.mutedTopicCount` (a count only — topic names never leave local storage), and decision entries may carry the `topic_muted` rule with the `topic` source. Nothing else in the envelope changed.
+- Schema 8 (3.3.0) adds `ui.grouping`, `ui.thrift`, `ui.thriftDelayMs` and `settings.mutedTopicCount` (a count only, topic names never leave local storage), and decision entries may carry the `topic_muted` rule with the `topic` source. Nothing else in the envelope changed.
 - Old schema-3 to schema-6 exports remain readable; they are plain JSON and the test
   suite replays them.
 - Decision entries written by 2.1.0/2.1.1 do not carry the 3.0.0 `rule`/`adEvidence`

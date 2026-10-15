@@ -101,14 +101,14 @@ never to local platform-ad collapses.
 
 ## Modes and toggles
 
-* `mode: "filter"` — decisions are applied.
-* `mode: "observe"` — decisions are computed, logged with `wouldAction`, and
+* `mode: "filter"`: decisions are applied.
+* `mode: "observe"`: decisions are computed, logged with `wouldAction`, and
   nothing is hidden.
-* `labelledAds: false` — verified platform-ad evidence does not collapse; the
+* `labelledAds: false`: verified platform-ad evidence does not collapse; the
   post proceeds through the semantic path.
-* `protectUseful: false` — disables branches 9 and 11; estimates and
+* `protectUseful: false`: disables branches 9 and 11; estimates and
   eligibility are still recorded.
-* `showStatus: false` — hides the page badge only.
+* `showStatus: false`: hides the page badge only.
 
 ## Community caches
 

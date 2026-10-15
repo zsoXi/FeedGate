@@ -120,7 +120,7 @@ function fillUsage(state){
   const p=state.settings.pricing||{inputPerMTok:null,outputPerMTok:null,currency:''};
   if(p.inputPerMTok===null&&p.outputPerMTok===null){cost.textContent=reset+' Provider cost is not calculated (no rates configured).';return;}
   const estimate=((m.inputTokens||0)/1e6)*(p.inputPerMTok||0)+((m.outputTokens||0)/1e6)*(p.outputPerMTok||0);
-  cost.textContent=`${reset} ${p.currency?p.currency+' ':''}${estimate.toFixed(4)} — estimate from your own rates, not a provider bill.`;
+  cost.textContent=`${reset} ${p.currency?p.currency+' ':''}${estimate.toFixed(4)}: estimate from your own rates, not a provider bill.`;
 }
 function fillTopics(state){
   if(!state?.settings)return;

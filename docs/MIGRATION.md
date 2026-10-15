@@ -30,10 +30,10 @@ FeedGate 3.1 keeps the working 2.0 architecture. Settings, keys, allowlists, sav
 
 ## Upgrading from 3.0.1 to 3.1.0
 
-* **Settings schema moves to version 5.** A 3.0.1 settings object (version 4) is carried over as-is — selected sites, consent, cosmetic rules and their revisions, recovery latches, HUD mode, presets, thresholds and lists — and gains one new empty field, `blockedAuthors`. Nothing to re-enter.
+* **Settings schema moves to version 5.** A 3.0.1 settings object (version 4) is carried over as-is (selected sites, consent, cosmetic rules and their revisions, recovery latches, HUD mode, presets, thresholds and lists) and gains one new empty field, `blockedAuthors`. Nothing to re-enter.
 * **Runtime state is unchanged (version 5).** A 3.0.1 session still restores: cache, decision log, cosmetic event log and counters survive the upgrade. No cache or budget reset.
 * **New local rule: `author_muted`.** Authors you mute are hidden deterministically before any model estimate, with source `author`. Mute and allow lists are mutually exclusive; the allow list wins if an import or stale form ever contains both. Muted posts cost no provider requests.
-* **Exception rule panel.** The existing custom instruction is the same field with a clearer panel, a character counter and a visible status. It is a model hint, not a guaranteed filter, and it is sent with every cloud request as an extra question even when the `Your exclusion rule` category is Off — that costs tokens.
+* **Exception rule panel.** The existing custom instruction is the same field with a clearer panel, a character counter and a visible status. It is a model hint, not a guaranteed filter, and it is sent with every cloud request as an extra question even when the `Your exclusion rule` category is Off. That costs tokens.
 * **Diagnostics schema 6.** Exports now include `settings.mutedAuthorCount` (a count; author names are never exported) and decision entries may carry the `author_muted` rule with source `author`. Schema-5 exports remain readable as files.
 * **Settings exports are version 5.** Imports accept v5, v4, v3 and v2 (through the same safe migration) and reject v1. Unvalidated or unsafe cosmetic rules in an import become quarantined, not active.
 * **No model change.** Rubric `feed-v2.1.0`, thresholds, detector `ad-3.0.0` and extraction `extract-3.0.0` are untouched.

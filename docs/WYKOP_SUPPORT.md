@@ -42,10 +42,10 @@ FeedGate never crawls, never opens pages, and never profiles users.
 Wykop has no verified per-item "currently promoted" marker in the served public HTML.
 Two reviewed shapes exist and both are deliberately **ambiguous**, never verified:
 
-- `li.expired-pub` — the informational note that a Znalezisko *was* promoted through
+- `li.expired-pub`: the informational note that a Znalezisko *was* promoted through
   Wykop Poleca and is **no longer** under promotion. This is the mandatory negative case:
   it must never produce a local platform-ad collapse.
-- `section.pub-slot-wrapper[data-label="ad: ..."]` — page-level ad containers. They are
+- `section.pub-slot-wrapper[data-label="ad: ..."]`: page-level ad containers. They are
   empty in server HTML and filled by client-side code; they are not item evidence.
 
 Consequently, a Wykop item can still be dimmed or collapsed by **semantic** judgments

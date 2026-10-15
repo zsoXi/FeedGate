@@ -8,12 +8,12 @@ was used.
 
 Evidence files:
 
-* `evidence/unit-tests.tap` — 164 Node tests / 0 fail
-* `evidence/browser-dom-tests.json` — 66 Chromium DOM/UI scenarios / 0 fail
-* `evidence/extension-smoke.json` — 8 checks on the real `extension/` folder
-* `evidence/release-checks.json` — 9 release integrity checks
-* `evidence/baseline/` — 2.1.x baseline logs and the 2.1.1 patch
-* `tests/fixtures/incident/` — three real privacy-safe diagnostic exports
+* `evidence/unit-tests.tap`: 164 Node tests / 0 fail
+* `evidence/browser-dom-tests.json`: 66 Chromium DOM/UI scenarios / 0 fail
+* `evidence/extension-smoke.json`: 8 checks on the real `extension/` folder
+* `evidence/release-checks.json`: 9 release integrity checks
+* `evidence/baseline/`: 2.1.x baseline logs and the 2.1.1 patch
+* `tests/fixtures/incident/`: three real privacy-safe diagnostic exports
 
 ## 1. Release gates
 

@@ -7,7 +7,7 @@ containment and the Wykop beta adapter. No category threshold was lowered, Dim
 was not converted to Collapse, Low-signal filler remains off and the model was
 not retuned.
 
-This specification describes code behaviour, not a claim that the model is accurate. All feature values are Noul estimates from 0 to 1. They are not independent calibration measurements or a probability that an author is a bot. Policy version: `policy-3.1.0`. Semantic rubric version: `feed-v2.1.0` (unchanged from 2.1.0; only local evidence handling, thresholds and reason naming changed). Ad detector `ad-3.0.0` and extraction `extract-3.0.0` add the Wykop adapter and the same reviewed marker rules. The 3.1.0 policy adds one deterministic local branch — an explicit author mute list — in front of every model estimate; no category, threshold or rubric changed.
+This specification describes code behaviour, not a claim that the model is accurate. All feature values are Noul estimates from 0 to 1. They are not independent calibration measurements or a probability that an author is a bot. Policy version: `policy-3.1.0`. Semantic rubric version: `feed-v2.1.0` (unchanged from 2.1.0; only local evidence handling, thresholds and reason naming changed). Ad detector `ad-3.0.0` and extraction `extract-3.0.0` add the Wykop adapter and the same reviewed marker rules. The 3.1.0 policy adds one deterministic local branch (an explicit author mute list) in front of every model estimate; no category, threshold or rubric changed.
 
 ## Features
 

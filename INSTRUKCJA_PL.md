@@ -1,4 +1,4 @@
-# FeedGate 2.x — instrukcja archiwalna (PL)
+# FeedGate 2.x: instrukcja archiwalna (PL)
 
 Aktualny przewodnik dla wersji 3.0.0 znajduje się w pliku [START_TUTAJ_PL.md](START_TUTAJ_PL.md). Ten dokument opisuje starszą wersję 2.1.1 i zostaje wyłącznie jako materiał historyczny.
 
@@ -7,12 +7,12 @@ Aktualny przewodnik dla wersji 3.0.0 znajduje się w pliku [START_TUTAJ_PL.md](S
 1. Zamknij Chrome albo przynajmniej kartę z ustawieniami rozszerzeń.
 2. Skopiuj cały folder rozszerzenia (np. `D:\FeedGate-2.1.0`) do kopii
    zapasowej, np. `D:\FeedGate-2.1.0-kopia`.
-3. Klucz API i hasło do sejfu nie są częścią folderu — jeśli używasz sejfu,
+3. Klucz API i hasło do sejfu nie są częścią folderu. Jeśli używasz sejfu,
    zapamiętaj hasło; bez niego zaszyfrowanego klucza nie da się odczytać.
 
 ## 2. Aktualizacja i przeładowanie
 
-**Wariant A — ta sama ścieżka (zalecany, zachowuje tożsamość rozszerzenia):**
+**Wariant A: ta sama ścieżka (zalecany, zachowuje tożsamość rozszerzenia):**
 
 1. Rozpakuj nową paczkę `FeedGate-2.1.1.zip` tak, aby powstał folder
    `FeedGate-2.1.1`.
@@ -22,7 +22,7 @@ Aktualny przewodnik dla wersji 3.0.0 znajduje się w pliku [START_TUTAJ_PL.md](S
 3. Uwaga: odświeżenie wczytuje pliki ze starej ścieżki. Jeśli chcesz wczytać
    nowy folder, użyj wariantu B.
 
-**Wariant B — nowy folder (instalacja czysta):**
+**Wariant B: nowy folder (instalacja czysta):**
 
 1. `chrome://extensions` → usuń starą wersję → „Wczytaj rozpakowane” →
    wskaż `FeedGate-2.1.1\extension`.
@@ -46,7 +46,7 @@ postów (zostaną przywrócone). W diagnostyce widać wtedy `labelledAds: false`
 
 Ustawienia → „04 Diagnostics” → „Export diagnostics”. Powstanie plik
 `feedgate-2.1.1-diagnostics-....json`. Plik nie zawiera treści postów, nazw
-autorów, adresów URL, klucza API ani zawartości sejfu — tylko decyzje,
+autorów, adresów URL, klucza API ani zawartości sejfu. Tylko decyzje,
 liczniki i odcisk wersji (`build`). Dołącz ten plik do zgłoszenia problemu.
 
 ## 5. Szybkie sprawdzenie po aktualizacji
