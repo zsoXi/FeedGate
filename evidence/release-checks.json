@@ -1,6 +1,6 @@
 {
   "version": "3.3.0",
-  "createdAt": "2026-09-19T16:50:19.992Z",
+  "createdAt": "2026-10-15T17:12:22.926Z",
   "scope": "Static packaging integrity only; not native installation, live provider validation or a security audit",
   "checks": [
     {
@@ -64,7 +64,7 @@
     {
       "path": "build.json",
       "bytes": 95,
-      "sha256": "6d74eeccfef2153e486efa8b9890564cb947a652e1cb5262ee638bc08a810684"
+      "sha256": "9268d4704a73bdcad774356ea17f42ee3ff12de5191ca6291f31617f4aab3464"
     },
     {
       "path": "content.js",
@@ -113,13 +113,13 @@
     },
     {
       "path": "options.html",
-      "bytes": 23977,
-      "sha256": "ade5a9b1626669111ca435335a639d10f7fc37b38b0282ef73f7f801717f0600"
+      "bytes": 23966,
+      "sha256": "32ce2888977719335a2c893ea3032291ea3391f588fd652c5316671dc09306fa"
     },
     {
       "path": "options.js",
-      "bytes": 36900,
-      "sha256": "cf7a60062f3daace9ee13c36adbd2a62613c036e36de78ec71cfcfd3002a4717"
+      "bytes": 36895,
+      "sha256": "a3b2a912832cf389b3453e9ff37a2170966fc2d5c437aa7a91c67de4cbd9a32e"
     },
     {
       "path": "popup.html",
@@ -138,8 +138,8 @@
     },
     {
       "path": "ui.css",
-      "bytes": 12563,
-      "sha256": "7cfcd333b9191e5c2ec630403ef662ecfe3fe29b179197b99f2f4ccc664d5092"
+      "bytes": 12562,
+      "sha256": "e80aa2c66c65c5dbc4659ea1a6aea9b13e1c8748a9c08b7fb703ddd3e6816ded"
     },
     {
       "path": "vault.js",

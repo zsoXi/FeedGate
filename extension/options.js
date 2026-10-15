@@ -259,7 +259,7 @@ function fillUpgradeBanner(){
 }
 function fillUpdate(info){
   const badge=$('update-badge'),box=$('update-info');
-  const running=info&&typeof info.running==='string'?info.running:'—';
+  const running=info&&typeof info.running==='string'?info.running:'-';
   const disk=info&&typeof info.onDisk==='string'?info.onDisk:null;
   const available=info?.updateAvailable===true;
   badge.textContent=available?'Update available':(disk?'Up to date':'Unknown');

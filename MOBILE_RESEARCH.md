@@ -20,14 +20,14 @@
 
 | Browser / platform | Engine | Extensions | Store | Notes |
 |---|---|---|---|---|
-| **Chrome for Android** | Blink | **No** | — | No extension support in stable; no user-facing flags found; Google's stance unchanged for years. Not a target. |
+| **Chrome for Android** | Blink | **No** | - | No extension support in stable; no user-facing flags found; Google's stance unchanged for years. Not a target. |
 | Edge Canary (Android) | Blink | Experimental | Edge Add-ons / install-by-id | Kiwi's extension framework was merged into Edge Canary after Kiwi's shutdown; dev-options unlock, "install by id" flow. |
 | Vivaldi Snapshot (Android) | Blink | Experimental (Aug 2026) | Chrome Web Store | Snapshot channel only; announced Aug 26, 2026; "not every extension will be compatible". |
 | Quetta (Android) | Chromium fork | Yes (new) | Chrome Web Store + Edge Add-ons | Filled the Kiwi gap in 2025; young project, small team. |
 | **Firefox for Android** | Gecko | **Yes (open ecosystem)** | AMO (free) | 1,000+ Android-compatible add-ons (uBO, Dark Reader, SponsorBlock…); since FF 118/120; requires event-page-shaped background. |
-| Kiwi Browser (Android) | Blink | Dead | — | Archived Jan 2025; last APK unmaintained; do not target. |
+| Kiwi Browser (Android) | Blink | Dead | - | Archived Jan 2025; last APK unmaintained; do not target. |
 | **Safari on iOS / iPadOS** | WebKit | **Yes (Safari Web Extensions)** | App Store (inside host app) | Supported since iOS 15; MV3 supported; only Safari can run WebExtensions. All iOS browsers (Chrome, Firefox, Edge…) are WebKit shells without extension APIs. |
-| Chrome / Firefox on iOS | WebKit | No | — | Cannot load extensions. |
+| Chrome / Firefox on iOS | WebKit | No | - | Cannot load extensions. |
 | Safari on macOS | WebKit | Yes | App Store / signed dev build | Same codebase can ship macOS + iOS from one package. |
 | Chrome / Edge / Brave desktop | Blink | Yes | CWS / Edge | Current 3.3.0 release target, unchanged. |
 
@@ -122,7 +122,7 @@ Open questions to resolve before implementation (each is a small spike):
 | **1. Firefox desktop + Android** | Manifest additions (`gecko`, `gecko_android`), event-page validation, mobile adapter variants for X/Reddit/Wykop first, touch HUD pass | Signed XPI on AMO (unlisted first), installed on owner's Android | 1–2 weeks |
 | **2. Safari iOS** | Apple account, minimal host app, upload via App Store Connect packager, TestFlight, mobile adapter fixes from real-device reports | FeedGate in TestFlight on owner's iPhone; then App Store | 2–4 weeks incl. review latency |
 | **3. Optional: CWS / Edge listing** | Store listing + review so Edge Canary / Vivaldi / Quetta users can install | Listing | 2–5 days |
-| **4. Not recommended** | Native app wrapper / own WebView browser | — | (rejected: cannot inject into other browsers; loses the product's value) |
+| **4. Not recommended** | Native app wrapper / own WebView browser | - | (rejected: cannot inject into other browsers; loses the product's value) |
 
 **What this does NOT change:** the semantic policy, rubric (`feed-v2.2.0`), thresholds, ad-evidence rules, privacy boundaries. Mobile is an adapters + manifest + UI job, exactly as the desktop versions were; the model path stays one HTTPS request through the same consent/budget/thrift rules.
 
